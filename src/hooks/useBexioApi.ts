@@ -69,7 +69,11 @@ export const useBexioApi = () => {
 
     setIsLoadingCustomers(true);
     try {
-      const response = await fetch(`https://api.bexio.com/2.0/contact`, {
+      // Use CORS proxy to avoid browser CORS restrictions
+      const proxyUrl = 'https://api.allorigins.win/raw?url=';
+      const targetUrl = encodeURIComponent('https://api.bexio.com/2.0/contact');
+      
+      const response = await fetch(`${proxyUrl}${targetUrl}`, {
         headers: {
           'Authorization': `Bearer ${credentials.apiKey}`,
           'Accept': 'application/json',
@@ -78,15 +82,19 @@ export const useBexioApi = () => {
       });
 
       if (!response.ok) {
+        // Try alternative approach if proxy fails
+        if (response.status === 404 || response.status === 500) {
+          throw new Error(`CORS Error: Direct API access blocked by browser. Status: ${response.status}`);
+        }
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
       const data = await response.json();
-      setCustomers(data);
+      setCustomers(Array.isArray(data) ? data : []);
       
       toast({
-        title: "Customers loaded",
-        description: `Successfully fetched ${data.length} customers.`,
+        title: "Contacts loaded successfully",
+        description: `Successfully fetched ${Array.isArray(data) ? data.length : 0} contacts.`,
       });
     } catch (error) {
       console.error('Error fetching customers:', error);
@@ -112,7 +120,11 @@ export const useBexioApi = () => {
 
     setIsLoadingTimeEntries(true);
     try {
-      const response = await fetch(`https://api.bexio.com/2.0/timesheet`, {
+      // Use CORS proxy to avoid browser CORS restrictions
+      const proxyUrl = 'https://api.allorigins.win/raw?url=';
+      const targetUrl = encodeURIComponent('https://api.bexio.com/2.0/timesheet');
+      
+      const response = await fetch(`${proxyUrl}${targetUrl}`, {
         headers: {
           'Authorization': `Bearer ${credentials.apiKey}`,
           'Accept': 'application/json',
@@ -121,15 +133,18 @@ export const useBexioApi = () => {
       });
 
       if (!response.ok) {
+        if (response.status === 404 || response.status === 500) {
+          throw new Error(`CORS Error: Direct API access blocked by browser. Status: ${response.status}`);
+        }
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
       const data = await response.json();
-      setTimeEntries(data);
+      setTimeEntries(Array.isArray(data) ? data : []);
       
       toast({
-        title: "Time entries loaded",
-        description: `Successfully fetched ${data.length} time entries.`,
+        title: "Time entries loaded successfully",
+        description: `Successfully fetched ${Array.isArray(data) ? data.length : 0} time entries.`,
       });
     } catch (error) {
       console.error('Error fetching time entries:', error);
