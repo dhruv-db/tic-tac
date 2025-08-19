@@ -59,12 +59,12 @@ export const CustomerList = ({ customers, isLoading }: CustomerListProps) => {
               <div className="flex items-start gap-3">
                 <Avatar className="h-10 w-10 border-2 border-primary/20">
                   <AvatarFallback className="bg-primary-subtle text-primary font-semibold">
-                    {customer.name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
+                    {customer.name ? customer.name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase() : 'CU'}
                   </AvatarFallback>
                 </Avatar>
                 <div className="flex-1 min-w-0">
                   <CardTitle className="text-lg truncate group-hover:text-primary transition-[var(--transition-smooth)]">
-                    {customer.name}
+                    {customer.name || 'Unnamed Customer'}
                   </CardTitle>
                   <Badge variant="outline" className="mt-1">
                     ID: {customer.id}
