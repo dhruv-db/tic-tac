@@ -69,24 +69,21 @@ export const useBexioApi = () => {
 
     setIsLoadingCustomers(true);
     try {
-      // Use CORS proxy to avoid browser CORS restrictions
-      const proxyUrl = 'https://api.allorigins.win/raw?url=';
-      const targetUrl = encodeURIComponent('https://api.bexio.com/2.0/contact');
-      
-      const response = await fetch(`${proxyUrl}${targetUrl}`, {
+      const response = await fetch(`https://opcjifbdwpyttaxqlqbf.supabase.co/functions/v1/bexio-proxy`, {
+        method: 'POST',
         headers: {
-          'Authorization': `Bearer ${credentials.apiKey}`,
-          'Accept': 'application/json',
           'Content-Type': 'application/json',
         },
+        body: JSON.stringify({
+          endpoint: '/contact',
+          apiKey: credentials.apiKey,
+          companyId: credentials.companyId,
+        }),
       });
 
       if (!response.ok) {
-        // Try alternative approach if proxy fails
-        if (response.status === 404 || response.status === 500) {
-          throw new Error(`CORS Error: Direct API access blocked by browser. Status: ${response.status}`);
-        }
-        throw new Error(`HTTP error! status: ${response.status}`);
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
       }
 
       const data = await response.json();
@@ -120,23 +117,21 @@ export const useBexioApi = () => {
 
     setIsLoadingTimeEntries(true);
     try {
-      // Use CORS proxy to avoid browser CORS restrictions
-      const proxyUrl = 'https://api.allorigins.win/raw?url=';
-      const targetUrl = encodeURIComponent('https://api.bexio.com/2.0/timesheet');
-      
-      const response = await fetch(`${proxyUrl}${targetUrl}`, {
+      const response = await fetch(`https://opcjifbdwpyttaxqlqbf.supabase.co/functions/v1/bexio-proxy`, {
+        method: 'POST',
         headers: {
-          'Authorization': `Bearer ${credentials.apiKey}`,
-          'Accept': 'application/json',
           'Content-Type': 'application/json',
         },
+        body: JSON.stringify({
+          endpoint: '/timesheet',
+          apiKey: credentials.apiKey,
+          companyId: credentials.companyId,
+        }),
       });
 
       if (!response.ok) {
-        if (response.status === 404 || response.status === 500) {
-          throw new Error(`CORS Error: Direct API access blocked by browser. Status: ${response.status}`);
-        }
-        throw new Error(`HTTP error! status: ${response.status}`);
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
       }
 
       const data = await response.json();
