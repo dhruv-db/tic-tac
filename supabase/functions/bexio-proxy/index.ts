@@ -23,6 +23,7 @@ serve(async (req) => {
     }
 
     console.log(`Proxying request to Bexio API: ${endpoint}`);
+    console.log(`Using API key: ${apiKey.substring(0, 10)}...`);
 
     const bexioUrl = `https://api.bexio.com/2.0${endpoint}`;
     
@@ -30,8 +31,8 @@ serve(async (req) => {
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
         'Accept': 'application/json',
+        'User-Agent': 'Lovable-Bexio-Proxy/1.0',
       },
     });
 
