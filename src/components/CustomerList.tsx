@@ -1,16 +1,36 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Building2, Mail, Phone, MapPin, Users } from "lucide-react";
+import { Building2, Mail, Phone, MapPin, Users, Globe, Smartphone, Calendar, User, Crown } from "lucide-react";
 
 interface Customer {
   id: number;
   name: string;
+  first_name?: string;
+  last_name?: string;
+  company_name?: string;
+  salutation?: string;
+  title?: string;
   email?: string;
   phone?: string;
+  mobile?: string;
+  fax?: string;
+  website?: string;
   address?: string;
+  postcode?: string;
+  city?: string;
+  country_id?: number;
+  language_id?: number;
   contact_type_id: number;
   customer_type?: string;
+  is_lead?: boolean;
+  birthday?: string;
+  contact_group_ids?: number[];
+  user_id?: number;
+  owner_id?: number;
+  remarks?: string;
+  created_at?: string;
+  updated_at?: string;
 }
 
 interface CustomerListProps {
@@ -66,14 +86,44 @@ export const CustomerList = ({ customers, isLoading }: CustomerListProps) => {
                   <CardTitle className="text-lg truncate group-hover:text-primary transition-[var(--transition-smooth)]">
                     {customer.name || 'Unnamed Customer'}
                   </CardTitle>
-                  <Badge variant="outline" className="mt-1">
-                    ID: {customer.id}
-                  </Badge>
+                  <div className="flex gap-2 mt-1 flex-wrap">
+                    <Badge variant="outline" className="text-xs">
+                      ID: {customer.id}
+                    </Badge>
+                    {customer.is_lead && (
+                      <Badge variant="secondary" className="text-xs bg-yellow-100 text-yellow-800">
+                        <Crown className="h-3 w-3 mr-1" />
+                        Lead
+                      </Badge>
+                    )}
+                  </div>
                 </div>
               </div>
             </CardHeader>
             
             <CardContent className="pt-0 space-y-3">
+              {(customer.first_name || customer.last_name) && (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <User className="h-4 w-4 text-primary" />
+                  <span>{[customer.first_name, customer.last_name].filter(Boolean).join(' ')}</span>
+                </div>
+              )}
+
+              {customer.company_name && (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Building2 className="h-4 w-4 text-secondary" />
+                  <span className="truncate">{customer.company_name}</span>
+                </div>
+              )}
+
+              {customer.title && (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Badge variant="outline" className="text-xs">
+                    {customer.title}
+                  </Badge>
+                </div>
+              )}
+
               {customer.email && (
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <Mail className="h-4 w-4 text-info" />
@@ -87,20 +137,62 @@ export const CustomerList = ({ customers, isLoading }: CustomerListProps) => {
                   <span>{customer.phone}</span>
                 </div>
               )}
+
+              {customer.mobile && (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Smartphone className="h-4 w-4 text-success" />
+                  <span>{customer.mobile}</span>
+                </div>
+              )}
+
+              {customer.website && (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Globe className="h-4 w-4 text-info" />
+                  <a href={customer.website} target="_blank" rel="noopener noreferrer" className="truncate hover:underline">
+                    {customer.website}
+                  </a>
+                </div>
+              )}
               
-              {customer.address && (
+              {(customer.address || customer.city || customer.postcode) && (
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <MapPin className="h-4 w-4 text-warning" />
-                  <span className="truncate">{customer.address}</span>
+                  <span className="truncate">
+                    {[customer.address, customer.postcode, customer.city].filter(Boolean).join(', ')}
+                  </span>
+                </div>
+              )}
+
+              {customer.birthday && (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Calendar className="h-4 w-4 text-purple-500" />
+                  <span>{new Date(customer.birthday).toLocaleDateString()}</span>
                 </div>
               )}
 
               <div className="flex items-center gap-2 text-sm">
-                <Building2 className="h-4 w-4 text-muted-foreground" />
-                <Badge variant="secondary" className="text-xs">
-                  Type: {customer.contact_type_id}
-                </Badge>
+                <div className="flex gap-2 flex-wrap">
+                  <Badge variant="secondary" className="text-xs">
+                    Type: {customer.contact_type_id}
+                  </Badge>
+                  {customer.language_id && (
+                    <Badge variant="outline" className="text-xs">
+                      Lang: {customer.language_id}
+                    </Badge>
+                  )}
+                  {customer.country_id && (
+                    <Badge variant="outline" className="text-xs">
+                      Country: {customer.country_id}
+                    </Badge>
+                  )}
+                </div>
               </div>
+
+              {customer.remarks && (
+                <div className="text-sm text-muted-foreground bg-muted/50 p-2 rounded">
+                  <p className="line-clamp-2">{customer.remarks}</p>
+                </div>
+              )}
             </CardContent>
           </Card>
         ))}

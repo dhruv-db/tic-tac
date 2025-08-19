@@ -4,11 +4,31 @@ import { useToast } from "@/hooks/use-toast";
 interface Customer {
   id: number;
   name: string;
+  first_name?: string;
+  last_name?: string;
+  company_name?: string;
+  salutation?: string;
+  title?: string;
   email?: string;
   phone?: string;
+  mobile?: string;
+  fax?: string;
+  website?: string;
   address?: string;
+  postcode?: string;
+  city?: string;
+  country_id?: number;
+  language_id?: number;
   contact_type_id: number;
   customer_type?: string;
+  is_lead?: boolean;
+  birthday?: string;
+  contact_group_ids?: number[];
+  user_id?: number;
+  owner_id?: number;
+  remarks?: string;
+  created_at?: string;
+  updated_at?: string;
 }
 
 interface TimeEntry {
