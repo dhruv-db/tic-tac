@@ -2,6 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Clock, Calendar, User, DollarSign, PlayCircle, PauseCircle } from "lucide-react";
 import { format } from "date-fns";
+import { TimeEntryForm } from "./TimeEntryForm";
 
 interface TimeEntry {
   id: number;
@@ -18,9 +19,17 @@ interface TimeEntry {
 interface TimeTrackingListProps {
   timeEntries: TimeEntry[];
   isLoading: boolean;
+  onCreateTimeEntry?: (data: {
+    date: Date;
+    duration: number;
+    text: string;
+    allowable_bill: boolean;
+    contact_id?: number;
+    project_id?: number;
+  }) => Promise<void>;
 }
 
-export const TimeTrackingList = ({ timeEntries, isLoading }: TimeTrackingListProps) => {
+export const TimeTrackingList = ({ timeEntries, isLoading, onCreateTimeEntry }: TimeTrackingListProps) => {
   const formatDuration = (seconds: number) => {
     const hours = Math.floor(seconds / 3600);
     const minutes = Math.floor((seconds % 3600) / 60);
@@ -127,6 +136,14 @@ export const TimeTrackingList = ({ timeEntries, isLoading }: TimeTrackingListPro
           </CardContent>
         </Card>
       </div>
+
+      {/* Add Time Entry Form */}
+      {onCreateTimeEntry && (
+        <TimeEntryForm 
+          onSubmit={onCreateTimeEntry}
+          isSubmitting={false}
+        />
+      )}
 
       {/* Time Entries List */}
       <div className="grid gap-4">

@@ -19,6 +19,7 @@ const Index = () => {
     connect,
     fetchCustomers,
     fetchTimeEntries,
+    createTimeEntry,
     loadStoredCredentials,
     disconnect,
   } = useBexioApi();
@@ -137,7 +138,11 @@ const Index = () => {
                 </Button>
               </div>
             ) : (
-              <TimeTrackingList timeEntries={timeEntries} isLoading={isLoadingTimeEntries} />
+              <TimeTrackingList 
+                timeEntries={timeEntries} 
+                isLoading={isLoadingTimeEntries}
+                onCreateTimeEntry={createTimeEntry}
+              />
             )}
           </TabsContent>
         </Tabs>

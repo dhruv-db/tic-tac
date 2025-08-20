@@ -188,6 +188,74 @@ export const useBexioApi = () => {
     return false;
   }, []);
 
+  const createTimeEntry = useCallback(async (timeEntryData: {
+    date: Date;
+    duration: number;
+    text: string;
+    allowable_bill: boolean;
+    contact_id?: number;
+    project_id?: number;
+  }) => {
+    if (!credentials) {
+      toast({
+        title: "Not connected",
+        description: "Please connect to Bexio first.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const bexioData = {
+        date: timeEntryData.date.toISOString().split('T')[0], // Format as YYYY-MM-DD
+        duration: timeEntryData.duration,
+        text: timeEntryData.text,
+        allowable_bill: timeEntryData.allowable_bill,
+        ...(timeEntryData.contact_id && { contact_id: timeEntryData.contact_id }),
+        ...(timeEntryData.project_id && { project_id: timeEntryData.project_id }),
+      };
+
+      const response = await fetch(`https://opcjifbdwpyttaxqlqbf.supabase.co/functions/v1/bexio-proxy`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          endpoint: '/timesheet',
+          method: 'POST',
+          apiKey: credentials.apiKey,
+          companyId: credentials.companyId,
+          data: bexioData,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      
+      toast({
+        title: "Time entry created",
+        description: "Your time entry has been successfully added to Bexio.",
+      });
+
+      // Refresh time entries to show the new one
+      await fetchTimeEntries();
+      
+      return data;
+    } catch (error) {
+      console.error('Error creating time entry:', error);
+      toast({
+        title: "Failed to create time entry",
+        description: error instanceof Error ? error.message : "An error occurred while creating the time entry.",
+        variant: "destructive",
+      });
+      throw error;
+    }
+  }, [credentials, toast, fetchTimeEntries]);
+
   const disconnect = useCallback(() => {
     localStorage.removeItem('bexio_credentials');
     setCredentials(null);
@@ -209,6 +277,7 @@ export const useBexioApi = () => {
     connect,
     fetchCustomers,
     fetchTimeEntries,
+    createTimeEntry,
     loadStoredCredentials,
     disconnect,
   };

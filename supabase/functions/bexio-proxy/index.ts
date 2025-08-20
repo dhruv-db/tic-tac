@@ -13,7 +13,7 @@ serve(async (req) => {
   }
 
   try {
-    const { endpoint, apiKey, companyId } = await req.json();
+    const { endpoint, apiKey, companyId, method = 'GET', data } = await req.json();
     
     if (!endpoint || !apiKey) {
       return new Response(JSON.stringify({ error: 'Missing required parameters' }), {
@@ -27,14 +27,21 @@ serve(async (req) => {
 
     const bexioUrl = `https://api.bexio.com/2.0${endpoint}`;
     
-    const response = await fetch(bexioUrl, {
-      method: 'GET',
+    const requestOptions: RequestInit = {
+      method: method,
       headers: {
         'Authorization': `Bearer ${apiKey}`,
         'Accept': 'application/json',
+        'Content-Type': 'application/json',
         'User-Agent': 'Lovable-Bexio-Proxy/1.0',
       },
-    });
+    };
+
+    if (method === 'POST' && data) {
+      requestOptions.body = JSON.stringify(data);
+    }
+    
+    const response = await fetch(bexioUrl, requestOptions);
 
     if (!response.ok) {
       console.error(`Bexio API error: ${response.status} ${response.statusText}`);
