@@ -24,6 +24,10 @@ serve(async (req) => {
 
     console.log(`Proxying request to Bexio API: ${endpoint}`);
     console.log(`Using API key: ${apiKey.substring(0, 10)}...`);
+    console.log(`Request method: ${method}`);
+    if (method === 'POST' && requestData) {
+      console.log('Request payload:', JSON.stringify(requestData, null, 2));
+    }
 
     const bexioUrl = `https://api.bexio.com/2.0${endpoint}`;
     

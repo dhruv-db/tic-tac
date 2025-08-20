@@ -211,8 +211,10 @@ export const useBexioApi = () => {
       const bexioData = {
         date: timeEntryData.date.toISOString().split('T')[0], // Format as YYYY-MM-DD
         duration: timeEntryData.duration,
-        text: timeEntryData.text,
+        text: timeEntryData.text || "",
         allowable_bill: timeEntryData.allowable_bill,
+        user_id: 1, // Default user ID, might need to be dynamic
+        client_service_id: 1, // Default service ID, might need to be dynamic
         ...(timeEntryData.contact_id && { contact_id: timeEntryData.contact_id }),
         ...(timeEntryData.project_id && { project_id: timeEntryData.project_id }),
       };
