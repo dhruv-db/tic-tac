@@ -13,7 +13,7 @@ serve(async (req) => {
   }
 
   try {
-    const { endpoint, apiKey, companyId, method = 'GET', data } = await req.json();
+    const { endpoint, apiKey, companyId, method = 'GET', data: requestData } = await req.json();
     
     if (!endpoint || !apiKey) {
       return new Response(JSON.stringify({ error: 'Missing required parameters' }), {
@@ -37,8 +37,8 @@ serve(async (req) => {
       },
     };
 
-    if (method === 'POST' && data) {
-      requestOptions.body = JSON.stringify(data);
+    if (method === 'POST' && requestData) {
+      requestOptions.body = JSON.stringify(requestData);
     }
     
     const response = await fetch(bexioUrl, requestOptions);
