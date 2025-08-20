@@ -15,6 +15,7 @@ const Index = () => {
     timeEntries,
     isLoadingCustomers,
     isLoadingTimeEntries,
+    isCreatingTimeEntry,
     isConnected,
     connect,
     fetchCustomers,
@@ -142,6 +143,7 @@ const Index = () => {
                 timeEntries={timeEntries} 
                 isLoading={isLoadingTimeEntries}
                 onCreateTimeEntry={createTimeEntry}
+                isCreatingTimeEntry={isCreatingTimeEntry}
               />
             )}
           </TabsContent>

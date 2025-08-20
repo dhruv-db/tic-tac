@@ -27,9 +27,10 @@ interface TimeTrackingListProps {
     contact_id?: number;
     project_id?: number;
   }) => Promise<void>;
+  isCreatingTimeEntry?: boolean;
 }
 
-export const TimeTrackingList = ({ timeEntries, isLoading, onCreateTimeEntry }: TimeTrackingListProps) => {
+export const TimeTrackingList = ({ timeEntries, isLoading, onCreateTimeEntry, isCreatingTimeEntry = false }: TimeTrackingListProps) => {
   const formatDuration = (seconds: number) => {
     const hours = Math.floor(seconds / 3600);
     const minutes = Math.floor((seconds % 3600) / 60);
@@ -141,7 +142,7 @@ export const TimeTrackingList = ({ timeEntries, isLoading, onCreateTimeEntry }: 
       {onCreateTimeEntry && (
         <TimeEntryForm 
           onSubmit={onCreateTimeEntry}
-          isSubmitting={false}
+          isSubmitting={isCreatingTimeEntry}
         />
       )}
 

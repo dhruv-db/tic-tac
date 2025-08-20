@@ -54,6 +54,7 @@ export const useBexioApi = () => {
   const [timeEntries, setTimeEntries] = useState<TimeEntry[]>([]);
   const [isLoadingCustomers, setIsLoadingCustomers] = useState(false);
   const [isLoadingTimeEntries, setIsLoadingTimeEntries] = useState(false);
+  const [isCreatingTimeEntry, setIsCreatingTimeEntry] = useState(false);
   const { toast } = useToast();
 
   const connect = useCallback(async (apiKey: string, companyId: string) => {
@@ -205,6 +206,7 @@ export const useBexioApi = () => {
       return;
     }
 
+    setIsCreatingTimeEntry(true);
     try {
       const bexioData = {
         date: timeEntryData.date.toISOString().split('T')[0], // Format as YYYY-MM-DD
@@ -253,6 +255,8 @@ export const useBexioApi = () => {
         variant: "destructive",
       });
       throw error;
+    } finally {
+      setIsCreatingTimeEntry(false);
     }
   }, [credentials, toast, fetchTimeEntries]);
 
@@ -273,6 +277,7 @@ export const useBexioApi = () => {
     timeEntries,
     isLoadingCustomers,
     isLoadingTimeEntries,
+    isCreatingTimeEntry,
     isConnected: !!credentials,
     connect,
     fetchCustomers,
