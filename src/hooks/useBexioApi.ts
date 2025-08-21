@@ -214,11 +214,14 @@ export const useBexioApi = () => {
       
       const bexioData = {
         user_id: 1, // Default user ID, might need to be dynamic
-        date: timeEntryData.date.toISOString().split('T')[0], // Format as YYYY-MM-DD
-        duration: durationString, // Format as HH:MM
+        client_service_id: 5, // Default service ID (from existing data)
         text: timeEntryData.text || "",
         allowable_bill: timeEntryData.allowable_bill,
-        client_service_id: 5, // Default service ID (from existing data)
+        tracking: {
+          type: "duration",
+          date: timeEntryData.date.toISOString().split('T')[0], // Format as YYYY-MM-DD
+          duration: durationString, // Format as HH:MM
+        },
         ...(timeEntryData.contact_id && { contact_id: timeEntryData.contact_id }),
         ...(timeEntryData.project_id && { pr_project_id: timeEntryData.project_id }),
       };
