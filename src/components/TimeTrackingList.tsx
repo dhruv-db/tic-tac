@@ -3,6 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { Clock, Calendar, User, DollarSign, PlayCircle, PauseCircle } from "lucide-react";
 import { format } from "date-fns";
 import { TimeEntryForm } from "./TimeEntryForm";
+import { DateRange } from "react-day-picker";
 
 interface TimeEntry {
   id: number;
@@ -20,8 +21,9 @@ interface TimeTrackingListProps {
   timeEntries: TimeEntry[];
   isLoading: boolean;
   onCreateTimeEntry?: (data: {
-    date: Date;
-    duration: number;
+    dateRange: DateRange | undefined;
+    startTime: string;
+    endTime: string;
     text: string;
     allowable_bill: boolean;
     contact_id?: number;

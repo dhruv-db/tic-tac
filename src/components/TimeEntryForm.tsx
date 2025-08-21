@@ -8,13 +8,15 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { CalendarIcon, Plus } from "lucide-react";
-import { format } from "date-fns";
+import { format, differenceInDays, addDays } from "date-fns";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
+import { DateRange } from "react-day-picker";
 
 interface TimeEntryFormData {
-  date: Date;
-  duration: number;
+  dateRange: DateRange | undefined;
+  startTime: string;
+  endTime: string;
   text: string;
   allowable_bill: boolean;
   contact_id?: number;
@@ -28,23 +30,37 @@ interface TimeEntryFormProps {
 
 export const TimeEntryForm = ({ onSubmit, isSubmitting }: TimeEntryFormProps) => {
   const [formData, setFormData] = useState<TimeEntryFormData>({
-    date: new Date(),
-    duration: 0,
+    dateRange: undefined,
+    startTime: "09:00",
+    endTime: "17:00",
     text: "",
     allowable_bill: true,
   });
-  const [hours, setHours] = useState(0);
-  const [minutes, setMinutes] = useState(0);
   const [isOpen, setIsOpen] = useState(false);
   const { toast } = useToast();
+
+  const calculateDuration = (start: string, end: string): number => {
+    const [startHours, startMinutes] = start.split(':').map(Number);
+    const [endHours, endMinutes] = end.split(':').map(Number);
+    
+    const startTotalMinutes = startHours * 60 + startMinutes;
+    const endTotalMinutes = endHours * 60 + endMinutes;
+    
+    let duration = endTotalMinutes - startTotalMinutes;
+    if (duration < 0) {
+      duration += 24 * 60; // Handle overnight work
+    }
+    
+    return duration * 60; // Convert to seconds
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (hours === 0 && minutes === 0) {
+    if (!formData.dateRange?.from) {
       toast({
         title: "Validation Error",
-        description: "Please enter a duration greater than 0.",
+        description: "Please select at least one date.",
         variant: "destructive",
       });
       return;
@@ -59,23 +75,27 @@ export const TimeEntryForm = ({ onSubmit, isSubmitting }: TimeEntryFormProps) =>
       return;
     }
 
-    const totalSeconds = (hours * 3600) + (minutes * 60);
+    const duration = calculateDuration(formData.startTime, formData.endTime);
+    if (duration <= 0) {
+      toast({
+        title: "Validation Error",
+        description: "End time must be after start time.",
+        variant: "destructive",
+      });
+      return;
+    }
     
     try {
-      await onSubmit({
-        ...formData,
-        duration: totalSeconds,
-      });
+      await onSubmit(formData);
       
       // Reset form
       setFormData({
-        date: new Date(),
-        duration: 0,
+        dateRange: undefined,
+        startTime: "09:00",
+        endTime: "17:00",
         text: "",
         allowable_bill: true,
       });
-      setHours(0);
-      setMinutes(0);
       setIsOpen(false);
     } catch (error) {
       // Error handling is done in the parent component
@@ -105,64 +125,77 @@ export const TimeEntryForm = ({ onSubmit, isSubmitting }: TimeEntryFormProps) =>
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Date Picker */}
-            <div className="space-y-2">
-              <Label htmlFor="date">Date</Label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className={cn(
-                      "w-full justify-start text-left font-normal",
-                      !formData.date && "text-muted-foreground"
-                    )}
-                  >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {formData.date ? format(formData.date, "PPP") : <span>Pick a date</span>}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={formData.date}
-                    onSelect={(date) => date && setFormData(prev => ({ ...prev, date }))}
-                    initialFocus
-                    className={cn("p-3 pointer-events-auto")}
-                  />
-                </PopoverContent>
-              </Popover>
-            </div>
+          {/* Date Range Picker */}
+          <div className="space-y-2">
+            <Label htmlFor="dateRange">Date Range</Label>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  className={cn(
+                    "w-full justify-start text-left font-normal",
+                    !formData.dateRange && "text-muted-foreground"
+                  )}
+                >
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {formData.dateRange?.from ? (
+                    formData.dateRange.to ? (
+                      <>
+                        {format(formData.dateRange.from, "LLL dd, y")} -{" "}
+                        {format(formData.dateRange.to, "LLL dd, y")}
+                      </>
+                    ) : (
+                      format(formData.dateRange.from, "LLL dd, y")
+                    )
+                  ) : (
+                    <span>Pick date range</span>
+                  )}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  initialFocus
+                  mode="range"
+                  defaultMonth={formData.dateRange?.from}
+                  selected={formData.dateRange}
+                  onSelect={(dateRange) => setFormData(prev => ({ ...prev, dateRange }))}
+                  numberOfMonths={2}
+                  className={cn("p-3 pointer-events-auto")}
+                />
+              </PopoverContent>
+            </Popover>
+          </div>
 
-            {/* Duration */}
+          {/* Time Range */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label>Duration</Label>
-              <div className="flex gap-2">
-                <div className="flex-1">
-                  <Input
-                    type="number"
-                    min="0"
-                    max="23"
-                    placeholder="Hours"
-                    value={hours || ""}
-                    onChange={(e) => setHours(parseInt(e.target.value) || 0)}
-                  />
-                </div>
-                <div className="flex-1">
-                  <Input
-                    type="number"
-                    min="0"
-                    max="59"
-                    placeholder="Minutes"
-                    value={minutes || ""}
-                    onChange={(e) => setMinutes(parseInt(e.target.value) || 0)}
-                  />
-                </div>
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Total: {hours}h {minutes}m
-              </p>
+              <Label htmlFor="startTime">Start Time</Label>
+              <Input
+                id="startTime"
+                type="time"
+                value={formData.startTime}
+                onChange={(e) => setFormData(prev => ({ ...prev, startTime: e.target.value }))}
+              />
             </div>
+            <div className="space-y-2">
+              <Label htmlFor="endTime">End Time</Label>
+              <Input
+                id="endTime"
+                type="time"
+                value={formData.endTime}
+                onChange={(e) => setFormData(prev => ({ ...prev, endTime: e.target.value }))}
+              />
+            </div>
+          </div>
+
+          {/* Duration Display */}
+          <div className="text-sm text-muted-foreground">
+            Daily duration: {Math.floor(calculateDuration(formData.startTime, formData.endTime) / 3600)}h {Math.floor((calculateDuration(formData.startTime, formData.endTime) % 3600) / 60)}m
+            {formData.dateRange?.from && formData.dateRange?.to && (
+              <span className="ml-4">
+                Total days: {differenceInDays(formData.dateRange.to, formData.dateRange.from) + 1}
+              </span>
+            )}
           </div>
 
           {/* Description */}

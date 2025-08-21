@@ -1,5 +1,6 @@
 import { useState, useCallback } from "react";
 import { useToast } from "@/hooks/use-toast";
+import { DateRange } from "react-day-picker";
 
 interface Customer {
   id: number;
@@ -190,8 +191,9 @@ export const useBexioApi = () => {
   }, []);
 
   const createTimeEntry = useCallback(async (timeEntryData: {
-    date: Date;
-    duration: number;
+    dateRange: DateRange | undefined;
+    startTime: string;
+    endTime: string;
     text: string;
     allowable_bill: boolean;
     contact_id?: number;
@@ -206,56 +208,92 @@ export const useBexioApi = () => {
       return;
     }
 
+    if (!timeEntryData.dateRange?.from) {
+      toast({
+        title: "Validation Error",
+        description: "Please select a date range.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsCreatingTimeEntry(true);
     try {
-      const hours = Math.floor(timeEntryData.duration / 3600);
-      const minutes = Math.floor((timeEntryData.duration % 3600) / 60);
-      const durationString = `${hours}:${minutes.toString().padStart(2, '0')}`;
+      // Calculate duration from time range
+      const [startHours, startMinutes] = timeEntryData.startTime.split(':').map(Number);
+      const [endHours, endMinutes] = timeEntryData.endTime.split(':').map(Number);
       
-      const bexioData = {
-        user_id: 1, // Default user ID, might need to be dynamic
-        client_service_id: 5, // Default service ID (from existing data)
-        text: timeEntryData.text || "",
-        allowable_bill: timeEntryData.allowable_bill,
-        tracking: {
-          type: "duration",
-          date: timeEntryData.date.toISOString().split('T')[0], // Format as YYYY-MM-DD
-          duration: durationString, // Format as HH:MM
-        },
-        ...(timeEntryData.contact_id && { contact_id: timeEntryData.contact_id }),
-        ...(timeEntryData.project_id && { pr_project_id: timeEntryData.project_id }),
-      };
+      const startTotalMinutes = startHours * 60 + startMinutes;
+      const endTotalMinutes = endHours * 60 + endMinutes;
+      
+      let durationMinutes = endTotalMinutes - startTotalMinutes;
+      if (durationMinutes < 0) {
+        durationMinutes += 24 * 60; // Handle overnight work
+      }
+      
+      const hours = Math.floor(durationMinutes / 60);
+      const minutes = durationMinutes % 60;
+      const durationString = `${hours}:${minutes.toString().padStart(2, '0')}`;
 
-      const response = await fetch(`https://opcjifbdwpyttaxqlqbf.supabase.co/functions/v1/bexio-proxy`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          endpoint: '/timesheet',
-          method: 'POST',
-          apiKey: credentials.apiKey,
-          companyId: credentials.companyId,
-          data: bexioData,
-        }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+      // Generate dates for the range
+      const startDate = timeEntryData.dateRange.from;
+      const endDate = timeEntryData.dateRange.to || startDate;
+      
+      const dates: Date[] = [];
+      let currentDate = new Date(startDate);
+      
+      while (currentDate <= endDate) {
+        dates.push(new Date(currentDate));
+        currentDate.setDate(currentDate.getDate() + 1);
       }
 
-      const data = await response.json();
-      
-      toast({
-        title: "Time entry created",
-        description: "Your time entry has been successfully added to Bexio.",
+      // Create time entries for each date
+      const promises = dates.map(async (date) => {
+        const bexioData = {
+          user_id: 1, // Default user ID, might need to be dynamic
+          client_service_id: 5, // Default service ID (from existing data)
+          text: timeEntryData.text || "",
+          allowable_bill: timeEntryData.allowable_bill,
+          tracking: {
+            type: "duration",
+            date: date.toISOString().split('T')[0], // Format as YYYY-MM-DD
+            duration: durationString, // Format as HH:MM
+          },
+          ...(timeEntryData.contact_id && { contact_id: timeEntryData.contact_id }),
+          ...(timeEntryData.project_id && { pr_project_id: timeEntryData.project_id }),
+        };
+
+        const response = await fetch(`https://opcjifbdwpyttaxqlqbf.supabase.co/functions/v1/bexio-proxy`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            endpoint: '/timesheet',
+            method: 'POST',
+            apiKey: credentials.apiKey,
+            companyId: credentials.companyId,
+            data: bexioData,
+          }),
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.error || `HTTP error! status: ${response.status} for date ${date.toISOString().split('T')[0]}`);
+        }
+
+        return response.json();
       });
 
-      // Refresh time entries to show the new one
-      await fetchTimeEntries();
+      const results = await Promise.all(promises);
       
-      return data;
+      toast({
+        title: "Time entries created",
+        description: `Successfully created ${results.length} time entries for the selected date range.`,
+      });
+
+      // Refresh time entries to show the new ones
+      await fetchTimeEntries();
     } catch (error) {
       console.error('Error creating time entry:', error);
       toast({
