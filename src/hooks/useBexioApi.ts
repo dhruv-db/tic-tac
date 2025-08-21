@@ -144,7 +144,7 @@ export const useBexioApi = () => {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          endpoint: '/timesheets',
+          endpoint: '/timesheet',
           apiKey: credentials.apiKey,
           companyId: credentials.companyId,
         }),
@@ -208,15 +208,19 @@ export const useBexioApi = () => {
 
     setIsCreatingTimeEntry(true);
     try {
+      const hours = Math.floor(timeEntryData.duration / 3600);
+      const minutes = Math.floor((timeEntryData.duration % 3600) / 60);
+      const durationString = `${hours}:${minutes.toString().padStart(2, '0')}`;
+      
       const bexioData = {
         user_id: 1, // Default user ID, might need to be dynamic
         date: timeEntryData.date.toISOString().split('T')[0], // Format as YYYY-MM-DD
-        minutes: Math.round(timeEntryData.duration / 60), // Convert seconds to minutes
-        description: timeEntryData.text || "",
-        billable: timeEntryData.allowable_bill,
-        service_id: 1, // Default service ID, might need to be dynamic
+        duration: durationString, // Format as HH:MM
+        text: timeEntryData.text || "",
+        allowable_bill: timeEntryData.allowable_bill,
+        client_service_id: 5, // Default service ID (from existing data)
         ...(timeEntryData.contact_id && { contact_id: timeEntryData.contact_id }),
-        ...(timeEntryData.project_id && { project_id: timeEntryData.project_id }),
+        ...(timeEntryData.project_id && { pr_project_id: timeEntryData.project_id }),
       };
 
       const response = await fetch(`https://opcjifbdwpyttaxqlqbf.supabase.co/functions/v1/bexio-proxy`, {
@@ -225,7 +229,7 @@ export const useBexioApi = () => {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          endpoint: '/timesheets',
+          endpoint: '/timesheet',
           method: 'POST',
           apiKey: credentials.apiKey,
           companyId: credentials.companyId,

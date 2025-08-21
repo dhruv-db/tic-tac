@@ -29,7 +29,7 @@ serve(async (req) => {
       console.log('Request payload:', JSON.stringify(requestData, null, 2));
     }
 
-    const bexioUrl = `https://api.bexio.com/3.0${endpoint}`;
+    const bexioUrl = `https://api.bexio.com/2.0${endpoint}`;
     
     const requestOptions: RequestInit = {
       method: method,
