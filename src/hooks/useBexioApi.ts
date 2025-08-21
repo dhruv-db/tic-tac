@@ -144,7 +144,7 @@ export const useBexioApi = () => {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          endpoint: '/timesheet',
+          endpoint: '/timesheets',
           apiKey: credentials.apiKey,
           companyId: credentials.companyId,
         }),
@@ -209,12 +209,12 @@ export const useBexioApi = () => {
     setIsCreatingTimeEntry(true);
     try {
       const bexioData = {
-        date: timeEntryData.date.toISOString().split('T')[0], // Format as YYYY-MM-DD
-        duration: timeEntryData.duration,
-        text: timeEntryData.text || "",
-        allowable_bill: timeEntryData.allowable_bill,
         user_id: 1, // Default user ID, might need to be dynamic
-        client_service_id: 1, // Default service ID, might need to be dynamic
+        date: timeEntryData.date.toISOString().split('T')[0], // Format as YYYY-MM-DD
+        minutes: Math.round(timeEntryData.duration / 60), // Convert seconds to minutes
+        description: timeEntryData.text || "",
+        billable: timeEntryData.allowable_bill,
+        service_id: 1, // Default service ID, might need to be dynamic
         ...(timeEntryData.contact_id && { contact_id: timeEntryData.contact_id }),
         ...(timeEntryData.project_id && { project_id: timeEntryData.project_id }),
       };
@@ -225,7 +225,7 @@ export const useBexioApi = () => {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          endpoint: '/timesheet',
+          endpoint: '/timesheets',
           method: 'POST',
           apiKey: credentials.apiKey,
           companyId: credentials.companyId,
