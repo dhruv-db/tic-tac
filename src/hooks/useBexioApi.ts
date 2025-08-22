@@ -2,34 +2,56 @@ import { useState, useCallback } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { DateRange } from "react-day-picker";
 
-interface Customer {
+interface Contact {
   id: number;
-  name: string;
-  first_name?: string;
-  last_name?: string;
-  company_name?: string;
-  salutation?: string;
-  title?: string;
-  email?: string;
-  phone?: string;
-  mobile?: string;
-  fax?: string;
-  website?: string;
+  nr: string;
+  name_1: string;
+  name_2?: string;
+  salutation_id?: number;
+  salutation_form?: string;
+  title_id?: number;
+  birthday?: string;
   address?: string;
+  street_name?: string;
+  house_number?: string;
+  address_addition?: string;
   postcode?: string;
   city?: string;
   country_id?: number;
+  mail?: string;
+  mail_second?: string;
+  phone_fixed?: string;
+  phone_fixed_second?: string;
+  phone_mobile?: string;
+  fax?: string;
+  url?: string;
+  skype_name?: string;
+  remarks?: string;
   language_id?: number;
-  contact_type_id: number;
-  customer_type?: string;
   is_lead?: boolean;
-  birthday?: string;
-  contact_group_ids?: number[];
+  contact_group_ids?: string;
+  contact_branch_ids?: string;
   user_id?: number;
   owner_id?: number;
-  remarks?: string;
-  created_at?: string;
+  contact_type_id: number;
   updated_at?: string;
+}
+
+interface Project {
+  id: number;
+  nr: string;
+  name: string;
+  start_date: string;
+  end_date?: string;
+  comment?: string;
+  pr_state_id: number;
+  pr_project_type_id: number;
+  contact_id?: number;
+  contact_sub_id?: number;
+  pr_invoice_type_id?: number;
+  pr_invoice_type_amount?: number;
+  pr_budget_type_id?: number;
+  pr_budget_type_amount?: number;
 }
 
 interface TimeEntry {
@@ -51,9 +73,11 @@ interface BexioCredentials {
 
 export const useBexioApi = () => {
   const [credentials, setCredentials] = useState<BexioCredentials | null>(null);
-  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [contacts, setContacts] = useState<Contact[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
   const [timeEntries, setTimeEntries] = useState<TimeEntry[]>([]);
-  const [isLoadingCustomers, setIsLoadingCustomers] = useState(false);
+  const [isLoadingContacts, setIsLoadingContacts] = useState(false);
+  const [isLoadingProjects, setIsLoadingProjects] = useState(false);
   const [isLoadingTimeEntries, setIsLoadingTimeEntries] = useState(false);
   const [isCreatingTimeEntry, setIsCreatingTimeEntry] = useState(false);
   const { toast } = useToast();
@@ -79,7 +103,7 @@ export const useBexioApi = () => {
     }
   }, [toast]);
 
-  const fetchCustomers = useCallback(async () => {
+  const fetchContacts = useCallback(async () => {
     if (!credentials) {
       toast({
         title: "Not connected",
@@ -89,7 +113,7 @@ export const useBexioApi = () => {
       return;
     }
 
-    setIsLoadingCustomers(true);
+    setIsLoadingContacts(true);
     try {
       const response = await fetch(`https://opcjifbdwpyttaxqlqbf.supabase.co/functions/v1/bexio-proxy`, {
         method: 'POST',
@@ -109,21 +133,69 @@ export const useBexioApi = () => {
       }
 
       const data = await response.json();
-      setCustomers(Array.isArray(data) ? data : []);
+      setContacts(Array.isArray(data) ? data : []);
       
       toast({
         title: "Contacts loaded successfully",
         description: `Successfully fetched ${Array.isArray(data) ? data.length : 0} contacts.`,
       });
     } catch (error) {
-      console.error('Error fetching customers:', error);
+      console.error('Error fetching contacts:', error);
       toast({
-        title: "Failed to fetch customers",
-        description: error instanceof Error ? error.message : "An error occurred while fetching customers.",
+        title: "Failed to fetch contacts",
+        description: error instanceof Error ? error.message : "An error occurred while fetching contacts.",
         variant: "destructive",
       });
     } finally {
-      setIsLoadingCustomers(false);
+      setIsLoadingContacts(false);
+    }
+  }, [credentials, toast]);
+
+  const fetchProjects = useCallback(async () => {
+    if (!credentials) {
+      toast({
+        title: "Not connected",
+        description: "Please connect to Bexio first.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsLoadingProjects(true);
+    try {
+      const response = await fetch(`https://opcjifbdwpyttaxqlqbf.supabase.co/functions/v1/bexio-proxy`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          endpoint: '/pr_project',
+          apiKey: credentials.apiKey,
+          companyId: credentials.companyId,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      setProjects(Array.isArray(data) ? data : []);
+      
+      toast({
+        title: "Projects loaded successfully",
+        description: `Successfully fetched ${Array.isArray(data) ? data.length : 0} projects.`,
+      });
+    } catch (error) {
+      console.error('Error fetching projects:', error);
+      toast({
+        title: "Failed to fetch projects",
+        description: error instanceof Error ? error.message : "An error occurred while fetching projects.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoadingProjects(false);
     }
   }, [credentials, toast]);
 
@@ -310,7 +382,8 @@ export const useBexioApi = () => {
   const disconnect = useCallback(() => {
     localStorage.removeItem('bexio_credentials');
     setCredentials(null);
-    setCustomers([]);
+    setContacts([]);
+    setProjects([]);
     setTimeEntries([]);
     toast({
       title: "Disconnected",
@@ -320,14 +393,17 @@ export const useBexioApi = () => {
 
   return {
     credentials,
-    customers,
+    contacts,
+    projects,
     timeEntries,
-    isLoadingCustomers,
+    isLoadingContacts,
+    isLoadingProjects,
     isLoadingTimeEntries,
     isCreatingTimeEntry,
     isConnected: !!credentials,
     connect,
-    fetchCustomers,
+    fetchContacts,
+    fetchProjects,
     fetchTimeEntries,
     createTimeEntry,
     loadStoredCredentials,

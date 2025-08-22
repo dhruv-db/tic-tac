@@ -3,42 +3,58 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Building2, Mail, Phone, MapPin, Users, Globe, Smartphone, Calendar, User, Crown } from "lucide-react";
 
-interface Customer {
+interface Contact {
   id: number;
-  name: string;
-  first_name?: string;
-  last_name?: string;
-  company_name?: string;
-  salutation?: string;
-  title?: string;
-  email?: string;
-  phone?: string;
-  mobile?: string;
-  fax?: string;
-  website?: string;
+  nr: string;
+  name_1: string;
+  name_2?: string;
+  salutation_id?: number;
+  salutation_form?: string;
+  title_id?: number;
+  birthday?: string;
   address?: string;
+  street_name?: string;
+  house_number?: string;
+  address_addition?: string;
   postcode?: string;
   city?: string;
   country_id?: number;
+  mail?: string;
+  mail_second?: string;
+  phone_fixed?: string;
+  phone_fixed_second?: string;
+  phone_mobile?: string;
+  fax?: string;
+  url?: string;
+  skype_name?: string;
+  remarks?: string;
   language_id?: number;
-  contact_type_id: number;
-  customer_type?: string;
   is_lead?: boolean;
-  birthday?: string;
-  contact_group_ids?: number[];
+  contact_group_ids?: string;
+  contact_branch_ids?: string;
   user_id?: number;
   owner_id?: number;
-  remarks?: string;
-  created_at?: string;
+  contact_type_id: number;
   updated_at?: string;
 }
 
-interface CustomerListProps {
-  customers: Customer[];
+interface ContactListProps {
+  contacts: Contact[];
   isLoading: boolean;
 }
 
-export const CustomerList = ({ customers, isLoading }: CustomerListProps) => {
+export const ContactList = ({ contacts, isLoading }: ContactListProps) => {
+  const getContactName = (contact: Contact) => {
+    const names = [contact.name_1, contact.name_2].filter(Boolean);
+    return names.length > 0 ? names.join(' ') : 'Unnamed Contact';
+  };
+
+  const getContactInitials = (contact: Contact) => {
+    const name = getContactName(contact);
+    if (name === 'Unnamed Contact') return 'UC';
+    return name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
+  };
+
   if (isLoading) {
     return (
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -62,35 +78,35 @@ export const CustomerList = ({ customers, isLoading }: CustomerListProps) => {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Users className="h-5 w-5 text-primary" />
-          <h2 className="text-2xl font-semibold">Customers</h2>
+          <h2 className="text-2xl font-semibold">Contacts</h2>
           <Badge variant="secondary" className="ml-2">
-            {customers.length} total
+            {contacts.length} total
           </Badge>
         </div>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {customers.map((customer) => (
+        {contacts.map((contact) => (
           <Card 
-            key={customer.id} 
+            key={contact.id} 
             className="hover:shadow-[var(--shadow-elegant)] transition-[var(--transition-smooth)] hover:scale-[1.02] cursor-pointer group"
           >
             <CardHeader className="pb-4">
               <div className="flex items-start gap-3">
                 <Avatar className="h-10 w-10 border-2 border-primary/20">
                   <AvatarFallback className="bg-primary-subtle text-primary font-semibold">
-                    {customer.name ? customer.name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase() : 'CU'}
+                    {getContactInitials(contact)}
                   </AvatarFallback>
                 </Avatar>
                 <div className="flex-1 min-w-0">
                   <CardTitle className="text-lg truncate group-hover:text-primary transition-[var(--transition-smooth)]">
-                    {customer.name || 'Unnamed Customer'}
+                    {getContactName(contact)}
                   </CardTitle>
                   <div className="flex gap-2 mt-1 flex-wrap">
                     <Badge variant="outline" className="text-xs">
-                      ID: {customer.id}
+                      #{contact.nr}
                     </Badge>
-                    {customer.is_lead && (
+                    {contact.is_lead && (
                       <Badge variant="secondary" className="text-xs bg-yellow-100 text-yellow-800">
                         <Crown className="h-3 w-3 mr-1" />
                         Lead
@@ -102,95 +118,73 @@ export const CustomerList = ({ customers, isLoading }: CustomerListProps) => {
             </CardHeader>
             
             <CardContent className="pt-0 space-y-3">
-              {(customer.first_name || customer.last_name) && (
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <User className="h-4 w-4 text-primary" />
-                  <span>{[customer.first_name, customer.last_name].filter(Boolean).join(' ')}</span>
-                </div>
-              )}
-
-              {customer.company_name && (
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <Building2 className="h-4 w-4 text-secondary" />
-                  <span className="truncate">{customer.company_name}</span>
-                </div>
-              )}
-
-              {customer.title && (
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <Badge variant="outline" className="text-xs">
-                    {customer.title}
-                  </Badge>
-                </div>
-              )}
-
-              {customer.email && (
+              {contact.mail && (
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <Mail className="h-4 w-4 text-info" />
-                  <span className="truncate">{customer.email}</span>
+                  <span className="truncate">{contact.mail}</span>
                 </div>
               )}
               
-              {customer.phone && (
+              {contact.phone_fixed && (
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <Phone className="h-4 w-4 text-success" />
-                  <span>{customer.phone}</span>
+                  <span>{contact.phone_fixed}</span>
                 </div>
               )}
 
-              {customer.mobile && (
+              {contact.phone_mobile && (
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <Smartphone className="h-4 w-4 text-success" />
-                  <span>{customer.mobile}</span>
+                  <span>{contact.phone_mobile}</span>
                 </div>
               )}
 
-              {customer.website && (
+              {contact.url && (
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <Globe className="h-4 w-4 text-info" />
-                  <a href={customer.website} target="_blank" rel="noopener noreferrer" className="truncate hover:underline">
-                    {customer.website}
+                  <a href={contact.url} target="_blank" rel="noopener noreferrer" className="truncate hover:underline">
+                    {contact.url}
                   </a>
                 </div>
               )}
               
-              {(customer.address || customer.city || customer.postcode) && (
+              {(contact.address || contact.city || contact.postcode) && (
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <MapPin className="h-4 w-4 text-warning" />
                   <span className="truncate">
-                    {[customer.address, customer.postcode, customer.city].filter(Boolean).join(', ')}
+                    {[contact.address, contact.postcode, contact.city].filter(Boolean).join(', ')}
                   </span>
                 </div>
               )}
 
-              {customer.birthday && (
+              {contact.birthday && (
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <Calendar className="h-4 w-4 text-purple-500" />
-                  <span>{new Date(customer.birthday).toLocaleDateString()}</span>
+                  <span>{new Date(contact.birthday).toLocaleDateString()}</span>
                 </div>
               )}
 
               <div className="flex items-center gap-2 text-sm">
                 <div className="flex gap-2 flex-wrap">
                   <Badge variant="secondary" className="text-xs">
-                    Type: {customer.contact_type_id}
+                    Type: {contact.contact_type_id}
                   </Badge>
-                  {customer.language_id && (
+                  {contact.language_id && (
                     <Badge variant="outline" className="text-xs">
-                      Lang: {customer.language_id}
+                      Lang: {contact.language_id}
                     </Badge>
                   )}
-                  {customer.country_id && (
+                  {contact.country_id && (
                     <Badge variant="outline" className="text-xs">
-                      Country: {customer.country_id}
+                      Country: {contact.country_id}
                     </Badge>
                   )}
                 </div>
               </div>
 
-              {customer.remarks && (
+              {contact.remarks && (
                 <div className="text-sm text-muted-foreground bg-muted/50 p-2 rounded">
-                  <p className="line-clamp-2">{customer.remarks}</p>
+                  <p className="line-clamp-2">{contact.remarks}</p>
                 </div>
               )}
             </CardContent>
@@ -198,13 +192,13 @@ export const CustomerList = ({ customers, isLoading }: CustomerListProps) => {
         ))}
       </div>
 
-      {customers.length === 0 && !isLoading && (
+      {contacts.length === 0 && !isLoading && (
         <Card className="text-center py-12">
           <CardContent>
             <Users className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-            <h3 className="text-lg font-medium mb-2">No customers found</h3>
+            <h3 className="text-lg font-medium mb-2">No contacts found</h3>
             <p className="text-muted-foreground">
-              No customer data was retrieved from your Bexio account.
+              No contact data was retrieved from your Bexio account.
             </p>
           </CardContent>
         </Card>

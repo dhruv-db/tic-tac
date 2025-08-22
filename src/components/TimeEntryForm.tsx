@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -23,12 +24,31 @@ interface TimeEntryFormData {
   project_id?: number;
 }
 
+interface Contact {
+  id: number;
+  nr: string;
+  name_1: string;
+  name_2?: string;
+}
+
+interface Project {
+  id: number;
+  nr: string;
+  name: string;
+}
+
 interface TimeEntryFormProps {
   onSubmit: (data: TimeEntryFormData) => Promise<void>;
   isSubmitting: boolean;
+  contacts: Contact[];
+  projects: Project[];
 }
 
-export const TimeEntryForm = ({ onSubmit, isSubmitting }: TimeEntryFormProps) => {
+export const TimeEntryForm = ({ onSubmit, isSubmitting, contacts, projects }: TimeEntryFormProps) => {
+  const getContactName = (contact: Contact) => {
+    const names = [contact.name_1, contact.name_2].filter(Boolean);
+    return names.length > 0 ? names.join(' ') : 'Unnamed Contact';
+  };
   const [formData, setFormData] = useState<TimeEntryFormData>({
     dateRange: undefined,
     startTime: "09:00",
@@ -211,34 +231,50 @@ export const TimeEntryForm = ({ onSubmit, isSubmitting }: TimeEntryFormProps) =>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Contact ID */}
+            {/* Contact Selection */}
             <div className="space-y-2">
-              <Label htmlFor="contact_id">Contact ID (Optional)</Label>
-              <Input
-                id="contact_id"
-                type="number"
-                placeholder="Enter contact ID"
-                value={formData.contact_id || ""}
-                onChange={(e) => setFormData(prev => ({ 
+              <Label htmlFor="contact_id">Contact (Optional)</Label>
+              <Select
+                value={formData.contact_id?.toString() || ""}
+                onValueChange={(value) => setFormData(prev => ({ 
                   ...prev, 
-                  contact_id: e.target.value ? parseInt(e.target.value) : undefined 
+                  contact_id: value ? parseInt(value) : undefined 
                 }))}
-              />
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a contact" />
+                </SelectTrigger>
+                <SelectContent>
+                  {contacts.map((contact) => (
+                    <SelectItem key={contact.id} value={contact.id.toString()}>
+                      {getContactName(contact)} (#{contact.nr})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
-            {/* Project ID */}
+            {/* Project Selection */}
             <div className="space-y-2">
-              <Label htmlFor="project_id">Project ID (Optional)</Label>
-              <Input
-                id="project_id"
-                type="number"
-                placeholder="Enter project ID"
-                value={formData.project_id || ""}
-                onChange={(e) => setFormData(prev => ({ 
+              <Label htmlFor="project_id">Project (Optional)</Label>
+              <Select
+                value={formData.project_id?.toString() || ""}
+                onValueChange={(value) => setFormData(prev => ({ 
                   ...prev, 
-                  project_id: e.target.value ? parseInt(e.target.value) : undefined 
+                  project_id: value ? parseInt(value) : undefined 
                 }))}
-              />
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a project" />
+                </SelectTrigger>
+                <SelectContent>
+                  {projects.map((project) => (
+                    <SelectItem key={project.id} value={project.id.toString()}>
+                      {project.name} (#{project.nr})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
 

@@ -3,43 +3,49 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
 import { BexioConnector } from "@/components/BexioConnector";
-import { CustomerList } from "@/components/CustomerList";
+import { ContactList } from "@/components/ContactList";
+import { ProjectList } from "@/components/ProjectList";
 import { TimeTrackingList } from "@/components/TimeTrackingList";
 import { useBexioApi } from "@/hooks/useBexioApi";
-import { RefreshCw, Database, LogOut } from "lucide-react";
+import { RefreshCw, Database, LogOut, Users, FolderOpen } from "lucide-react";
 
 const Index = () => {
   const {
     credentials,
-    customers,
+    contacts,
+    projects,
     timeEntries,
-    isLoadingCustomers,
+    isLoadingContacts,
+    isLoadingProjects,
     isLoadingTimeEntries,
     isCreatingTimeEntry,
     isConnected,
     connect,
-    fetchCustomers,
+    fetchContacts,
+    fetchProjects,
     fetchTimeEntries,
     createTimeEntry,
     loadStoredCredentials,
     disconnect,
   } = useBexioApi();
 
-  const [activeTab, setActiveTab] = useState("customers");
+  const [activeTab, setActiveTab] = useState("contacts");
 
   useEffect(() => {
     loadStoredCredentials();
   }, [loadStoredCredentials]);
 
   const handleRefresh = () => {
-    if (activeTab === "customers") {
-      fetchCustomers();
+    if (activeTab === "contacts") {
+      fetchContacts();
+    } else if (activeTab === "projects") {
+      fetchProjects();
     } else {
       fetchTimeEntries();
     }
   };
 
-  const isLoading = isLoadingCustomers || isLoadingTimeEntries;
+  const isLoading = isLoadingContacts || isLoadingProjects || isLoadingTimeEntries;
 
   if (!isConnected) {
     return (
@@ -106,10 +112,14 @@ const Index = () => {
       {/* Main Content */}
       <main className="container mx-auto px-4 py-8">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full max-w-md grid-cols-2 mx-auto">
-            <TabsTrigger value="customers" className="gap-2">
-              <Database className="h-4 w-4" />
-              Customers
+          <TabsList className="grid w-full max-w-2xl grid-cols-3 mx-auto">
+            <TabsTrigger value="contacts" className="gap-2">
+              <Users className="h-4 w-4" />
+              Contacts
+            </TabsTrigger>
+            <TabsTrigger value="projects" className="gap-2">
+              <FolderOpen className="h-4 w-4" />
+              Projects
             </TabsTrigger>
             <TabsTrigger value="timetracking" className="gap-2">
               <RefreshCw className="h-4 w-4" />
@@ -117,16 +127,29 @@ const Index = () => {
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="customers" className="space-y-6">
-            {customers.length === 0 && !isLoadingCustomers ? (
+          <TabsContent value="contacts" className="space-y-6">
+            {contacts.length === 0 && !isLoadingContacts ? (
               <div className="text-center py-12">
-                <Button onClick={fetchCustomers} className="gap-2">
-                  <Database className="h-4 w-4" />
-                  Load Customers
+                <Button onClick={fetchContacts} className="gap-2">
+                  <Users className="h-4 w-4" />
+                  Load Contacts
                 </Button>
               </div>
             ) : (
-              <CustomerList customers={customers} isLoading={isLoadingCustomers} />
+              <ContactList contacts={contacts} isLoading={isLoadingContacts} />
+            )}
+          </TabsContent>
+
+          <TabsContent value="projects" className="space-y-6">
+            {projects.length === 0 && !isLoadingProjects ? (
+              <div className="text-center py-12">
+                <Button onClick={fetchProjects} className="gap-2">
+                  <FolderOpen className="h-4 w-4" />
+                  Load Projects
+                </Button>
+              </div>
+            ) : (
+              <ProjectList projects={projects} isLoading={isLoadingProjects} />
             )}
           </TabsContent>
 
@@ -144,6 +167,8 @@ const Index = () => {
                 isLoading={isLoadingTimeEntries}
                 onCreateTimeEntry={createTimeEntry}
                 isCreatingTimeEntry={isCreatingTimeEntry}
+                contacts={contacts}
+                projects={projects}
               />
             )}
           </TabsContent>
