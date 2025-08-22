@@ -379,6 +379,149 @@ export const useBexioApi = () => {
     }
   }, [credentials, toast, fetchTimeEntries]);
 
+  const updateTimeEntry = useCallback(async (id: number, timeEntryData: {
+    dateRange: DateRange | undefined;
+    startTime: string;
+    endTime: string;
+    text: string;
+    allowable_bill: boolean;
+    contact_id?: number;
+    project_id?: number;
+  }) => {
+    if (!credentials) {
+      toast({
+        title: "Not connected",
+        description: "Please connect to Bexio first.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!timeEntryData.dateRange?.from) {
+      toast({
+        title: "Validation Error",
+        description: "Please select a date.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsCreatingTimeEntry(true);
+    try {
+      // Calculate duration
+      const [startHours, startMinutes] = timeEntryData.startTime.split(':').map(Number);
+      const [endHours, endMinutes] = timeEntryData.endTime.split(':').map(Number);
+      
+      const startTotalMinutes = startHours * 60 + startMinutes;
+      const endTotalMinutes = endHours * 60 + endMinutes;
+      
+      let durationMinutes = endTotalMinutes - startTotalMinutes;
+      if (durationMinutes < 0) {
+        durationMinutes += 24 * 60;
+      }
+      
+      const hours = Math.floor(durationMinutes / 60);
+      const minutes = durationMinutes % 60;
+      const durationString = `${hours}:${minutes.toString().padStart(2, '0')}`;
+
+      const bexioData = {
+        user_id: 1,
+        client_service_id: 5,
+        text: timeEntryData.text || "",
+        allowable_bill: timeEntryData.allowable_bill,
+        tracking: {
+          type: "duration",
+          date: timeEntryData.dateRange.from.toISOString().split('T')[0],
+          duration: durationString,
+        },
+        ...(timeEntryData.contact_id && { contact_id: timeEntryData.contact_id }),
+        ...(timeEntryData.project_id && { pr_project_id: timeEntryData.project_id }),
+      };
+
+      const response = await fetch(`https://opcjifbdwpyttaxqlqbf.supabase.co/functions/v1/bexio-proxy`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          endpoint: `/timesheet/${id}`,
+          method: 'PUT',
+          apiKey: credentials.apiKey,
+          companyId: credentials.companyId,
+          data: bexioData,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+      }
+
+      toast({
+        title: "Time entry updated",
+        description: "The time entry has been successfully updated.",
+      });
+
+      await fetchTimeEntries();
+    } catch (error) {
+      console.error('Error updating time entry:', error);
+      toast({
+        title: "Failed to update time entry",
+        description: error instanceof Error ? error.message : "An error occurred while updating the time entry.",
+        variant: "destructive",
+      });
+      throw error;
+    } finally {
+      setIsCreatingTimeEntry(false);
+    }
+  }, [credentials, toast, fetchTimeEntries]);
+
+  const deleteTimeEntry = useCallback(async (id: number) => {
+    if (!credentials) {
+      toast({
+        title: "Not connected",
+        description: "Please connect to Bexio first.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const response = await fetch(`https://opcjifbdwpyttaxqlqbf.supabase.co/functions/v1/bexio-proxy`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          endpoint: `/timesheet/${id}`,
+          method: 'DELETE',
+          apiKey: credentials.apiKey,
+          companyId: credentials.companyId,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+      }
+
+      toast({
+        title: "Time entry deleted",
+        description: "The time entry has been successfully deleted.",
+      });
+
+      await fetchTimeEntries();
+    } catch (error) {
+      console.error('Error deleting time entry:', error);
+      toast({
+        title: "Failed to delete time entry",
+        description: error instanceof Error ? error.message : "An error occurred while deleting the time entry.",
+        variant: "destructive",
+      });
+      throw error;
+    }
+  }, [credentials, toast, fetchTimeEntries]);
+
   const disconnect = useCallback(() => {
     localStorage.removeItem('bexio_credentials');
     setCredentials(null);
@@ -406,6 +549,8 @@ export const useBexioApi = () => {
     fetchProjects,
     fetchTimeEntries,
     createTimeEntry,
+    updateTimeEntry,
+    deleteTimeEntry,
     loadStoredCredentials,
     disconnect,
   };
