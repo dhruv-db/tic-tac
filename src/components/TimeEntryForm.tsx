@@ -42,21 +42,24 @@ interface TimeEntryFormProps {
   isSubmitting: boolean;
   contacts: Contact[];
   projects: Project[];
+  initialData?: Partial<TimeEntryFormData>;
 }
 
-export const TimeEntryForm = ({ onSubmit, isSubmitting, contacts, projects }: TimeEntryFormProps) => {
+export const TimeEntryForm = ({ onSubmit, isSubmitting, contacts, projects, initialData }: TimeEntryFormProps) => {
   const getContactName = (contact: Contact) => {
     const names = [contact.name_1, contact.name_2].filter(Boolean);
     return names.length > 0 ? names.join(' ') : 'Unnamed Contact';
   };
   const [formData, setFormData] = useState<TimeEntryFormData>({
-    dateRange: undefined,
-    startTime: "09:00",
-    endTime: "17:00",
-    text: "",
-    allowable_bill: true,
+    dateRange: initialData?.dateRange || undefined,
+    startTime: initialData?.startTime || "09:00",
+    endTime: initialData?.endTime || "17:00",
+    text: initialData?.text || "",
+    allowable_bill: initialData?.allowable_bill ?? true,
+    contact_id: initialData?.contact_id,
+    project_id: initialData?.project_id,
   });
-  const [isOpen, setIsOpen] = useState(false);
+  const [isOpen, setIsOpen] = useState(!!initialData?.dateRange); // Auto-open if initial date provided
   const { toast } = useToast();
 
   const calculateDuration = (start: string, end: string): number => {

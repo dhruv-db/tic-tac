@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Calendar, ChevronLeft, ChevronRight, Clock, Edit, Trash2 } from "lucide-react";
+import { Calendar, ChevronLeft, ChevronRight, Clock, Edit, Trash2, Plus } from "lucide-react";
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, addMonths, subMonths, isToday } from "date-fns";
 import { cn } from "@/lib/utils";
 import { TimeEntry } from "./TimeTrackingList";
@@ -11,10 +11,11 @@ interface TimesheetCalendarProps {
   timeEntries: TimeEntry[];
   onEditEntry?: (entry: TimeEntry) => void;
   onDeleteEntry?: (entryId: number) => void;
+  onCreateEntry?: (date: Date) => void;
   isLoading: boolean;
 }
 
-export const TimesheetCalendar = ({ timeEntries, onEditEntry, onDeleteEntry, isLoading }: TimesheetCalendarProps) => {
+export const TimesheetCalendar = ({ timeEntries, onEditEntry, onDeleteEntry, onCreateEntry, isLoading }: TimesheetCalendarProps) => {
   const [currentDate, setCurrentDate] = useState(new Date());
 
   const formatDuration = (duration: string | number) => {
@@ -123,11 +124,22 @@ export const TimesheetCalendar = ({ timeEntries, onEditEntry, onDeleteEntry, isL
                 )}
               >
                 <div className={cn(
-                  "text-sm font-medium mb-2",
+                  "text-sm font-medium mb-2 flex items-center justify-between",
                   !isCurrentMonth && "text-muted-foreground",
                   isTodayDate && "text-primary font-semibold"
                 )}>
-                  {format(day, 'd')}
+                  <span>{format(day, 'd')}</span>
+                  {onCreateEntry && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-5 w-5 p-0 opacity-60 hover:opacity-100"
+                      onClick={() => onCreateEntry(day)}
+                      title="Add time entry"
+                    >
+                      <Plus className="h-3 w-3" />
+                    </Button>
+                  )}
                 </div>
 
                 {dayEntries.length > 0 && (

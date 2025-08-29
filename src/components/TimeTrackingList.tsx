@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -76,7 +76,20 @@ export const TimeTrackingList = ({
   const [activeView, setActiveView] = useState<'list' | 'calendar'>('list');
   const [selectedEntries, setSelectedEntries] = useState<number[]>([]);
   const [showBulkUpdate, setShowBulkUpdate] = useState(false);
+  const [calendarInitialData, setCalendarInitialData] = useState<any>(null);
   const { toast } = useToast();
+  
+  // Clear calendar initial data when form is submitted
+  useEffect(() => {
+    if (!isCreatingTimeEntry && calendarInitialData) {
+      // Small delay to allow form submission to complete
+      const timer = setTimeout(() => {
+        setCalendarInitialData(null);
+      }, 1000);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [isCreatingTimeEntry, calendarInitialData]);
   
   const toSeconds = (duration: string | number): number => {
     if (typeof duration === 'number') return duration;
@@ -202,6 +215,7 @@ export const TimeTrackingList = ({
           isSubmitting={isCreatingTimeEntry}
           contacts={contacts}
           projects={projects}
+          initialData={calendarInitialData}
         />
       )}
 
@@ -211,6 +225,17 @@ export const TimeTrackingList = ({
             timeEntries={timeEntries}
             isLoading={isLoading}
             onEditEntry={setEditingEntry}
+            onCreateEntry={(date) => {
+              // Set initial data and switch to list view
+              setCalendarInitialData({
+                dateRange: { from: date, to: date },
+                startTime: "09:00",
+                endTime: "17:00",
+                text: "",
+                allowable_bill: true,
+              });
+              setActiveView('list'); // Switch to list view to show the form
+            }}
             onDeleteEntry={async (id) => {
               if (onDeleteTimeEntry && window.confirm('Are you sure you want to delete this time entry?')) {
                 await onDeleteTimeEntry(id);
