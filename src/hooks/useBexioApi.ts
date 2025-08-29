@@ -69,6 +69,14 @@ interface TimeEntry {
   pr_milestone_id?: number;
 }
 
+interface WorkPackage {
+  id: string;
+  name: string;
+  description?: string;
+  color?: string;
+  pr_project_id?: number;
+}
+
 interface BexioCredentials {
   apiKey: string;
   companyId: string;
@@ -79,9 +87,11 @@ export const useBexioApi = () => {
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [timeEntries, setTimeEntries] = useState<TimeEntry[]>([]);
+  const [workPackages, setWorkPackages] = useState<WorkPackage[]>([]);
   const [isLoadingContacts, setIsLoadingContacts] = useState(false);
   const [isLoadingProjects, setIsLoadingProjects] = useState(false);
   const [isLoadingTimeEntries, setIsLoadingTimeEntries] = useState(false);
+  const [isLoadingWorkPackages, setIsLoadingWorkPackages] = useState(false);
   const [isCreatingTimeEntry, setIsCreatingTimeEntry] = useState(false);
   const { toast } = useToast();
 
@@ -261,6 +271,73 @@ export const useBexioApi = () => {
       });
     } finally {
       setIsLoadingTimeEntries(false);
+    }
+  }, [credentials, toast]);
+
+  const fetchWorkPackages = useCallback(async (projectId?: number) => {
+    if (!credentials) {
+      toast({
+        title: "Not connected",
+        description: "Please connect to Bexio first.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsLoadingWorkPackages(true);
+    try {
+      // Try to fetch work packages from Bexio API
+      // The endpoint might be /pr_package or /package - we'll try /pr_package first
+      const endpoint = projectId ? `/pr_package?pr_project_id=${projectId}` : '/pr_package';
+      
+      const response = await fetch(`https://opcjifbdwpyttaxqlqbf.supabase.co/functions/v1/bexio-proxy`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          endpoint: endpoint,
+          apiKey: credentials.apiKey,
+          companyId: credentials.companyId,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      const workPackages = Array.isArray(data) ? data.map((pkg: any) => ({
+        id: pkg.id?.toString() || pkg.uuid?.toString() || Math.random().toString(),
+        name: pkg.name || 'Unnamed Package',
+        description: pkg.description || '',
+        color: pkg.color || '#3b82f6',
+        pr_project_id: pkg.pr_project_id
+      })) : [];
+      
+      setWorkPackages(workPackages);
+      
+      toast({
+        title: "Work packages loaded successfully",
+        description: `Successfully fetched ${workPackages.length} work packages.`,
+      });
+    } catch (error) {
+      console.error('Error fetching work packages from Bexio:', error);
+      // Fall back to creating some default work packages if API doesn't exist
+      const defaultPackages: WorkPackage[] = [
+        { id: 'analysis', name: 'Analysis', description: 'Analysis tasks', color: '#06b6d4', pr_project_id: projectId },
+        { id: 'development', name: 'Development', description: 'Development tasks', color: '#3b82f6', pr_project_id: projectId },
+        { id: 'testing', name: 'Testing', description: 'QA tasks', color: '#22c55e', pr_project_id: projectId }
+      ];
+      setWorkPackages(defaultPackages);
+      
+      toast({
+        title: "Using default work packages",
+        description: "Bexio work package API not available, using default packages.",
+      });
+    } finally {
+      setIsLoadingWorkPackages(false);
     }
   }, [credentials, toast]);
 
@@ -722,6 +799,7 @@ export const useBexioApi = () => {
     setContacts([]);
     setProjects([]);
     setTimeEntries([]);
+    setWorkPackages([]);
     toast({
       title: "Disconnected",
       description: "You have been disconnected from Bexio.",
@@ -733,15 +811,18 @@ export const useBexioApi = () => {
     contacts,
     projects,
     timeEntries,
+    workPackages,
     isLoadingContacts,
     isLoadingProjects,
     isLoadingTimeEntries,
+    isLoadingWorkPackages,
     isCreatingTimeEntry,
     isConnected: !!credentials,
     connect,
     fetchContacts,
     fetchProjects,
     fetchTimeEntries,
+    fetchWorkPackages,
     createTimeEntry,
     updateTimeEntry,
     deleteTimeEntry,

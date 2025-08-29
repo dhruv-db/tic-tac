@@ -65,6 +65,17 @@ interface TimeTrackingListProps {
   isCreatingTimeEntry?: boolean;
   contacts: Contact[];
   projects: Project[];
+  workPackages: WorkPackage[];
+  isLoadingWorkPackages: boolean;
+  onFetchWorkPackages: (projectId: number) => Promise<void>;
+}
+
+interface WorkPackage {
+  id: string;
+  name: string;
+  description?: string;
+  color?: string;
+  pr_project_id?: number;
 }
 
 export const TimeTrackingList = ({ 
@@ -77,7 +88,10 @@ export const TimeTrackingList = ({
   onBulkDeleteTimeEntries,
   isCreatingTimeEntry = false, 
   contacts, 
-  projects 
+  projects,
+  workPackages,
+  isLoadingWorkPackages,
+  onFetchWorkPackages
 }: TimeTrackingListProps) => {
   const [editingEntry, setEditingEntry] = useState<TimeEntry | null>(null);
   const [activeView, setActiveView] = useState<'list' | 'calendar'>('list');
@@ -274,6 +288,9 @@ export const TimeTrackingList = ({
           isSubmitting={isCreatingTimeEntry}
           contacts={contacts}
           projects={projects}
+          workPackages={workPackages}
+          isLoadingWorkPackages={isLoadingWorkPackages}
+          onFetchWorkPackages={onFetchWorkPackages}
           initialData={calendarInitialData}
         />
       )}
@@ -541,6 +558,9 @@ export const TimeTrackingList = ({
         entry={editingEntry}
         contacts={contacts}
         projects={projects}
+        workPackages={workPackages}
+        isLoadingWorkPackages={isLoadingWorkPackages}
+        onFetchWorkPackages={onFetchWorkPackages}
         isOpen={!!editingEntry}
         onClose={() => setEditingEntry(null)}
         onSubmit={onUpdateTimeEntry || (async () => {})}

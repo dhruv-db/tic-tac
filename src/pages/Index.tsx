@@ -15,15 +15,18 @@ const Index = () => {
     contacts,
     projects,
     timeEntries,
+    workPackages,
     isLoadingContacts,
     isLoadingProjects,
     isLoadingTimeEntries,
+    isLoadingWorkPackages,
     isCreatingTimeEntry,
     isConnected,
     connect,
     fetchContacts,
     fetchProjects,
     fetchTimeEntries,
+    fetchWorkPackages,
     createTimeEntry,
     updateTimeEntry,
     deleteTimeEntry,
@@ -182,6 +185,9 @@ const Index = () => {
               isCreatingTimeEntry={isCreatingTimeEntry}
               contacts={contacts}
               projects={projects}
+              workPackages={workPackages}
+              isLoadingWorkPackages={isLoadingWorkPackages}
+              onFetchWorkPackages={fetchWorkPackages}
             />
           </TabsContent>
         </Tabs>

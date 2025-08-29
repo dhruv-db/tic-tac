@@ -13,7 +13,6 @@ import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { DateRange } from "react-day-picker";
-import { supabase } from "@/integrations/supabase/client";
 
 interface Contact {
   id: number;
@@ -26,6 +25,14 @@ interface Project {
   id: number;
   nr: string;
   name: string;
+}
+
+interface WorkPackage {
+  id: string;
+  name: string;
+  description?: string;
+  color?: string;
+  pr_project_id?: number;
 }
 
 interface TimeEntry {
@@ -60,6 +67,9 @@ interface EditTimeEntryDialogProps {
   entry: TimeEntry | null;
   contacts: Contact[];
   projects: Project[];
+  workPackages: WorkPackage[];
+  isLoadingWorkPackages: boolean;
+  onFetchWorkPackages: (projectId: number) => Promise<void>;
   isOpen: boolean;
   onClose: () => void;
   onSubmit: (id: number, data: TimeEntryFormData) => Promise<void>;
@@ -70,6 +80,9 @@ export const EditTimeEntryDialog = ({
   entry,
   contacts,
   projects,
+  workPackages,
+  isLoadingWorkPackages,
+  onFetchWorkPackages,
   isOpen,
   onClose,
   onSubmit,
@@ -89,66 +102,20 @@ export const EditTimeEntryDialog = ({
   });
   const { toast } = useToast();
 
-  // Dynamic work packages based on selected project (fetched from Supabase)
-  const [workPackages, setWorkPackages] = useState<{ id: string; name: string; color: string }[]>([]);
-  const [isLoadingWorkPackages, setIsLoadingWorkPackages] = useState(false);
-
   const lastProjectIdRef = useRef<number | undefined>(undefined);
   const mountedRef = useRef(true);
   useEffect(() => () => { mountedRef.current = false; }, []);
-
-  const memoizedLoadWorkPackages = useCallback(async (projectId: number) => {
-    if (!mountedRef.current) return;
-    try {
-      setIsLoadingWorkPackages(true);
-      
-      // Fetch work packages from our local Supabase table for Bexio mapping
-      const result = await supabase
-        .from('bexio_work_packages')
-        .select('id, name, bexio_project_id, color')
-        .eq('bexio_project_id', projectId)
-        .eq('is_active', true)
-        .order('name');
-
-      const { data, error } = result;
-
-      if (error || !mountedRef.current) {
-        if (error) console.error('Error fetching work packages:', error);
-        setWorkPackages([]);
-        return;
-      }
-
-      const pkgs = (data || []).map(wp => ({ 
-        id: wp.id, 
-        name: wp.name,
-        color: wp.color || '#3b82f6'
-      }));
-      setWorkPackages(pkgs);
-
-      // Only update if current selection is not in the fetched list
-      setFormData(prev => (
-        pkgs.some(p => p.id === prev.pr_package_id) ? prev : { ...prev, pr_package_id: undefined }
-      ));
-    } catch (e) {
-      console.error('Error loading work packages:', e);
-      if (mountedRef.current) setWorkPackages([]);
-    } finally {
-      if (mountedRef.current) setIsLoadingWorkPackages(false);
-    }
-  }, []);
 
   useEffect(() => {
     const currentProjectId = formData.project_id;
     if (currentProjectId && lastProjectIdRef.current !== currentProjectId) {
       lastProjectIdRef.current = currentProjectId;
-      memoizedLoadWorkPackages(currentProjectId);
+      onFetchWorkPackages(currentProjectId);
     }
     if (!currentProjectId && lastProjectIdRef.current !== undefined) {
       lastProjectIdRef.current = undefined;
-      setWorkPackages([]);
-      setFormData(prev => (prev.pr_package_id ? { ...prev, pr_package_id: undefined } : prev));
     }
-  }, [formData.project_id, memoizedLoadWorkPackages]);
+  }, [formData.project_id, onFetchWorkPackages]);
 
   const getContactName = (contact: Contact) => {
     const names = [contact.name_1, contact.name_2].filter(Boolean);
