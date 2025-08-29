@@ -319,77 +319,93 @@ export const useBexioApi = () => {
         currentDate.setDate(currentDate.getDate() + 1);
       }
 
-      // Create time entries for each date with rate limiting
-      const results = [];
+      // Create time entries for each date with rate limiting + retries
+      const results: any[] = [];
+      const failures: { date: string; error: string }[] = [];
       const batchSize = 5; // Process 5 entries at a time
-      const delayBetweenBatches = 1000; // 1 second delay between batches
-      
+      const delayBetweenBatches = 1000; // 1s between batches
+
+      const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+      const createWithRetry = async (date: Date) => {
+        const bexioData = {
+          user_id: 1,
+          client_service_id: 5,
+          text: timeEntryData.text || "",
+          allowable_bill: timeEntryData.allowable_bill,
+          tracking: {
+            type: "duration",
+            date: date.toISOString().split('T')[0],
+            duration: durationString,
+          },
+          ...(timeEntryData.contact_id && { contact_id: timeEntryData.contact_id }),
+          ...(timeEntryData.project_id && { pr_project_id: timeEntryData.project_id }),
+        };
+
+        const maxRetries = 3;
+        for (let attempt = 1; attempt <= maxRetries; attempt++) {
+          try {
+            const response = await fetch(`https://opcjifbdwpyttaxqlqbf.supabase.co/functions/v1/bexio-proxy`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                endpoint: '/timesheet',
+                method: 'POST',
+                apiKey: credentials.apiKey,
+                companyId: credentials.companyId,
+                data: bexioData,
+              }),
+            });
+
+            if (!response.ok) {
+              const errorData = await response.json().catch(() => ({} as any));
+              throw new Error(`${errorData.error || 'HTTP error'} (${response.status})`);
+            }
+
+            return await response.json();
+          } catch (err) {
+            if (attempt === maxRetries) throw err;
+            // Exponential backoff with jitter
+            const backoff = 400 * Math.pow(2, attempt - 1) + Math.floor(Math.random() * 200);
+            await sleep(backoff);
+          }
+        }
+      };
+
       console.log(`Creating ${dates.length} time entries in batches of ${batchSize}`);
-      
+
       for (let i = 0; i < dates.length; i += batchSize) {
         const batch = dates.slice(i, i + batchSize);
         console.log(`Processing batch ${Math.floor(i / batchSize) + 1}/${Math.ceil(dates.length / batchSize)}`);
-        
-        const batchPromises = batch.map(async (date) => {
-          const bexioData = {
-            user_id: 1, // Default user ID, might need to be dynamic
-            client_service_id: 5, // Default service ID (from existing data)
-            text: timeEntryData.text || "",
-            allowable_bill: timeEntryData.allowable_bill,
-            tracking: {
-              type: "duration",
-              date: date.toISOString().split('T')[0], // Format as YYYY-MM-DD
-              duration: durationString, // Format as HH:MM
-            },
-            ...(timeEntryData.contact_id && { contact_id: timeEntryData.contact_id }),
-            ...(timeEntryData.project_id && { pr_project_id: timeEntryData.project_id }),
-          };
 
-          const response = await fetch(`https://opcjifbdwpyttaxqlqbf.supabase.co/functions/v1/bexio-proxy`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              endpoint: '/timesheet',
-              method: 'POST',
-              apiKey: credentials.apiKey,
-              companyId: credentials.companyId,
-              data: bexioData,
-            }),
-          });
-
-          if (!response.ok) {
-            const errorData = await response.json().catch(() => ({}));
-            throw new Error(`${errorData.error || 'HTTP error'} (${response.status}) for date ${date.toISOString().split('T')[0]}`);
+        const settled = await Promise.allSettled(batch.map((d) => createWithRetry(d)));
+        settled.forEach((res, idx) => {
+          const d = batch[idx];
+          const dateStr = d.toISOString().split('T')[0];
+          if (res.status === 'fulfilled') {
+            results.push(res.value);
+          } else {
+            failures.push({ date: dateStr, error: res.reason instanceof Error ? res.reason.message : 'Unknown error' });
           }
-
-          return response.json();
         });
 
-        try {
-          const batchResults = await Promise.all(batchPromises);
-          results.push(...batchResults);
-          
-          // Add delay between batches (except for the last batch)
-          if (i + batchSize < dates.length) {
-            await new Promise(resolve => setTimeout(resolve, delayBetweenBatches));
-          }
-        } catch (error) {
-          console.error(`Batch ${Math.floor(i / batchSize) + 1} failed:`, error);
-          // Continue with remaining batches, but track the error
-          toast({
-            title: "Partial failure",
-            description: `Some time entries failed to create. ${results.length} entries created so far.`,
-            variant: "destructive",
-          });
+        if (i + batchSize < dates.length) {
+          await sleep(delayBetweenBatches);
         }
       }
-      
-      toast({
-        title: "Time entries created",
-        description: `Successfully created ${results.length} time entries for the selected date range.`,
-      });
+
+      if (failures.length > 0) {
+        toast({
+          title: "Partial failure",
+          description: `${results.length} entries created, ${failures.length} failed. First error: ${failures[0].date} - ${failures[0].error}`,
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Time entries created",
+          description: `Successfully created ${results.length} time entries for the selected date range.`,
+        });
+      }
 
       // Refresh time entries to show the new ones
       await fetchTimeEntries();

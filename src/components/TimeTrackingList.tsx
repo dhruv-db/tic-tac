@@ -95,9 +95,17 @@ export const TimeTrackingList = ({
   }, [isCreatingTimeEntry, calendarInitialData]);
   
   const toSeconds = (duration: string | number): number => {
-    if (typeof duration === 'number') return duration;
+    if (typeof duration === 'number') return duration; // already in seconds
     if (typeof duration === 'string') {
-      const parsed = parseFloat(duration);
+      // Handle formats like "HH:MM" or "H:MM"
+      if (duration.includes(':')) {
+        const [h, m] = duration.split(':').map((v) => parseInt(v, 10));
+        const hours = isNaN(h) ? 0 : h;
+        const minutes = isNaN(m) ? 0 : m;
+        return hours * 3600 + minutes * 60;
+      }
+      // Fallback: numeric string representing seconds
+      const parsed = Number(duration);
       return isNaN(parsed) ? 0 : parsed;
     }
     return 0;
