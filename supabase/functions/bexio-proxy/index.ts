@@ -40,6 +40,7 @@ serve(async (req) => {
       headers: {
         'Authorization': `Bearer ${apiKey}`,
         'Accept': 'application/json',
+        'Accept-Language': 'en',
         'Content-Type': 'application/json',
         'User-Agent': 'Lovable-Bexio-Proxy/1.0',
       },
