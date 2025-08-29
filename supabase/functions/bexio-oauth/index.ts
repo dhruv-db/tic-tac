@@ -20,7 +20,7 @@ serve(async (req) => {
   try {
     // Handle OAuth initiation
     if (path.endsWith('/auth') && req.method === 'POST') {
-      const { state, scope: requestedScope } = await req.json();
+      const { state, scope: requestedScope, codeChallenge, codeChallengeMethod } = await req.json();
       
       const clientId = Deno.env.get('BEXIO_CLIENT_ID');
       if (!clientId) {
@@ -32,19 +32,26 @@ serve(async (req) => {
       }
 
       const redirectUri = `https://${url.hostname}/functions/v1/bexio-oauth/callback`;
-      // Default to basic OIDC scopes; extend in your Bexio app if needed
-      const scope = requestedScope || 'openid offline_access';
+      
+      // Full API access scopes: OIDC + all API scopes
+      const fullScope = requestedScope || 'openid profile email company_profile offline_access accounting contact_show contact_edit project_show project_edit timesheet_show timesheet_edit invoice_show invoice_edit kb_offer_show kb_invoice_show kb_credit_voucher_show kb_bill_show';
 
       const params = new URLSearchParams({
         client_id: clientId,
         redirect_uri: redirectUri,
         response_type: 'code',
-        scope,
+        scope: fullScope,
         state,
       });
 
+      // Add PKCE parameters if provided
+      if (codeChallenge && codeChallengeMethod) {
+        params.set('code_challenge', codeChallenge);
+        params.set('code_challenge_method', codeChallengeMethod);
+      }
+
       const authUrl = `https://auth.bexio.com/realms/bexio/protocol/openid-connect/auth?${params.toString()}`;
-      console.log(`Generated OAuth URL: ${authUrl}`);
+      console.log(`Generated OAuth URL with full API access: ${authUrl}`);
 
       return new Response(JSON.stringify({ authUrl }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -112,18 +119,29 @@ serve(async (req) => {
       
       try {
         console.log('Exchanging code for access token...');
+        
+        // Get codeVerifier from state if PKCE was used (stored in URL fragment or passed separately)
+        const codeVerifier = url.searchParams.get('code_verifier');
+        
+        const tokenParams = new URLSearchParams({
+          grant_type: 'authorization_code',
+          client_id: clientId,
+          client_secret: clientSecret,
+          redirect_uri: redirectUri,
+          code: code,
+        });
+
+        // Add PKCE code_verifier if present
+        if (codeVerifier) {
+          tokenParams.set('code_verifier', codeVerifier);
+        }
+
         const tokenResponse = await fetch('https://auth.bexio.com/realms/bexio/protocol/openid-connect/token', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/x-www-form-urlencoded',
           },
-          body: new URLSearchParams({
-            grant_type: 'authorization_code',
-            client_id: clientId,
-            client_secret: clientSecret,
-            redirect_uri: redirectUri,
-            code: code,
-          }),
+          body: tokenParams,
         });
 
         if (!tokenResponse.ok) {

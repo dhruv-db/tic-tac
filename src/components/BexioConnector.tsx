@@ -36,7 +36,31 @@ export const BexioConnector = ({ onConnect, onOAuthConnect, isConnected }: Bexio
       // Generate a random state for security
       const state = Math.random().toString(36).substring(2, 15);
       
-      console.log('🚀 Starting OAuth flow with state:', state);
+      // Generate PKCE parameters for enhanced security
+      const generatePKCE = () => {
+        const codeVerifier = Array.from(crypto.getRandomValues(new Uint8Array(32)))
+          .map(b => String.fromCharCode(b))
+          .join('')
+          .replace(/[^a-zA-Z0-9]/g, '')
+          .substring(0, 43);
+        
+        const encoder = new TextEncoder();
+        const data = encoder.encode(codeVerifier);
+        return crypto.subtle.digest('SHA-256', data).then(hash => {
+          const codeChallenge = btoa(String.fromCharCode(...new Uint8Array(hash)))
+            .replace(/\+/g, '-')
+            .replace(/\//g, '_')
+            .replace(/=/g, '');
+          return { codeVerifier, codeChallenge };
+        });
+      };
+
+      const { codeVerifier, codeChallenge } = await generatePKCE();
+      
+      console.log('🚀 Starting OAuth flow with PKCE:', { state, hasCodeChallenge: !!codeChallenge });
+      
+      // Full API access scopes
+      const fullScope = 'openid profile email company_profile offline_access accounting contact_show contact_edit project_show project_edit timesheet_show timesheet_edit invoice_show invoice_edit kb_offer_show kb_invoice_show kb_credit_voucher_show kb_bill_show';
       
       // Get OAuth URL from our edge function
       const response = await fetch('https://opcjifbdwpyttaxqlqbf.supabase.co/functions/v1/bexio-oauth/auth', {
@@ -46,8 +70,9 @@ export const BexioConnector = ({ onConnect, onOAuthConnect, isConnected }: Bexio
         },
         body: JSON.stringify({ 
           state,
-          // Request all read scopes needed by the app to avoid 401s
-          scope: 'openid offline_access contact_show pr_project_show timesheet_show company_profile'
+          scope: fullScope,
+          codeChallenge,
+          codeChallengeMethod: 'S256'
         }),
       });
 
