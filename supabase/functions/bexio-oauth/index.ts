@@ -199,28 +199,52 @@ serve(async (req) => {
                     // Store in localStorage as backup communication method
                     try {
                       localStorage.setItem('bexio_oauth_success', JSON.stringify(payload));
-                    } catch (e) { console.warn('localStorage failed:', e); }
+                      console.log('✅ Stored OAuth success in localStorage');
+                    } catch (e) { 
+                      console.warn('❌ localStorage failed:', e); 
+                    }
 
                     var attempts = 0;
-                    var maxAttempts = 50; // ~10 seconds
+                    var maxAttempts = 25; // ~5 seconds at 200ms intervals
 
                     function send() {
                       try {
                         if (window.opener && !window.opener.closed) {
-                          console.log('Sending OAuth success to opener:', payload);
-                          window.opener.postMessage(payload, '*');
+                          console.log('📨 Popup sending OAuth success to opener (attempt ' + (attempts + 1) + '):', payload);
+                          // Try multiple target origins to ensure cross-origin communication works
+                          try {
+                            window.opener.postMessage(payload, '*');
+                            console.log('✅ Sent with wildcard origin');
+                          } catch (e1) {
+                            console.warn('⚠️ Wildcard failed:', e1.message);
+                            try {
+                              // Try specific Lovable origin
+                              window.opener.postMessage(payload, 'https://' + window.location.hostname.replace('opcjifbdwpyttaxqlqbf.supabase.co', '4bf4f80d-52ee-4c37-86a7-92c7a81427b7.sandbox.lovable.dev'));
+                              console.log('✅ Sent with specific origin');
+                            } catch (e2) {
+                              console.warn('⚠️ Specific origin failed:', e2.message);
+                            }
+                          }
+                        } else {
+                          console.log('⚠️ No opener window available');
                         }
                       } catch (e) { 
-                        console.warn('postMessage failed:', e); 
+                        console.warn('❌ postMessage failed:', e.message); 
                       }
+                      
                       attempts++;
                       if (attempts >= maxAttempts) {
                         clearInterval(timer);
-                        setTimeout(function(){ window.close(); }, 200);
+                        console.log('⏰ Stopping attempts after ' + maxAttempts + ' tries');
+                        setTimeout(function(){ 
+                          console.log('🔒 Auto-closing popup');
+                          window.close(); 
+                        }, 500);
                       }
                     }
 
-                    // Send immediately and then keep sending for a short period to avoid race conditions
+                    // Send immediately and then keep sending
+                    console.log('🚀 Starting OAuth communication from popup');
                     send();
                     var timer = setInterval(send, 200);
 
@@ -229,10 +253,13 @@ serve(async (req) => {
                       try {
                         var data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
                         if (data && data.type === 'BEXIO_OAUTH_ACK') {
+                          console.log('✅ Received ACK from main app');
                           clearInterval(timer);
                           setTimeout(function(){ window.close(); }, 200);
                         }
-                      } catch (e) { /* ignore */ }
+                      } catch (e) { 
+                        console.warn('⚠️ ACK handling failed:', e); 
+                      }
                     });
                   })();
                 </script>

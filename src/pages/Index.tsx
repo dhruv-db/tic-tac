@@ -51,6 +51,7 @@ const Index = () => {
     const onMessage = (event: MessageEvent) => {
       try {
         console.log('📨 Message received in main app:', event.data, 'from origin:', event.origin);
+        // Accept messages from any origin for OAuth (since popup comes from Supabase domain)
         const data = typeof (event as any).data === 'string' ? JSON.parse((event as any).data) : (event as any).data;
         if (data?.type === 'BEXIO_OAUTH_SUCCESS' && !isConnected) {
           console.log('🎉 BEXIO_OAUTH_SUCCESS detected! Processing...');
@@ -58,6 +59,23 @@ const Index = () => {
           console.log('📋 Extracted credentials:', { hasAccessToken: !!accessToken, hasRefreshToken: !!refreshToken, companyId, userEmail });
           console.log('🚀 Calling connectWithOAuth...');
           connectWithOAuth(accessToken, refreshToken, companyId, userEmail);
+          
+          // Send ACK back to popup to confirm receipt
+          try {
+            const popup = Array.from(window.frames).find(frame => {
+              try {
+                return frame !== window;
+              } catch (e) {
+                return false;
+              }
+            });
+            if (event.source && typeof event.source.postMessage === 'function') {
+              (event.source as Window).postMessage({ type: 'BEXIO_OAUTH_ACK' }, event.origin === 'null' ? '*' : event.origin);
+              console.log('✅ Sent ACK back to popup');
+            }
+          } catch (ackErr) {
+            console.warn('⚠️ Failed to send ACK:', ackErr);
+          }
         } else {
           console.log('ℹ️ Message ignored:', { 
             type: data?.type, 
