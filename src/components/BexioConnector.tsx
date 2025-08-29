@@ -36,6 +36,14 @@ export const BexioConnector = ({ onConnect, onOAuthConnect, isConnected }: Bexio
       // Generate a random state for security
       const state = Math.random().toString(36).substring(2, 15);
       
+      // Open popup immediately to avoid blockers
+      const popup = window.open('', 'bexio-oauth', 'width=600,height=700,scrollbars=yes,resizable=yes');
+      
+      // Check if popup was blocked
+      if (!popup || popup.closed || typeof popup.closed === 'undefined') {
+        throw new Error('Popup was blocked by your browser. Please allow popups for this site and try again.');
+      }
+      
       // Get OAuth URL from our edge function
       const response = await fetch('https://opcjifbdwpyttaxqlqbf.supabase.co/functions/v1/bexio-oauth/auth', {
         method: 'POST',
@@ -52,13 +60,8 @@ export const BexioConnector = ({ onConnect, onOAuthConnect, isConnected }: Bexio
 
       const { authUrl } = await response.json();
       
-      // Open OAuth popup with better popup detection
-      const popup = window.open(authUrl, 'bexio-oauth', 'width=600,height=700,scrollbars=yes,resizable=yes');
-      
-      // Check if popup was blocked
-      if (!popup || popup.closed || typeof popup.closed === 'undefined') {
-        throw new Error('Popup was blocked by your browser. Please allow popups for this site and try again.');
-      }
+      // Navigate the already-opened popup to the auth URL
+      popup.location.href = authUrl;
       
       // Listen for OAuth completion
       const handleMessage = (event: MessageEvent) => {

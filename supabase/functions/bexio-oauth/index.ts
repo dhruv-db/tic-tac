@@ -20,7 +20,7 @@ serve(async (req) => {
   try {
     // Handle OAuth initiation
     if (path.endsWith('/auth') && req.method === 'POST') {
-      const { state } = await req.json();
+      const { state, scope: requestedScope } = await req.json();
       
       const clientId = Deno.env.get('BEXIO_CLIENT_ID');
       if (!clientId) {
@@ -32,15 +32,18 @@ serve(async (req) => {
       }
 
       const redirectUri = `https://${url.hostname}/functions/v1/bexio-oauth/callback`;
-      const scope = 'general';
-      
-      const authUrl = `https://office.bexio.com/oauth/authorize?` +
-        `client_id=${clientId}&` +
-        `redirect_uri=${encodeURIComponent(redirectUri)}&` +
-        `scope=${scope}&` +
-        `state=${state}&` +
-        `response_type=code`;
+      // Default to basic OIDC scopes; extend in your Bexio app if needed
+      const scope = requestedScope || 'openid offline_access';
 
+      const params = new URLSearchParams({
+        client_id: clientId,
+        redirect_uri: redirectUri,
+        response_type: 'code',
+        scope,
+        state,
+      });
+
+      const authUrl = `https://auth.bexio.com/realms/bexio/protocol/openid-connect/auth?${params.toString()}`;
       console.log(`Generated OAuth URL: ${authUrl}`);
 
       return new Response(JSON.stringify({ authUrl }), {
@@ -109,7 +112,7 @@ serve(async (req) => {
       
       try {
         console.log('Exchanging code for access token...');
-        const tokenResponse = await fetch('https://office.bexio.com/oauth/access_token', {
+        const tokenResponse = await fetch('https://auth.bexio.com/realms/bexio/protocol/openid-connect/token', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/x-www-form-urlencoded',
@@ -215,7 +218,7 @@ serve(async (req) => {
 
       try {
         console.log('Refreshing access token...');
-        const tokenResponse = await fetch('https://office.bexio.com/oauth/access_token', {
+        const tokenResponse = await fetch('https://auth.bexio.com/realms/bexio/protocol/openid-connect/token', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/x-www-form-urlencoded',
