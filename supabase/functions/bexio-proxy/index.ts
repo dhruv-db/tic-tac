@@ -29,8 +29,12 @@ serve(async (req) => {
       console.log('Request payload:', JSON.stringify(requestData, null, 2));
     }
 
-    const bexioUrl = `https://api.bexio.com/2.0${endpoint}`;
-    
+    // Build correct Bexio base URL depending on version in the endpoint
+    const bexioUrl = endpoint.startsWith('/3.0')
+      ? `https://api.bexio.com${endpoint}`
+      : (endpoint.startsWith('/2.0')
+          ? `https://api.bexio.com${endpoint}`
+          : `https://api.bexio.com/2.0${endpoint}`);
     const requestOptions: RequestInit = {
       method: method,
       headers: {
