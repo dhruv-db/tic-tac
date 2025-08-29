@@ -57,6 +57,12 @@ const Index = () => {
         localStorage.setItem('bexio_oauth_success', JSON.stringify(data));
         localStorage.setItem('bexio_oauth_ready', 'true');
         try { (window as any).name = ''; } catch (_) {}
+        // Immediately connect without waiting for polling
+        const { accessToken, refreshToken, companyId, userEmail } = data.credentials || {};
+        if (accessToken) {
+          console.log('🚀 Connecting immediately using window.name payload');
+          connectWithOAuth(accessToken, refreshToken, companyId, userEmail);
+        }
       }
     } catch (e) {
       console.warn('Failed to read window.name OAuth payload:', e);
