@@ -32,8 +32,8 @@ serve(async (req) => {
       }
 
       const redirectUri = `https://${url.hostname}/functions/v1/bexio-oauth/callback`;
-      // Default to basic OIDC scopes; extend in your Bexio app if needed
-      const scope = requestedScope || 'openid offline_access';
+      // Include necessary scopes for Bexio API access
+      const scope = requestedScope || 'openid offline_access general';
 
       const params = new URLSearchParams({
         client_id: clientId,
