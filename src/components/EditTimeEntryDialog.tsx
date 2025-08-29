@@ -88,6 +88,52 @@ export const EditTimeEntryDialog = ({
   });
   const { toast } = useToast();
 
+  // Dynamic work packages based on selected project (fetched from Bexio)
+  const [workPackages, setWorkPackages] = useState<{ id: number; name: string }[]>([]);
+  const [isLoadingWorkPackages, setIsLoadingWorkPackages] = useState(false);
+
+  useEffect(() => {
+    const loadWorkPackages = async (projectId: number) => {
+      try {
+        setIsLoadingWorkPackages(true);
+        const stored = localStorage.getItem('bexio_credentials');
+        if (!stored) {
+          setWorkPackages([]);
+          return;
+        }
+        const { apiKey, companyId } = JSON.parse(stored);
+        const resp = await fetch(`https://opcjifbdwpyttaxqlqbf.supabase.co/functions/v1/bexio-proxy`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ endpoint: '/pr_package', apiKey, companyId }),
+        });
+        const data = await resp.json();
+        const pkgs = (Array.isArray(data) ? data : [])
+          .filter((p: any) => p.pr_project_id === projectId)
+          .map((p: any) => ({ id: p.id, name: p.name || `Package #${p.id}` }));
+        setWorkPackages(pkgs);
+
+        // If current selection is not in fetched list, reset to none to avoid 422s
+        setFormData(prev => ({
+          ...prev,
+          pr_package_id: pkgs.some((p) => p.id === prev.pr_package_id) ? prev.pr_package_id : undefined,
+        }));
+      } catch (e) {
+        setWorkPackages([]);
+      } finally {
+        setIsLoadingWorkPackages(false);
+      }
+    };
+
+    if (formData.project_id) {
+      loadWorkPackages(formData.project_id);
+    } else {
+      setWorkPackages([]);
+      // Clear work package when project is cleared
+      setFormData(prev => ({ ...prev, pr_package_id: undefined }));
+    }
+  }, [formData.project_id]);
+
   const getContactName = (contact: Contact) => {
     const names = [contact.name_1, contact.name_2].filter(Boolean);
     return names.length > 0 ? names.join(' ') : 'Unnamed Contact';
@@ -367,6 +413,7 @@ export const EditTimeEntryDialog = ({
             <div className="space-y-2">
               <Label htmlFor="pr_package_id">Work Package (Optional)</Label>
               <Select
+                disabled={!formData.project_id || isLoadingWorkPackages}
                 value={formData.pr_package_id?.toString() || "none"}
                 onValueChange={(value) => setFormData(prev => ({ 
                   ...prev, 
@@ -378,11 +425,15 @@ export const EditTimeEntryDialog = ({
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">No work package</SelectItem>
-                  <SelectItem value="1">Development</SelectItem>
-                  <SelectItem value="2">Testing</SelectItem>
-                  <SelectItem value="3">Documentation</SelectItem>
-                  <SelectItem value="4">Meeting</SelectItem>
-                  <SelectItem value="5">Analysis</SelectItem>
+                  {isLoadingWorkPackages ? (
+                    <SelectItem value="none" disabled>Loading...</SelectItem>
+                  ) : (
+                    workPackages.map((wp) => (
+                      <SelectItem key={wp.id} value={wp.id.toString()}>
+                        {wp.name}
+                      </SelectItem>
+                    ))
+                  )}
                 </SelectContent>
               </Select>
             </div>
