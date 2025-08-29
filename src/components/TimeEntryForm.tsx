@@ -18,6 +18,8 @@ interface TimeEntryFormData {
   dateRange: DateRange | undefined;
   startTime: string;
   endTime: string;
+  duration: string;
+  useDuration: boolean;
   text: string;
   allowable_bill: boolean;
   contact_id?: number;
@@ -89,6 +91,8 @@ export const TimeEntryForm = ({
     dateRange: initialData?.dateRange || undefined,
     startTime: initialData?.startTime || "09:00",
     endTime: initialData?.endTime || "17:00",
+    duration: initialData?.duration || "08:00",
+    useDuration: initialData?.useDuration || false,
     text: initialData?.text || "",
     allowable_bill: initialData?.allowable_bill ?? true,
     contact_id: initialData?.contact_id,
@@ -131,6 +135,8 @@ export const TimeEntryForm = ({
         dateRange: initialData.dateRange,
         startTime: initialData.startTime || "09:00",
         endTime: initialData.endTime || "17:00",
+        duration: initialData.duration || "08:00",
+        useDuration: initialData.useDuration || false,
         text: initialData.text || "",
         allowable_bill: initialData.allowable_bill ?? true,
         contact_id: initialData.contact_id,
@@ -148,6 +154,17 @@ export const TimeEntryForm = ({
       }, 100);
     }
   }, [initialData]);
+
+  const parseDuration = (durationStr: string): number => {
+    const [hours, minutes] = durationStr.split(':').map(Number);
+    return (hours * 60 + minutes) * 60; // Convert to seconds
+  };
+
+  const formatDuration = (seconds: number): string => {
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+  };
 
   const calculateDuration = (start: string, end: string): number => {
     const [startHours, startMinutes] = start.split(':').map(Number);
@@ -185,14 +202,28 @@ export const TimeEntryForm = ({
       return;
     }
 
-    const duration = calculateDuration(formData.startTime, formData.endTime);
-    if (duration <= 0) {
-      toast({
-        title: "Validation Error",
-        description: "End time must be after start time.",
-        variant: "destructive",
-      });
-      return;
+    if (formData.useDuration) {
+      // Validate duration input
+      const duration = parseDuration(formData.duration);
+      if (duration <= 0) {
+        toast({
+          title: "Validation Error",
+          description: "Duration must be greater than 0.",
+          variant: "destructive",
+        });
+        return;
+      }
+    } else {
+      // Validate start/end time
+      const duration = calculateDuration(formData.startTime, formData.endTime);
+      if (duration <= 0) {
+        toast({
+          title: "Validation Error",
+          description: "End time must be after start time.",
+          variant: "destructive",
+        });
+        return;
+      }
     }
     
     try {
@@ -210,6 +241,8 @@ export const TimeEntryForm = ({
         dateRange: undefined,
         startTime: "09:00",
         endTime: "17:00",
+        duration: "08:00",
+        useDuration: false,
         text: "",
         allowable_bill: true,
         contact_id: undefined,
@@ -289,36 +322,64 @@ export const TimeEntryForm = ({
             </Popover>
           </div>
 
-          {/* Time Range */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="startTime">Start Time</Label>
-              <Input
-                id="startTime"
-                type="time"
-                value={formData.startTime}
-                onChange={(e) => setFormData(prev => ({ ...prev, startTime: e.target.value }))}
+          {/* Time Input Mode Toggle */}
+          <div className="space-y-3">
+            <div className="flex items-center space-x-2">
+              <Switch
+                id="useDuration"
+                checked={formData.useDuration}
+                onCheckedChange={(checked) => setFormData(prev => ({ ...prev, useDuration: checked }))}
               />
+              <Label htmlFor="useDuration">Enter duration directly</Label>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="endTime">End Time</Label>
-              <Input
-                id="endTime"
-                type="time"
-                value={formData.endTime}
-                onChange={(e) => setFormData(prev => ({ ...prev, endTime: e.target.value }))}
-              />
-            </div>
-          </div>
 
-          {/* Duration Display */}
-          <div className="text-sm text-muted-foreground">
-            Daily duration: {Math.floor(calculateDuration(formData.startTime, formData.endTime) / 3600)}h {Math.floor((calculateDuration(formData.startTime, formData.endTime) % 3600) / 60)}m
-            {formData.dateRange?.from && formData.dateRange?.to && (
-              <span className="ml-4">
-                Total days: {differenceInDays(formData.dateRange.to, formData.dateRange.from) + 1}
-              </span>
+            {formData.useDuration ? (
+              /* Duration Input */
+              <div className="space-y-2">
+                <Label htmlFor="duration">Duration (HH:MM)</Label>
+                <Input
+                  id="duration"
+                  type="time"
+                  value={formData.duration}
+                  onChange={(e) => setFormData(prev => ({ ...prev, duration: e.target.value }))}
+                />
+              </div>
+            ) : (
+              /* Time Range */
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="startTime">Start Time</Label>
+                  <Input
+                    id="startTime"
+                    type="time"
+                    value={formData.startTime}
+                    onChange={(e) => setFormData(prev => ({ ...prev, startTime: e.target.value }))}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="endTime">End Time</Label>
+                  <Input
+                    id="endTime"
+                    type="time"
+                    value={formData.endTime}
+                    onChange={(e) => setFormData(prev => ({ ...prev, endTime: e.target.value }))}
+                  />
+                </div>
+              </div>
             )}
+
+            {/* Duration Display */}
+            <div className="text-sm text-muted-foreground">
+              Daily duration: {formData.useDuration 
+                ? `${Math.floor(parseDuration(formData.duration) / 3600)}h ${Math.floor((parseDuration(formData.duration) % 3600) / 60)}m`
+                : `${Math.floor(calculateDuration(formData.startTime, formData.endTime) / 3600)}h ${Math.floor((calculateDuration(formData.startTime, formData.endTime) % 3600) / 60)}m`
+              }
+              {formData.dateRange?.from && formData.dateRange?.to && (
+                <span className="ml-4">
+                  Total days: {differenceInDays(formData.dateRange.to, formData.dateRange.from) + 1}
+                </span>
+              )}
+            </div>
           </div>
 
           {/* Description */}

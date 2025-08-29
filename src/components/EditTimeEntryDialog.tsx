@@ -54,6 +54,8 @@ interface TimeEntryFormData {
   dateRange: DateRange | undefined;
   startTime: string;
   endTime: string;
+  duration: string;
+  useDuration: boolean;
   text: string;
   allowable_bill: boolean;
   contact_id?: number;
@@ -104,6 +106,8 @@ export const EditTimeEntryDialog = ({
     dateRange: undefined,
     startTime: "09:00",
     endTime: "17:00",
+    duration: "08:00",
+    useDuration: false,
     text: "",
     allowable_bill: true,
     contact_id: undefined,
@@ -176,6 +180,8 @@ export const EditTimeEntryDialog = ({
         },
         startTime,
         endTime,
+        duration: "08:00",
+        useDuration: false,
         text: entry.text || "",
         allowable_bill: entry.allowable_bill,
         contact_id: entry.contact_id,
@@ -210,6 +216,11 @@ export const EditTimeEntryDialog = ({
     return duration * 60; // Convert to seconds
   };
 
+  const parseDuration = (durationStr: string): number => {
+    const [hours, minutes] = durationStr.split(':').map(Number);
+    return (hours * 60 + minutes) * 60; // Convert to seconds
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -233,14 +244,28 @@ export const EditTimeEntryDialog = ({
       return;
     }
 
-    const duration = calculateDuration(formData.startTime, formData.endTime);
-    if (duration <= 0) {
-      toast({
-        title: "Validation Error",
-        description: "End time must be after start time.",
-        variant: "destructive",
-      });
-      return;
+    if (formData.useDuration) {
+      // Validate duration input
+      const duration = parseDuration(formData.duration);
+      if (duration <= 0) {
+        toast({
+          title: "Validation Error",
+          description: "Duration must be greater than 0.",
+          variant: "destructive",
+        });
+        return;
+      }
+    } else {
+      // Validate start/end time
+      const duration = calculateDuration(formData.startTime, formData.endTime);
+      if (duration <= 0) {
+        toast({
+          title: "Validation Error",
+          description: "End time must be after start time.",
+          variant: "destructive",
+        });
+        return;
+      }
     }
     
     try {
@@ -306,31 +331,59 @@ export const EditTimeEntryDialog = ({
             </Popover>
           </div>
 
-          {/* Time Range */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="startTime">Start Time</Label>
-              <Input
-                id="startTime"
-                type="time"
-                value={formData.startTime}
-                onChange={(e) => setFormData(prev => ({ ...prev, startTime: e.target.value }))}
+          {/* Time Input Mode Toggle */}
+          <div className="space-y-3">
+            <div className="flex items-center space-x-2">
+              <Switch
+                id="useDuration"
+                checked={formData.useDuration}
+                onCheckedChange={(checked) => setFormData(prev => ({ ...prev, useDuration: checked }))}
               />
+              <Label htmlFor="useDuration">Enter duration directly</Label>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="endTime">End Time</Label>
-              <Input
-                id="endTime"
-                type="time"
-                value={formData.endTime}
-                onChange={(e) => setFormData(prev => ({ ...prev, endTime: e.target.value }))}
-              />
-            </div>
-          </div>
 
-          {/* Duration Display */}
-          <div className="text-sm text-muted-foreground">
-            Duration: {Math.floor(calculateDuration(formData.startTime, formData.endTime) / 3600)}h {Math.floor((calculateDuration(formData.startTime, formData.endTime) % 3600) / 60)}m
+            {formData.useDuration ? (
+              /* Duration Input */
+              <div className="space-y-2">
+                <Label htmlFor="duration">Duration (HH:MM)</Label>
+                <Input
+                  id="duration"
+                  type="time"
+                  value={formData.duration}
+                  onChange={(e) => setFormData(prev => ({ ...prev, duration: e.target.value }))}
+                />
+              </div>
+            ) : (
+              /* Time Range */
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="startTime">Start Time</Label>
+                  <Input
+                    id="startTime"
+                    type="time"
+                    value={formData.startTime}
+                    onChange={(e) => setFormData(prev => ({ ...prev, startTime: e.target.value }))}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="endTime">End Time</Label>
+                  <Input
+                    id="endTime"
+                    type="time"
+                    value={formData.endTime}
+                    onChange={(e) => setFormData(prev => ({ ...prev, endTime: e.target.value }))}
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Duration Display */}
+            <div className="text-sm text-muted-foreground">
+              Duration: {formData.useDuration 
+                ? `${Math.floor(parseDuration(formData.duration) / 3600)}h ${Math.floor((parseDuration(formData.duration) % 3600) / 60)}m`
+                : `${Math.floor(calculateDuration(formData.startTime, formData.endTime) / 3600)}h ${Math.floor((calculateDuration(formData.startTime, formData.endTime) % 3600) / 60)}m`
+              }
+            </div>
           </div>
 
           {/* Description */}

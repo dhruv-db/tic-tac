@@ -389,8 +389,10 @@ export const useBexioApi = () => {
 
   const createTimeEntry = useCallback(async (timeEntryData: {
     dateRange: DateRange | undefined;
-    startTime: string;
-    endTime: string;
+    startTime?: string;
+    endTime?: string;
+    duration?: string;
+    useDuration?: boolean;
     text: string;
     allowable_bill: boolean;
     contact_id?: number;
@@ -420,21 +422,30 @@ export const useBexioApi = () => {
 
     setIsCreatingTimeEntry(true);
     try {
-      // Calculate duration from time range
-      const [startHours, startMinutes] = timeEntryData.startTime.split(':').map(Number);
-      const [endHours, endMinutes] = timeEntryData.endTime.split(':').map(Number);
+      // Calculate duration
+      let durationString: string;
       
-      const startTotalMinutes = startHours * 60 + startMinutes;
-      const endTotalMinutes = endHours * 60 + endMinutes;
-      
-      let durationMinutes = endTotalMinutes - startTotalMinutes;
-      if (durationMinutes < 0) {
-        durationMinutes += 24 * 60; // Handle overnight work
+      if (timeEntryData.useDuration && timeEntryData.duration) {
+        // Use direct duration input
+        const [hours, minutes] = timeEntryData.duration.split(':').map(Number);
+        durationString = `${hours}:${minutes.toString().padStart(2, '0')}`;
+      } else {
+        // Calculate from start/end times
+        const [startHours, startMinutes] = (timeEntryData.startTime || "09:00").split(':').map(Number);
+        const [endHours, endMinutes] = (timeEntryData.endTime || "17:00").split(':').map(Number);
+        
+        const startTotalMinutes = startHours * 60 + startMinutes;
+        const endTotalMinutes = endHours * 60 + endMinutes;
+        
+        let durationMinutes = endTotalMinutes - startTotalMinutes;
+        if (durationMinutes < 0) {
+          durationMinutes += 24 * 60; // Handle overnight work
+        }
+        
+        const hours = Math.floor(durationMinutes / 60);
+        const minutes = durationMinutes % 60;
+        durationString = `${hours}:${minutes.toString().padStart(2, '0')}`;
       }
-      
-      const hours = Math.floor(durationMinutes / 60);
-      const minutes = durationMinutes % 60;
-      const durationString = `${hours}:${minutes.toString().padStart(2, '0')}`;
 
       // Generate dates for the range
       const startDate = timeEntryData.dateRange.from;
@@ -702,8 +713,10 @@ export const useBexioApi = () => {
 
   const updateTimeEntry = useCallback(async (id: number, timeEntryData: {
     dateRange: DateRange | undefined;
-    startTime: string;
-    endTime: string;
+    startTime?: string;
+    endTime?: string;
+    duration?: string;
+    useDuration?: boolean;
     text: string;
     allowable_bill: boolean;
     contact_id?: number;
@@ -757,20 +770,29 @@ export const useBexioApi = () => {
 
       // Step 2: Create a new entry with updated data
       // Calculate duration
-      const [startHours, startMinutes] = timeEntryData.startTime.split(':').map(Number);
-      const [endHours, endMinutes] = timeEntryData.endTime.split(':').map(Number);
+      let durationString: string;
       
-      const startTotalMinutes = startHours * 60 + startMinutes;
-      const endTotalMinutes = endHours * 60 + endMinutes;
-      
-      let durationMinutes = endTotalMinutes - startTotalMinutes;
-      if (durationMinutes < 0) {
-        durationMinutes += 24 * 60;
+      if (timeEntryData.useDuration && timeEntryData.duration) {
+        // Use direct duration input
+        const [hours, minutes] = timeEntryData.duration.split(':').map(Number);
+        durationString = `${hours}:${minutes.toString().padStart(2, '0')}`;
+      } else {
+        // Calculate from start/end times
+        const [startHours, startMinutes] = (timeEntryData.startTime || "09:00").split(':').map(Number);
+        const [endHours, endMinutes] = (timeEntryData.endTime || "17:00").split(':').map(Number);
+        
+        const startTotalMinutes = startHours * 60 + startMinutes;
+        const endTotalMinutes = endHours * 60 + endMinutes;
+        
+        let durationMinutes = endTotalMinutes - startTotalMinutes;
+        if (durationMinutes < 0) {
+          durationMinutes += 24 * 60;
+        }
+        
+        const hours = Math.floor(durationMinutes / 60);
+        const minutes = durationMinutes % 60;
+        durationString = `${hours}:${minutes.toString().padStart(2, '0')}`;
       }
-      
-      const hours = Math.floor(durationMinutes / 60);
-      const minutes = durationMinutes % 60;
-      const durationString = `${hours}:${minutes.toString().padStart(2, '0')}`;
 
       const bexioData = {
         user_id: 1,

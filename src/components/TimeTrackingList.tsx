@@ -48,8 +48,10 @@ interface TimeTrackingListProps {
   isLoading: boolean;
     onCreateTimeEntry?: (data: {
       dateRange: DateRange | undefined;
-      startTime: string;
-      endTime: string;
+      startTime?: string;
+      endTime?: string;
+      duration?: string;
+      useDuration?: boolean;
       text: string;
       allowable_bill: boolean;
       contact_id?: number;
