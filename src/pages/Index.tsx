@@ -44,6 +44,23 @@ const Index = () => {
     loadStoredCredentials();
   }, [loadStoredCredentials]);
 
+  // Fallback global OAuth message handler to ensure we flip into the app
+  useEffect(() => {
+    const onMessage = (event: MessageEvent) => {
+      try {
+        const data = typeof (event as any).data === 'string' ? JSON.parse((event as any).data) : (event as any).data;
+        if (data?.type === 'BEXIO_OAUTH_SUCCESS' && !isConnected) {
+          const { accessToken, refreshToken, companyId, userEmail } = data.credentials || {};
+          connectWithOAuth(accessToken, refreshToken, companyId, userEmail);
+        }
+      } catch (e) {
+        console.error('Failed to handle OAuth message at app level:', e);
+      }
+    };
+    window.addEventListener('message', onMessage);
+    return () => window.removeEventListener('message', onMessage);
+  }, [isConnected, connectWithOAuth]);
+
   useEffect(() => {
     // Auto-fetch contacts and projects when switching to Time Tracking or Analytics
     if (activeTab === "timetracking" || activeTab === "analytics") {
