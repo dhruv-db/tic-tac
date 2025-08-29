@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -59,8 +59,30 @@ export const TimeEntryForm = ({ onSubmit, isSubmitting, contacts, projects, init
     contact_id: initialData?.contact_id,
     project_id: initialData?.project_id,
   });
-  const [isOpen, setIsOpen] = useState(!!initialData?.dateRange); // Auto-open if initial date provided
+  const [isOpen, setIsOpen] = useState(!!initialData?.dateRange);
   const { toast } = useToast();
+  const descriptionRef = useRef<HTMLTextAreaElement>(null);
+
+  // Watch for initial data changes (from calendar clicks)
+  useEffect(() => {
+    if (initialData?.dateRange) {
+      setFormData({
+        dateRange: initialData.dateRange,
+        startTime: initialData.startTime || "09:00",
+        endTime: initialData.endTime || "17:00",
+        text: initialData.text || "",
+        allowable_bill: initialData.allowable_bill ?? true,
+        contact_id: initialData.contact_id,
+        project_id: initialData.project_id,
+      });
+      setIsOpen(true); // Auto-open form when calendar date is selected
+      
+      // Focus description field after a brief delay
+      setTimeout(() => {
+        descriptionRef.current?.focus();
+      }, 100);
+    }
+  }, [initialData]);
 
   const calculateDuration = (start: string, end: string): number => {
     const [startHours, startMinutes] = start.split(':').map(Number);
@@ -225,6 +247,7 @@ export const TimeEntryForm = ({ onSubmit, isSubmitting, contacts, projects, init
           <div className="space-y-2">
             <Label htmlFor="text">Description</Label>
             <Textarea
+              ref={descriptionRef}
               id="text"
               placeholder="Describe what you worked on..."
               value={formData.text}
