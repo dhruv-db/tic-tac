@@ -196,15 +196,23 @@ serve(async (req) => {
                       }
                     };
 
+                    // Store in localStorage as backup communication method
+                    try {
+                      localStorage.setItem('bexio_oauth_success', JSON.stringify(payload));
+                    } catch (e) { console.warn('localStorage failed:', e); }
+
                     var attempts = 0;
                     var maxAttempts = 50; // ~10 seconds
 
                     function send() {
                       try {
-                        if (window.opener) {
+                        if (window.opener && !window.opener.closed) {
+                          console.log('Sending OAuth success to opener:', payload);
                           window.opener.postMessage(payload, '*');
                         }
-                      } catch (e) { /* ignore */ }
+                      } catch (e) { 
+                        console.warn('postMessage failed:', e); 
+                      }
                       attempts++;
                       if (attempts >= maxAttempts) {
                         clearInterval(timer);

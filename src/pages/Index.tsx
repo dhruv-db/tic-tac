@@ -50,6 +50,7 @@ const Index = () => {
       try {
         const data = typeof (event as any).data === 'string' ? JSON.parse((event as any).data) : (event as any).data;
         if (data?.type === 'BEXIO_OAUTH_SUCCESS' && !isConnected) {
+          console.log('App received OAuth success message:', data);
           const { accessToken, refreshToken, companyId, userEmail } = data.credentials || {};
           connectWithOAuth(accessToken, refreshToken, companyId, userEmail);
         }
@@ -57,8 +58,34 @@ const Index = () => {
         console.error('Failed to handle OAuth message at app level:', e);
       }
     };
+
+    // Also check localStorage for OAuth success (backup method)
+    const checkLocalStorage = () => {
+      try {
+        const stored = localStorage.getItem('bexio_oauth_success');
+        if (stored && !isConnected) {
+          const data = JSON.parse(stored);
+          console.log('App found OAuth success in localStorage:', data);
+          const { accessToken, refreshToken, companyId, userEmail } = data.credentials || {};
+          connectWithOAuth(accessToken, refreshToken, companyId, userEmail);
+          localStorage.removeItem('bexio_oauth_success'); // Clean up
+        }
+      } catch (e) {
+        console.error('Failed to check localStorage for OAuth:', e);
+      }
+    };
+
     window.addEventListener('message', onMessage);
-    return () => window.removeEventListener('message', onMessage);
+    
+    // Check localStorage immediately and periodically for a short time
+    checkLocalStorage();
+    const interval = setInterval(checkLocalStorage, 1000);
+    setTimeout(() => clearInterval(interval), 10000); // Stop after 10 seconds
+
+    return () => {
+      window.removeEventListener('message', onMessage);
+      clearInterval(interval);
+    };
   }, [isConnected, connectWithOAuth]);
 
   useEffect(() => {
