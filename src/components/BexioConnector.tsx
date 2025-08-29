@@ -46,13 +46,19 @@ export const BexioConnector = ({ onConnect, onOAuthConnect, isConnected }: Bexio
       });
 
       if (!response.ok) {
-        throw new Error('Failed to initiate OAuth');
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Failed to initiate OAuth');
       }
 
       const { authUrl } = await response.json();
       
-      // Open OAuth popup
+      // Open OAuth popup with better popup detection
       const popup = window.open(authUrl, 'bexio-oauth', 'width=600,height=700,scrollbars=yes,resizable=yes');
+      
+      // Check if popup was blocked
+      if (!popup || popup.closed || typeof popup.closed === 'undefined') {
+        throw new Error('Popup was blocked by your browser. Please allow popups for this site and try again.');
+      }
       
       // Listen for OAuth completion
       const handleMessage = (event: MessageEvent) => {
@@ -78,6 +84,7 @@ export const BexioConnector = ({ onConnect, onOAuthConnect, isConnected }: Bexio
 
     } catch (error) {
       console.error('OAuth error:', error);
+      alert(`OAuth Login Error: ${error instanceof Error ? error.message : 'Unknown error occurred'}`);
       setIsOAuthLoading(false);
     }
   };

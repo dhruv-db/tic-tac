@@ -31,7 +31,7 @@ serve(async (req) => {
         });
       }
 
-      const redirectUri = `${url.origin}/functions/v1/bexio-oauth/callback`;
+      const redirectUri = `https://${url.hostname}/functions/v1/bexio-oauth/callback`;
       const scope = 'general';
       
       const authUrl = `https://office.bexio.com/oauth/authorize?` +
@@ -105,7 +105,7 @@ serve(async (req) => {
         });
       }
 
-      const redirectUri = `${url.origin}/functions/v1/bexio-oauth/callback`;
+      const redirectUri = `https://${url.hostname}/functions/v1/bexio-oauth/callback`;
       
       try {
         console.log('Exchanging code for access token...');
