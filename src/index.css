@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -9,67 +9,69 @@ All colors MUST be HSL for consistency. */
 
 @layer base {
   :root {
-    /* Corporate Color Palette */
+    /* Databridge Corporate Color Palette */
     --background: 0 0% 100%;
-    --foreground: 220 14% 11%;
+    --foreground: 221 39% 11%;
     
     /* Card backgrounds */
     --card: 0 0% 100%;
-    --card-foreground: 220 14% 11%;
+    --card-foreground: 221 39% 11%;
     
     /* Popover backgrounds */
     --popover: 0 0% 100%;
-    --popover-foreground: 220 14% 11%;
+    --popover-foreground: 221 39% 11%;
     
-    /* Corporate Primary - Professional Blue */
-    --primary: 221 83% 53%;
-    --primary-foreground: 210 40% 98%;
-    --primary-subtle: 221 83% 95%;
-    --primary-glow: 221 83% 65%;
+    /* Databridge Primary - Navy Blue */
+    --primary: 221 39% 11%;
+    --primary-foreground: 0 0% 100%;
+    --primary-subtle: 221 39% 95%;
+    --primary-glow: 221 39% 25%;
     
-    /* Corporate Secondary - Sophisticated Gray */
-    --secondary: 215 16% 47%;
-    --secondary-foreground: 220 14% 11%;
+    /* Databridge Accent - Golden Yellow */
+    --accent: 45 93% 58%;
+    --accent-foreground: 221 39% 11%;
+    
+    /* Secondary - Light Blue */
+    --secondary: 215 28% 88%;
+    --secondary-foreground: 221 39% 11%;
     
     /* Muted colors for subtle elements */
-    --muted: 220 14% 96%;
-    --muted-foreground: 220 9% 46%;
-    
-    /* Accent colors */
-    --accent: 220 14% 96%;
-    --accent-foreground: 220 9% 15%;
+    --muted: 215 28% 96%;
+    --muted-foreground: 215 16% 46%;
     
     /* Destructive colors */
     --destructive: 0 84% 60%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive-foreground: 0 0% 100%;
     
     /* Success colors */
     --success: 142 71% 45%;
-    --success-foreground: 355 25% 95%;
+    --success-foreground: 0 0% 100%;
     
-    /* Warning colors */
-    --warning: 38 92% 50%;
-    --warning-foreground: 48 96% 89%;
+    /* Warning colors - Databridge Yellow */
+    --warning: 45 93% 58%;
+    --warning-foreground: 221 39% 11%;
     
-    /* Info colors */
+    /* Info colors - Light Blue */
     --info: 199 89% 48%;
-    --info-foreground: 210 40% 98%;
+    --info-foreground: 0 0% 100%;
     
     /* Border and input colors */
-    --border: 220 13% 91%;
-    --input: 220 13% 91%;
-    --ring: 221 83% 53%;
+    --border: 215 28% 91%;
+    --input: 215 28% 91%;
+    --ring: 45 93% 58%;
     
-    /* Corporate gradients */
-    --gradient-primary: linear-gradient(135deg, hsl(221 83% 53%), hsl(221 83% 65%));
-    --gradient-secondary: linear-gradient(135deg, hsl(215 16% 47%), hsl(215 16% 55%));
-    --gradient-subtle: linear-gradient(180deg, hsl(0 0% 100%), hsl(220 14% 98%));
-    --gradient-corporate: linear-gradient(135deg, hsl(221 83% 53%), hsl(215 16% 47%));
+    /* Databridge gradients */
+    --gradient-primary: linear-gradient(135deg, hsl(221 39% 11%), hsl(221 39% 25%));
+    --gradient-secondary: linear-gradient(135deg, hsl(215 28% 88%), hsl(199 89% 48%));
+    --gradient-subtle: linear-gradient(180deg, hsl(0 0% 100%), hsl(215 28% 98%));
+    --gradient-corporate: linear-gradient(135deg, hsl(221 39% 11%), hsl(45 93% 58%));
+    --gradient-hero: linear-gradient(135deg, hsl(221 39% 11%) 0%, hsl(221 39% 25%) 50%, hsl(199 89% 48%) 100%);
     
-    /* Corporate shadows */
-    --shadow-elegant: 0 10px 30px -10px hsl(221 83% 53% / 0.1);
-    --shadow-corporate: 0 4px 20px -4px hsl(220 14% 11% / 0.1);
-    --shadow-subtle: 0 2px 8px -2px hsl(220 14% 11% / 0.05);
+    /* Databridge shadows */
+    --shadow-elegant: 0 10px 30px -10px hsl(221 39% 11% / 0.15);
+    --shadow-corporate: 0 4px 20px -4px hsl(221 39% 11% / 0.1);
+    --shadow-subtle: 0 2px 8px -2px hsl(221 39% 11% / 0.08);
+    --shadow-glow: 0 0 40px hsl(45 93% 58% / 0.3);
     
     /* Transitions */
     --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);

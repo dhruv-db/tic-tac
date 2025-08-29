@@ -25,6 +25,8 @@ const Index = () => {
     fetchProjects,
     fetchTimeEntries,
     createTimeEntry,
+    updateTimeEntry,
+    deleteTimeEntry,
     loadStoredCredentials,
     disconnect,
   } = useBexioApi();
@@ -56,10 +58,10 @@ const Index = () => {
               <Database className="h-8 w-8 text-primary" />
             </div>
             <h1 className="text-4xl font-bold mb-4 bg-[var(--gradient-primary)] bg-clip-text text-transparent">
-              Bexio Dashboard
+              Databridge Analytics
             </h1>
             <p className="text-xl text-muted-foreground max-w-md mx-auto">
-              Connect to your Bexio account to access customer data and time tracking information
+              Connect to your Bexio account to access business intelligence and time tracking analytics
             </p>
           </div>
           <BexioConnector onConnect={connect} isConnected={isConnected} />
@@ -79,8 +81,13 @@ const Index = () => {
                 <Database className="h-6 w-6 text-primary" />
               </div>
               <div>
-                <h1 className="text-2xl font-bold">Bexio Dashboard</h1>
-                <p className="text-sm text-muted-foreground">Connected and ready</p>
+                <h1 className="text-2xl font-bold">
+                  <span className="databridge-brand">data</span>
+                  <span className="databridge-accent">^</span>
+                  <span className="databridge-brand">bridge</span>
+                  <span className="text-muted-foreground text-lg ml-2">Analytics</span>
+                </h1>
+                <p className="text-sm text-muted-foreground">Business Intelligence Platform</p>
               </div>
             </div>
             
@@ -166,6 +173,8 @@ const Index = () => {
                 timeEntries={timeEntries} 
                 isLoading={isLoadingTimeEntries}
                 onCreateTimeEntry={createTimeEntry}
+                onUpdateTimeEntry={updateTimeEntry}
+                onDeleteTimeEntry={deleteTimeEntry}
                 isCreatingTimeEntry={isCreatingTimeEntry}
                 contacts={contacts}
                 projects={projects}
