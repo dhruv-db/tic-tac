@@ -20,7 +20,7 @@ serve(async (req) => {
   try {
     // Handle OAuth initiation
     if (path.endsWith('/auth') && req.method === 'POST') {
-      const { state, scope: requestedScope, codeChallenge, codeChallengeMethod, codeVerifier } = await req.json();
+      const { state, scope: requestedScope, codeChallenge, codeChallengeMethod, codeVerifier, returnUrl } = await req.json();
       
       const clientId = Deno.env.get('BEXIO_CLIENT_ID');
       if (!clientId) {
@@ -40,10 +40,10 @@ serve(async (req) => {
         .filter((s) => oidcAllowed.includes(s));
       const finalScope = (requested.length ? requested : oidcAllowed).join(' ');
 
-      // Pack state with code_verifier for PKCE token exchange later
+      // Pack state with code_verifier and return URL for redirect
       let packedState = state;
       try {
-        packedState = btoa(JSON.stringify({ s: state, cv: codeVerifier || null }));
+        packedState = btoa(JSON.stringify({ s: state, cv: codeVerifier || null, ru: returnUrl || '' }));
       } catch (_) {}
 
       const params = new URLSearchParams({
@@ -74,11 +74,13 @@ serve(async (req) => {
       const stateParam = url.searchParams.get('state');
       let originalState = stateParam || '';
       let codeVerifierFromState: string | null = null;
+      let returnUrlFromState: string = '';
       try {
         const decoded = JSON.parse(atob(stateParam || ''));
         if (decoded && typeof decoded === 'object') {
           originalState = decoded.s || originalState;
           codeVerifierFromState = decoded.cv || null;
+          returnUrlFromState = decoded.ru || '';
         }
       } catch (_) {}
       const error = url.searchParams.get('error');
@@ -212,7 +214,8 @@ serve(async (req) => {
             expiresIn: (tokenData as any).expires_in || 3600,
           };
 
-          const mainAppUrl = `https://4bf4f80d-52ee-4c37-86a7-92c7a81427b7.sandbox.lovable.dev/?oauth_success=true&t=${Date.now()}`;
+          const baseReturnUrl = (typeof returnUrlFromState === 'string' && returnUrlFromState) ? returnUrlFromState : '';
+          const mainAppUrl = baseReturnUrl ? `${baseReturnUrl}${baseReturnUrl.includes('?') ? '&' : '?'}oauth_success=true&t=${Date.now()}` : `${'/'}`;
 
           return new Response(`<!DOCTYPE html><html><head><meta charset="utf-8" /><title>Connecting...</title><meta name="viewport" content="width=device-width, initial-scale=1" /></head><body><script>(function(){try{var payload={type:'BEXIO_OAUTH_SUCCESS',credentials:${JSON.stringify(
             creds

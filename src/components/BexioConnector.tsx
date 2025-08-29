@@ -75,6 +75,7 @@ export const BexioConnector = ({ onConnect, onOAuthConnect, isConnected }: Bexio
           codeChallenge,
           codeChallengeMethod: 'S256',
           codeVerifier,
+          returnUrl: `${window.location.origin}/`,
         }),
       });
 
