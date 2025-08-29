@@ -279,17 +279,17 @@ export const EditTimeEntryDialog = ({
             <div className="space-y-2">
               <Label htmlFor="contact_id">Contact (Optional)</Label>
               <Select
-                value={formData.contact_id?.toString() || ""}
+                value={formData.contact_id?.toString() || "none"}
                 onValueChange={(value) => setFormData(prev => ({ 
                   ...prev, 
-                  contact_id: value ? parseInt(value) : undefined 
+                  contact_id: value === "none" ? undefined : parseInt(value) 
                 }))}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select a contact" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">No contact</SelectItem>
+                  <SelectItem value="none">No contact</SelectItem>
                   {contacts.map((contact) => (
                     <SelectItem key={contact.id} value={contact.id.toString()}>
                       {getContactName(contact)} (#{contact.nr})
@@ -303,17 +303,17 @@ export const EditTimeEntryDialog = ({
             <div className="space-y-2">
               <Label htmlFor="project_id">Project (Optional)</Label>
               <Select
-                value={formData.project_id?.toString() || ""}
+                value={formData.project_id?.toString() || "none"}
                 onValueChange={(value) => setFormData(prev => ({ 
                   ...prev, 
-                  project_id: value ? parseInt(value) : undefined 
+                  project_id: value === "none" ? undefined : parseInt(value) 
                 }))}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select a project" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">No project</SelectItem>
+                  <SelectItem value="none">No project</SelectItem>
                   {projects.map((project) => (
                     <SelectItem key={project.id} value={project.id.toString()}>
                       {project.name} (#{project.nr})
