@@ -36,13 +36,7 @@ export const BexioConnector = ({ onConnect, onOAuthConnect, isConnected }: Bexio
       // Generate a random state for security
       const state = Math.random().toString(36).substring(2, 15);
       
-      // Open popup immediately to avoid blockers
-      const popup = window.open('', 'bexio-oauth', 'width=600,height=700,scrollbars=yes,resizable=yes');
-      
-      // Check if popup was blocked
-      if (!popup || popup.closed || typeof popup.closed === 'undefined') {
-        throw new Error('Popup was blocked by your browser. Please allow popups for this site and try again.');
-      }
+      console.log('🚀 Starting OAuth flow with state:', state);
       
       // Get OAuth URL from our edge function
       const response = await fetch('https://opcjifbdwpyttaxqlqbf.supabase.co/functions/v1/bexio-oauth/auth', {
@@ -53,50 +47,68 @@ export const BexioConnector = ({ onConnect, onOAuthConnect, isConnected }: Bexio
         body: JSON.stringify({ state }),
       });
 
+      console.log('📡 OAuth auth response status:', response.status);
+
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
+        console.error('❌ OAuth auth failed:', errorData);
         throw new Error(errorData.error || 'Failed to initiate OAuth');
       }
 
       const { authUrl } = await response.json();
+      console.log('✅ Got OAuth URL, opening popup:', authUrl);
       
-      // Navigate the already-opened popup to the auth URL
-      popup.location.href = authUrl;
+      // Open popup immediately to avoid blockers
+      const popup = window.open(authUrl, 'bexio-oauth', 'width=600,height=700,scrollbars=yes,resizable=yes');
+      
+      // Check if popup was blocked
+      if (!popup || popup.closed || typeof popup.closed === 'undefined') {
+        throw new Error('Popup was blocked by your browser. Please allow popups for this site and try again.');
+      }
       
       // Listen for OAuth completion
       const handleMessage = (event: MessageEvent) => {
         try {
-          console.log('Received OAuth message:', event.data, 'from', (event as any).origin);
+          console.log('📨 Received message in main window:', event.data, 'from origin:', event.origin);
           const data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
           if (data?.type === 'BEXIO_OAUTH_SUCCESS') {
+            console.log('🎉 OAuth success detected!');
             const { accessToken, refreshToken, companyId, userEmail } = data.credentials || {};
-            console.log('OAuth success - credentials:', { 
+            console.log('📋 Credentials received:', { 
               hasAccessToken: !!accessToken, 
               hasRefreshToken: !!refreshToken, 
               companyId, 
               userEmail 
             });
+            
+            // Call the OAuth connect function
+            console.log('🔗 Calling onOAuthConnect...');
             onOAuthConnect(accessToken, refreshToken, companyId, userEmail);
+            
             // Send ACK back so popup can close reliably
             try {
-              (event.source as Window | null)?.postMessage({ type: 'BEXIO_OAUTH_ACK' }, (event as any).origin || '*');
+              (event.source as Window | null)?.postMessage({ type: 'BEXIO_OAUTH_ACK' }, event.origin || '*');
+              console.log('✅ Sent ACK to popup');
             } catch (ackErr) {
-              console.warn('Failed to send OAuth ACK to popup:', ackErr);
+              console.warn('⚠️ Failed to send OAuth ACK to popup:', ackErr);
             }
             popup?.close();
             window.removeEventListener('message', handleMessage);
             setIsOAuthLoading(false);
+            console.log('🏁 OAuth flow completed');
           }
         } catch (e) {
-          console.error('Error handling OAuth message:', e);
+          console.error('❌ Error handling OAuth message:', e);
         }
       };
 
       window.addEventListener('message', handleMessage);
+      console.log('👂 Added message listener');
       
       // Handle popup being closed manually
       const checkClosed = setInterval(() => {
         if (popup?.closed) {
+          console.log('🔒 Popup was closed manually');
           clearInterval(checkClosed);
           window.removeEventListener('message', handleMessage);
           setIsOAuthLoading(false);
@@ -104,7 +116,7 @@ export const BexioConnector = ({ onConnect, onOAuthConnect, isConnected }: Bexio
       }, 1000);
 
     } catch (error) {
-      console.error('OAuth error:', error);
+      console.error('❌ OAuth error:', error);
       alert(`OAuth Login Error: ${error instanceof Error ? error.message : 'Unknown error occurred'}`);
       setIsOAuthLoading(false);
     }
