@@ -591,7 +591,7 @@ export const useBexioApi = () => {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          endpoint: '/timesheet/status',
+          endpoint: '/timesheet_status',
           apiKey: credentials.apiKey,
           companyId: credentials.companyId,
         }),
