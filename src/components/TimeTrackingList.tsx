@@ -26,7 +26,7 @@ export interface TimeEntry {
   user_id?: number;
   client_service_id?: number;
   status_id?: number;
-  pr_package_id?: number;
+  pr_package_id?: string;
   pr_milestone_id?: number;
 }
 
@@ -55,7 +55,7 @@ interface TimeTrackingListProps {
       contact_id?: number;
       project_id?: number;
       status_id?: number;
-      pr_package_id?: number;
+      pr_package_id?: string;
       pr_milestone_id?: number;
     }) => Promise<void>;
   onUpdateTimeEntry?: (id: number, data: any) => Promise<void>;

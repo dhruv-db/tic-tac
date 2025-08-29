@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -13,6 +13,7 @@ import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { DateRange } from "react-day-picker";
+import { supabase } from "@/integrations/supabase/client";
 
 interface Contact {
   id: number;
@@ -38,7 +39,7 @@ interface TimeEntry {
   user_id?: number;
   client_service_id?: number;
   status_id?: number;
-  pr_package_id?: number;
+  pr_package_id?: string;
   pr_milestone_id?: number;
 }
 
@@ -51,7 +52,7 @@ interface TimeEntryFormData {
   contact_id?: number;
   project_id?: number;
   status_id?: number;
-  pr_package_id?: number;
+  pr_package_id?: string;
   pr_milestone_id?: number;
 }
 
@@ -88,69 +89,66 @@ export const EditTimeEntryDialog = ({
   });
   const { toast } = useToast();
 
-  // Dynamic work packages based on selected project (fetched from Bexio)
-  const [workPackages, setWorkPackages] = useState<{ id: number; name: string }[]>([]);
+  // Dynamic work packages based on selected project (fetched from Supabase)
+  const [workPackages, setWorkPackages] = useState<{ id: string; name: string; color: string }[]>([]);
   const [isLoadingWorkPackages, setIsLoadingWorkPackages] = useState(false);
 
   const lastProjectIdRef = useRef<number | undefined>(undefined);
   const mountedRef = useRef(true);
   useEffect(() => () => { mountedRef.current = false; }, []);
 
-  useEffect(() => {
-    const loadWorkPackages = async (projectId: number) => {
-      try {
-        setIsLoadingWorkPackages(true);
-        const stored = localStorage.getItem('bexio_credentials');
-        if (!stored) { setWorkPackages([]); return; }
-        const { apiKey, companyId } = JSON.parse(stored);
+  const memoizedLoadWorkPackages = useCallback(async (projectId: number) => {
+    if (!mountedRef.current) return;
+    try {
+      setIsLoadingWorkPackages(true);
+      
+      // Fetch work packages from our local Supabase table (with explicit typing)
+      const result: any = await supabase
+        .from('work_packages')
+        .select('id, name, project_id')
+        .eq('project_id', projectId)
+        .eq('is_active', true)
+        .order('name');
 
-        const possibleSearchEndpoints = ['/pr_package/search', '/pr_milestone/search'];
-        let data: any = null;
+      const { data, error } = result;
 
-        for (const endpoint of possibleSearchEndpoints) {
-          try {
-            const resp = await fetch(`https://opcjifbdwpyttaxqlqbf.supabase.co/functions/v1/bexio-proxy`, {
-              method: 'POST', headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ 
-                endpoint, 
-                method: 'POST',
-                apiKey, companyId,
-                data: [ { field: 'pr_project_id', value: projectId, criteria: '=' } ]
-              }),
-            });
-            if (resp.ok) { data = await resp.json(); break; }
-          } catch (_) { /* try next */ }
-        }
-
-        if (!mountedRef.current) return;
-        if (!data) { setWorkPackages([]); return; }
-
-        const pkgs = (Array.isArray(data) ? data : [])
-          .filter((p: any) => p.pr_project_id === projectId)
-          .map((p: any) => ({ id: p.id, name: p.name || p.title || `Work Package #${p.id}` }));
-        setWorkPackages(pkgs);
-
-        // Only update if needed to avoid render loops
-        setFormData(prev => (
-          pkgs.some(p => p.id === prev.pr_package_id) ? prev : { ...prev, pr_package_id: undefined }
-        ));
-      } finally {
-        if (mountedRef.current) setIsLoadingWorkPackages(false);
+      if (error || !mountedRef.current) {
+        if (error) console.error('Error fetching work packages:', error);
+        setWorkPackages([]);
+        return;
       }
-    };
 
+      const pkgs = (data || []).map(wp => ({ 
+        id: wp.id, 
+        name: wp.name,
+        color: '#3b82f6' // Default color since column may not exist yet
+      }));
+      setWorkPackages(pkgs);
+
+      // Only update if current selection is not in the fetched list
+      setFormData(prev => (
+        pkgs.some(p => p.id === prev.pr_package_id) ? prev : { ...prev, pr_package_id: undefined }
+      ));
+    } catch (e) {
+      console.error('Error loading work packages:', e);
+      if (mountedRef.current) setWorkPackages([]);
+    } finally {
+      if (mountedRef.current) setIsLoadingWorkPackages(false);
+    }
+  }, []);
+
+  useEffect(() => {
     const currentProjectId = formData.project_id;
     if (currentProjectId && lastProjectIdRef.current !== currentProjectId) {
       lastProjectIdRef.current = currentProjectId;
-      loadWorkPackages(currentProjectId);
+      memoizedLoadWorkPackages(currentProjectId);
     }
-    if (!currentProjectId) {
+    if (!currentProjectId && lastProjectIdRef.current !== undefined) {
       lastProjectIdRef.current = undefined;
       setWorkPackages([]);
-      // Only clear if previously set
-      setFormData(prev => (prev.pr_package_id !== undefined ? { ...prev, pr_package_id: undefined } : prev));
+      setFormData(prev => (prev.pr_package_id ? { ...prev, pr_package_id: undefined } : prev));
     }
-  }, [formData.project_id]);
+  }, [formData.project_id, memoizedLoadWorkPackages]);
 
   const getContactName = (contact: Contact) => {
     const names = [contact.name_1, contact.name_2].filter(Boolean);
@@ -439,10 +437,10 @@ export const EditTimeEntryDialog = ({
               <Label htmlFor="pr_package_id">Work Package (Optional)</Label>
               <Select
                 disabled={!formData.project_id || isLoadingWorkPackages}
-                value={formData.pr_package_id?.toString() || "none"}
+                value={formData.pr_package_id || "none"}
                 onValueChange={(value) => setFormData(prev => ({ 
                   ...prev, 
-                  pr_package_id: value === "none" ? undefined : parseInt(value) 
+                  pr_package_id: value === "none" ? undefined : value 
                 }))}
               >
                 <SelectTrigger>
@@ -454,8 +452,14 @@ export const EditTimeEntryDialog = ({
                     <SelectItem value="none" disabled>Loading...</SelectItem>
                   ) : (
                     workPackages.map((wp) => (
-                      <SelectItem key={wp.id} value={wp.id.toString()}>
-                        {wp.name}
+                      <SelectItem key={wp.id} value={wp.id}>
+                        <div className="flex items-center gap-2">
+                          <div 
+                            className="w-3 h-3 rounded-full" 
+                            style={{ backgroundColor: wp.color }}
+                          />
+                          {wp.name}
+                        </div>
                       </SelectItem>
                     ))
                   )}

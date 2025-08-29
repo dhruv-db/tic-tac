@@ -65,7 +65,7 @@ interface TimeEntry {
   user_id?: number;
   client_service_id?: number;
   status_id?: number;
-  pr_package_id?: number;
+  pr_package_id?: string;
   pr_milestone_id?: number;
 }
 
@@ -288,7 +288,7 @@ export const useBexioApi = () => {
     contact_id?: number;
     project_id?: number;
     status_id?: number;
-    pr_package_id?: number;
+    pr_package_id?: string;
     pr_milestone_id?: number;
   }) => {
     if (!credentials) {
@@ -470,7 +470,7 @@ export const useBexioApi = () => {
     contact_id?: number;
     project_id?: number;
     status_id?: number;
-    pr_package_id?: number;
+    pr_package_id?: string;
     pr_milestone_id?: number;
   }) => {
     if (!credentials) {
