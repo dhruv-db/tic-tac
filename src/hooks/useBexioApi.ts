@@ -319,45 +319,72 @@ export const useBexioApi = () => {
         currentDate.setDate(currentDate.getDate() + 1);
       }
 
-      // Create time entries for each date
-      const promises = dates.map(async (date) => {
-        const bexioData = {
-          user_id: 1, // Default user ID, might need to be dynamic
-          client_service_id: 5, // Default service ID (from existing data)
-          text: timeEntryData.text || "",
-          allowable_bill: timeEntryData.allowable_bill,
-          tracking: {
-            type: "duration",
-            date: date.toISOString().split('T')[0], // Format as YYYY-MM-DD
-            duration: durationString, // Format as HH:MM
-          },
-          ...(timeEntryData.contact_id && { contact_id: timeEntryData.contact_id }),
-          ...(timeEntryData.project_id && { pr_project_id: timeEntryData.project_id }),
-        };
+      // Create time entries for each date with rate limiting
+      const results = [];
+      const batchSize = 5; // Process 5 entries at a time
+      const delayBetweenBatches = 1000; // 1 second delay between batches
+      
+      console.log(`Creating ${dates.length} time entries in batches of ${batchSize}`);
+      
+      for (let i = 0; i < dates.length; i += batchSize) {
+        const batch = dates.slice(i, i + batchSize);
+        console.log(`Processing batch ${Math.floor(i / batchSize) + 1}/${Math.ceil(dates.length / batchSize)}`);
+        
+        const batchPromises = batch.map(async (date) => {
+          const bexioData = {
+            user_id: 1, // Default user ID, might need to be dynamic
+            client_service_id: 5, // Default service ID (from existing data)
+            text: timeEntryData.text || "",
+            allowable_bill: timeEntryData.allowable_bill,
+            tracking: {
+              type: "duration",
+              date: date.toISOString().split('T')[0], // Format as YYYY-MM-DD
+              duration: durationString, // Format as HH:MM
+            },
+            ...(timeEntryData.contact_id && { contact_id: timeEntryData.contact_id }),
+            ...(timeEntryData.project_id && { pr_project_id: timeEntryData.project_id }),
+          };
 
-        const response = await fetch(`https://opcjifbdwpyttaxqlqbf.supabase.co/functions/v1/bexio-proxy`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            endpoint: '/timesheet',
+          const response = await fetch(`https://opcjifbdwpyttaxqlqbf.supabase.co/functions/v1/bexio-proxy`, {
             method: 'POST',
-            apiKey: credentials.apiKey,
-            companyId: credentials.companyId,
-            data: bexioData,
-          }),
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              endpoint: '/timesheet',
+              method: 'POST',
+              apiKey: credentials.apiKey,
+              companyId: credentials.companyId,
+              data: bexioData,
+            }),
+          });
+
+          if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(`${errorData.error || 'HTTP error'} (${response.status}) for date ${date.toISOString().split('T')[0]}`);
+          }
+
+          return response.json();
         });
 
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => ({}));
-          throw new Error(errorData.error || `HTTP error! status: ${response.status} for date ${date.toISOString().split('T')[0]}`);
+        try {
+          const batchResults = await Promise.all(batchPromises);
+          results.push(...batchResults);
+          
+          // Add delay between batches (except for the last batch)
+          if (i + batchSize < dates.length) {
+            await new Promise(resolve => setTimeout(resolve, delayBetweenBatches));
+          }
+        } catch (error) {
+          console.error(`Batch ${Math.floor(i / batchSize) + 1} failed:`, error);
+          // Continue with remaining batches, but track the error
+          toast({
+            title: "Partial failure",
+            description: `Some time entries failed to create. ${results.length} entries created so far.`,
+            variant: "destructive",
+          });
         }
-
-        return response.json();
-      });
-
-      const results = await Promise.all(promises);
+      }
       
       toast({
         title: "Time entries created",
