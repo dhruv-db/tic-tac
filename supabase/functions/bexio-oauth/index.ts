@@ -183,9 +183,8 @@ serve(async (req) => {
                 <h1>Authentication Successful!</h1>
                 <p>You can now close this window.</p>
                 <script>
-                  // Pass the credentials to the parent window
-                  if (window.opener) {
-                    window.opener.postMessage({
+                  (function() {
+                    var payload = {
                       type: 'BEXIO_OAUTH_SUCCESS',
                       credentials: {
                         accessToken: '${(tokenData as any).access_token}',
@@ -195,9 +194,39 @@ serve(async (req) => {
                         idToken: '${idToken}',
                         expiresIn: ${(tokenData as any).expires_in || 3600}
                       }
-                    }, '*');
-                  }
-                  setTimeout(() => window.close(), 500);
+                    };
+
+                    var attempts = 0;
+                    var maxAttempts = 50; // ~10 seconds
+
+                    function send() {
+                      try {
+                        if (window.opener) {
+                          window.opener.postMessage(payload, '*');
+                        }
+                      } catch (e) { /* ignore */ }
+                      attempts++;
+                      if (attempts >= maxAttempts) {
+                        clearInterval(timer);
+                        setTimeout(function(){ window.close(); }, 200);
+                      }
+                    }
+
+                    // Send immediately and then keep sending for a short period to avoid race conditions
+                    send();
+                    var timer = setInterval(send, 200);
+
+                    // If opener acknowledges, close sooner
+                    window.addEventListener('message', function(event) {
+                      try {
+                        var data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
+                        if (data && data.type === 'BEXIO_OAUTH_ACK') {
+                          clearInterval(timer);
+                          setTimeout(function(){ window.close(); }, 200);
+                        }
+                      } catch (e) { /* ignore */ }
+                    });
+                  })();
                 </script>
               </body>
             </html>

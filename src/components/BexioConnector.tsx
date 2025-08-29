@@ -65,19 +65,30 @@ export const BexioConnector = ({ onConnect, onOAuthConnect, isConnected }: Bexio
       
       // Listen for OAuth completion
       const handleMessage = (event: MessageEvent) => {
-        console.log('Received OAuth message:', event.data);
-        if (event.data.type === 'BEXIO_OAUTH_SUCCESS') {
-          const { accessToken, refreshToken, companyId, userEmail } = event.data.credentials;
-          console.log('OAuth success - credentials:', { 
-            hasAccessToken: !!accessToken, 
-            hasRefreshToken: !!refreshToken, 
-            companyId, 
-            userEmail 
-          });
-          onOAuthConnect(accessToken, refreshToken, companyId, userEmail);
-          popup?.close();
-          window.removeEventListener('message', handleMessage);
-          setIsOAuthLoading(false);
+        try {
+          console.log('Received OAuth message:', event.data, 'from', (event as any).origin);
+          const data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
+          if (data?.type === 'BEXIO_OAUTH_SUCCESS') {
+            const { accessToken, refreshToken, companyId, userEmail } = data.credentials || {};
+            console.log('OAuth success - credentials:', { 
+              hasAccessToken: !!accessToken, 
+              hasRefreshToken: !!refreshToken, 
+              companyId, 
+              userEmail 
+            });
+            onOAuthConnect(accessToken, refreshToken, companyId, userEmail);
+            // Send ACK back so popup can close reliably
+            try {
+              (event.source as Window | null)?.postMessage({ type: 'BEXIO_OAUTH_ACK' }, (event as any).origin || '*');
+            } catch (ackErr) {
+              console.warn('Failed to send OAuth ACK to popup:', ackErr);
+            }
+            popup?.close();
+            window.removeEventListener('message', handleMessage);
+            setIsOAuthLoading(false);
+          }
+        } catch (e) {
+          console.error('Error handling OAuth message:', e);
         }
       };
 
