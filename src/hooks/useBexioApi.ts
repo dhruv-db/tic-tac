@@ -291,6 +291,8 @@ export const useBexioApi = () => {
     }
 
     setIsLoadingWorkPackages(true);
+    console.log(`🔍 Fetching work packages for project ID: ${projectId}`);
+    
     try {
       const response = await fetch(`https://opcjifbdwpyttaxqlqbf.supabase.co/functions/v1/bexio-proxy`, {
         method: 'POST',
@@ -304,12 +306,27 @@ export const useBexioApi = () => {
         }),
       });
 
+      console.log(`📊 Response status for project ${projectId}:`, response.status);
+
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
+        console.error(`❌ Error fetching packages for project ${projectId}:`, errorData);
+        
+        // If this specific project doesn't have packages, that's okay - just return empty
+        if (response.status === 404) {
+          setWorkPackages([]);
+          toast({
+            title: "No work packages found",
+            description: `Project ${projectId} doesn't have any work packages.`,
+          });
+          return;
+        }
+        
         throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
       }
 
       const data = await response.json();
+      console.log(`✅ Received packages for project ${projectId}:`, data);
       
       // Transform the data to our expected format based on the API response structure
       const workPackages = Array.isArray(data) ? data : [];
@@ -327,11 +344,11 @@ export const useBexioApi = () => {
       
       toast({
         title: "Work packages loaded successfully",
-        description: `Successfully fetched ${transformedPackages.length} work packages.`,
+        description: `Successfully fetched ${transformedPackages.length} work packages for project ${projectId}.`,
       });
       
     } catch (error) {
-      console.error('Error fetching work packages:', error);
+      console.error(`❌ Error fetching work packages for project ${projectId}:`, error);
       setWorkPackages([]);
       
       toast({
