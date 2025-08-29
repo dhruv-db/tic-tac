@@ -84,7 +84,14 @@ interface BexioCredentials {
 }
 
 export const useBexioApi = () => {
-  const [credentials, setCredentials] = useState<BexioCredentials | null>(null);
+  const [credentials, setCredentials] = useState<BexioCredentials | null>(() => {
+    try {
+      const stored = localStorage.getItem('bexio_credentials');
+      return stored ? JSON.parse(stored) as BexioCredentials : null;
+    } catch {
+      return null;
+    }
+  });
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [timeEntries, setTimeEntries] = useState<TimeEntry[]>([]);
