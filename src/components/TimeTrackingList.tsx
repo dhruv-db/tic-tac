@@ -68,6 +68,16 @@ export const TimeTrackingList = ({
   const [editingEntry, setEditingEntry] = useState<TimeEntry | null>(null);
   const [activeView, setActiveView] = useState<'list' | 'calendar'>('list');
   const { toast } = useToast();
+  
+  const toSeconds = (duration: string | number): number => {
+    if (typeof duration === 'number') return duration;
+    if (typeof duration === 'string') {
+      const parsed = parseFloat(duration);
+      return isNaN(parsed) ? 0 : parsed;
+    }
+    return 0;
+  };
+
   const formatDuration = (seconds: number) => {
     const hours = Math.floor(seconds / 3600);
     const minutes = Math.floor((seconds % 3600) / 60);
@@ -82,9 +92,9 @@ export const TimeTrackingList = ({
     }
   };
 
-  const totalDuration = timeEntries.reduce((acc, entry) => acc + entry.duration, 0);
+  const totalDuration = timeEntries.reduce((acc, entry) => acc + toSeconds(entry.duration), 0);
   const billableEntries = timeEntries.filter(entry => entry.allowable_bill);
-  const totalBillableDuration = billableEntries.reduce((acc, entry) => acc + entry.duration, 0);
+  const totalBillableDuration = billableEntries.reduce((acc, entry) => acc + toSeconds(entry.duration), 0);
 
   if (isLoading) {
     return (
@@ -259,7 +269,7 @@ export const TimeTrackingList = ({
                     <div className="flex items-center gap-2">
                       <div className="text-right mr-4">
                         <div className="text-2xl font-bold group-hover:text-primary transition-[var(--transition-smooth)]">
-                          {formatDuration(entry.duration)}
+                          {formatDuration(toSeconds(entry.duration))}
                         </div>
                         <div className="text-xs text-muted-foreground">
                           ID: {entry.id}
