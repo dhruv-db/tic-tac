@@ -608,10 +608,17 @@ export const useBexioApi = () => {
       const data = await response.json();
       console.log('✅ Received timesheet statuses:', data);
       
-      // Transform the data to our expected format
+      // Transform the data to our expected format with English labels
+      const EN_STATUS: Record<number, string> = {
+        1: 'Open',
+        2: 'In progress',
+        3: 'Completed',
+        4: 'Invoiced',
+        5: 'Closed',
+      };
       const statuses = Array.isArray(data) ? data.map((status: any) => ({
         id: status.id,
-        name: status.name || `Status ${status.id}`
+        name: EN_STATUS[status.id] ?? status.name ?? `Status ${status.id}`,
       })) : [];
       
       setTimesheetStatuses(statuses);
