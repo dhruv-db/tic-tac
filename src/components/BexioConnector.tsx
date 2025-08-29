@@ -60,35 +60,30 @@ export const BexioConnector = ({ onConnect, onOAuthConnect, isConnected }: Bexio
       
       console.log('🚀 Starting OAuth flow with PKCE:', { state, hasCodeChallenge: !!codeChallenge });
       
-      // OIDC scopes only (Bexio rejects API scopes in authorize request)
-      const fullScope = 'openid profile email offline_access';
+      // Pack state with code_verifier and return URL for callback
+      const packedState = btoa(JSON.stringify({ 
+        s: state, 
+        cv: codeVerifier, 
+        ru: `${window.location.origin}/` 
+      }));
       
-      // Get OAuth URL from our edge function
-      const response = await fetch('https://opcjifbdwpyttaxqlqbf.supabase.co/functions/v1/bexio-oauth/auth', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ 
-          state,
-          scope: fullScope,
-          codeChallenge,
-          codeChallengeMethod: 'S256',
-          codeVerifier,
-          returnUrl: `${window.location.origin}/`,
-        }),
+      // Build OAuth URL directly (no API call needed)
+      const clientId = 'ea67faa2-5710-4241-9ebd-9267e5fd5acf'; // This is public, safe to expose
+      const redirectUri = 'https://opcjifbdwpyttaxqlqbf.supabase.co/functions/v1/bexio-oauth/callback';
+      const scope = 'openid profile email offline_access';
+      
+      const params = new URLSearchParams({
+        client_id: clientId,
+        redirect_uri: redirectUri,
+        response_type: 'code',
+        scope: scope,
+        state: packedState,
+        code_challenge: codeChallenge,
+        code_challenge_method: 'S256',
       });
 
-      console.log('📡 OAuth auth response status:', response.status);
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        console.error('❌ OAuth auth failed:', errorData);
-        throw new Error(errorData.error || 'Failed to initiate OAuth');
-      }
-
-      const { authUrl } = await response.json();
-      console.log('✅ Got OAuth URL, opening popup:', authUrl);
+      const authUrl = `https://auth.bexio.com/realms/bexio/protocol/openid-connect/auth?${params.toString()}`;
+      console.log('✅ Generated Bexio OAuth URL directly:', authUrl);
       
       // Open popup immediately to avoid blockers
       const popup = window.open(authUrl, 'bexio-oauth', 'width=600,height=700,scrollbars=yes,resizable=yes');
