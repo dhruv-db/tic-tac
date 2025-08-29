@@ -135,23 +135,9 @@ serve(async (req) => {
         const tokenData = await tokenResponse.json();
         console.log('Successfully obtained access token');
 
-        // Get user info from Bexio to obtain company ID
-        const userResponse = await fetch('https://api.bexio.com/2.0/profile', {
-          headers: {
-            'Authorization': `Bearer ${tokenData.access_token}`,
-            'Accept': 'application/json',
-          },
-        });
+        // Skip calling Bexio REST here (scopes may vary). Just return tokens to the app.
+        const idToken = (tokenData as any).id_token || '';
 
-        if (!userResponse.ok) {
-          console.error(`Failed to get user profile: ${userResponse.status}`);
-          throw new Error(`Failed to get user profile: ${userResponse.status}`);
-        }
-
-        const userData = await userResponse.json();
-        console.log(`User authenticated: ${userData.email || 'unknown'}`);
-
-        // Return success page with credentials that the parent window can access
         return new Response(`
           <html>
             <body>
@@ -163,15 +149,16 @@ serve(async (req) => {
                   window.opener.postMessage({
                     type: 'BEXIO_OAUTH_SUCCESS',
                     credentials: {
-                      accessToken: '${tokenData.access_token}',
-                      refreshToken: '${tokenData.refresh_token || ''}',
-                      companyId: '${userData.company_id || ''}',
-                      userEmail: '${userData.email || ''}',
-                      expiresIn: ${tokenData.expires_in || 3600}
+                      accessToken: '${(tokenData as any).access_token}',
+                      refreshToken: '${(tokenData as any).refresh_token || ''}',
+                      companyId: '',
+                      userEmail: '',
+                      idToken: '${idToken}',
+                      expiresIn: ${(tokenData as any).expires_in || 3600}
                     }
                   }, '*');
                 }
-                setTimeout(() => window.close(), 2000);
+                setTimeout(() => window.close(), 500);
               </script>
             </body>
           </html>
