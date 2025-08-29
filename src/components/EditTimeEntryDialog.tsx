@@ -102,15 +102,45 @@ export const EditTimeEntryDialog = ({
           return;
         }
         const { apiKey, companyId } = JSON.parse(stored);
-        const resp = await fetch(`https://opcjifbdwpyttaxqlqbf.supabase.co/functions/v1/bexio-proxy`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ endpoint: '/pr_package', apiKey, companyId }),
-        });
-        const data = await resp.json();
+        
+        // Try different possible endpoints for work packages/milestones
+        const possibleEndpoints = ['/pr_milestone', '/pr_work_package', '/work_package'];
+        let data = null;
+        
+        for (const endpoint of possibleEndpoints) {
+          try {
+            console.log(`Trying endpoint: ${endpoint}`);
+            const resp = await fetch(`https://opcjifbdwpyttaxqlqbf.supabase.co/functions/v1/bexio-proxy`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ endpoint, apiKey, companyId }),
+            });
+            
+            if (resp.ok) {
+              data = await resp.json();
+              console.log(`Success with endpoint: ${endpoint}`, data);
+              break;
+            } else {
+              console.log(`Failed with endpoint: ${endpoint}, status: ${resp.status}`);
+            }
+          } catch (e) {
+            console.log(`Error with endpoint: ${endpoint}`, e);
+            continue;
+          }
+        }
+        
+        if (!data) {
+          console.log('No valid work package endpoint found');
+          setWorkPackages([]);
+          return;
+        }
+        
         const pkgs = (Array.isArray(data) ? data : [])
           .filter((p: any) => p.pr_project_id === projectId)
-          .map((p: any) => ({ id: p.id, name: p.name || `Package #${p.id}` }));
+          .map((p: any) => ({ 
+            id: p.id, 
+            name: p.name || p.title || `Work Package #${p.id}` 
+          }));
         setWorkPackages(pkgs);
 
         // If current selection is not in fetched list, reset to none to avoid 422s
@@ -119,6 +149,7 @@ export const EditTimeEntryDialog = ({
           pr_package_id: pkgs.some((p) => p.id === prev.pr_package_id) ? prev.pr_package_id : undefined,
         }));
       } catch (e) {
+        console.error('Error loading work packages:', e);
         setWorkPackages([]);
       } finally {
         setIsLoadingWorkPackages(false);
