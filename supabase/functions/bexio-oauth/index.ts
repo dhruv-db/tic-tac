@@ -168,15 +168,27 @@ serve(async (req) => {
         const tokenData = await tokenResponse.json();
         console.log('Successfully obtained access token');
         
-        // Extract ID token
-        const idToken = (tokenData as any).id_token || '';
-
         // Get user info from Bexio API to obtain company ID and email
         let companyId = '';
         let userEmail = '';
         
+        // First, try to extract email from ID token (most reliable)
+        const idToken = (tokenData as any).id_token || '';
+        if (idToken) {
+          try {
+            const idTokenParts = idToken.split('.');
+            if (idTokenParts.length === 3) {
+              const idPayload = JSON.parse(atob(idTokenParts[1]));
+              console.log('ID token payload:', idPayload);
+              userEmail = idPayload.email || '';
+            }
+          } catch (idTokenError) {
+            console.warn('Failed to parse ID token:', idTokenError);
+          }
+        }
+        
         try {
-          // Try the company profile endpoint first
+          // Try the company profile endpoint for company ID
           const companyResponse = await fetch('https://api.bexio.com/2.0/company_profile', {
             headers: {
               'Authorization': `Bearer ${(tokenData as any).access_token}`,
@@ -188,22 +200,29 @@ serve(async (req) => {
             const companyData = await companyResponse.json();
             console.log('Company profile data:', companyData);
             companyId = companyData.id?.toString() || '';
-            userEmail = companyData.email || '';
+            // Only use company email if we don't have one from ID token
+            if (!userEmail) {
+              userEmail = companyData.email || '';
+            }
           } else {
-            console.warn(`Failed to get company profile: ${companyResponse.status}`);
+            const errorText = await companyResponse.text();
+            console.warn(`Failed to get company profile: ${companyResponse.status} - ${errorText}`);
             
-            // Fallback: try to get user info from JWT token
+            // Fallback: try to get company ID from access token
             try {
               const accessToken = (tokenData as any).access_token;
               const tokenParts = accessToken.split('.');
               if (tokenParts.length === 3) {
                 const payload = JSON.parse(atob(tokenParts[1]));
-                console.log('JWT payload:', payload);
-                companyId = payload.company_id || '';
-                userEmail = payload.email || payload.login_id || '';
+                console.log('Access token payload:', payload);
+                companyId = payload.company_id || payload.user_id?.toString() || '';
+                // Only use access token email as last resort
+                if (!userEmail) {
+                  userEmail = payload.email || payload.login_id || '';
+                }
               }
             } catch (jwtError) {
-              console.warn('Failed to parse JWT token:', jwtError);
+              console.warn('Failed to parse access token:', jwtError);
             }
           }
         } catch (profileError) {
