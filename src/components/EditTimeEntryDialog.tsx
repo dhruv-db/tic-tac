@@ -104,14 +104,19 @@ export const EditTimeEntryDialog = ({
         if (!stored) { setWorkPackages([]); return; }
         const { apiKey, companyId } = JSON.parse(stored);
 
-        const possibleEndpoints = ['/pr_milestone', '/pr_work_package', '/work_package'];
+        const possibleSearchEndpoints = ['/pr_package/search', '/pr_milestone/search'];
         let data: any = null;
 
-        for (const endpoint of possibleEndpoints) {
+        for (const endpoint of possibleSearchEndpoints) {
           try {
             const resp = await fetch(`https://opcjifbdwpyttaxqlqbf.supabase.co/functions/v1/bexio-proxy`, {
               method: 'POST', headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ endpoint, apiKey, companyId }),
+              body: JSON.stringify({ 
+                endpoint, 
+                method: 'POST',
+                apiKey, companyId,
+                data: [ { field: 'pr_project_id', value: projectId, criteria: '=' } ]
+              }),
             });
             if (resp.ok) { data = await resp.json(); break; }
           } catch (_) { /* try next */ }
@@ -253,7 +258,14 @@ export const EditTimeEntryDialog = ({
     }
     
     try {
-      await onSubmit(entry.id, formData);
+      // Sanitize optional fields to avoid Bexio 422s
+      const sanitized = {
+        ...formData,
+        status_id: [1,2,3,4].includes(formData.status_id ?? -1) ? formData.status_id : undefined,
+        pr_package_id: (workPackages.length > 0 && formData.pr_package_id) ? formData.pr_package_id : undefined,
+      };
+
+      await onSubmit(entry.id, sanitized);
       onClose();
     } catch (error) {
       // Error handling is done in the parent component
