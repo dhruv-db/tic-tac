@@ -654,7 +654,7 @@ export const useBexioApi = () => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          endpoint: '/business_activity',
+          endpoint: '/client_service',
           apiKey: credentials.apiKey,
           companyId: credentials.companyId,
         }),
