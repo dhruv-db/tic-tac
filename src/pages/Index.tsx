@@ -1,3 +1,4 @@
+import { Analytics } from "@/components/Analytics";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -7,7 +8,7 @@ import { ContactList } from "@/components/ContactList";
 import { ProjectList } from "@/components/ProjectList";
 import { TimeTrackingList } from "@/components/TimeTrackingList";
 import { useBexioApi } from "@/hooks/useBexioApi";
-import { RefreshCw, Database, LogOut, Users, FolderOpen } from "lucide-react";
+import { RefreshCw, Database, LogOut, Users, FolderOpen, BarChart3 } from "lucide-react";
 
 const Index = () => {
   const {
@@ -36,27 +37,30 @@ const Index = () => {
     disconnect,
   } = useBexioApi();
 
-  const [activeTab, setActiveTab] = useState("contacts");
+  const [activeTab, setActiveTab] = useState("analytics");
 
   useEffect(() => {
     loadStoredCredentials();
   }, [loadStoredCredentials]);
 
   useEffect(() => {
-    // Auto-fetch contacts and projects when switching to Time Tracking
-    if (activeTab === "timetracking") {
+    // Auto-fetch contacts and projects when switching to Time Tracking or Analytics
+    if (activeTab === "timetracking" || activeTab === "analytics") {
       if (contacts.length === 0 && !isLoadingContacts) fetchContacts();
       if (projects.length === 0 && !isLoadingProjects) fetchProjects();
+      if (timeEntries.length === 0 && !isLoadingTimeEntries) fetchTimeEntries();
     }
-  }, [activeTab, contacts.length, projects.length, isLoadingContacts, isLoadingProjects, fetchContacts, fetchProjects]);
+  }, [activeTab, contacts.length, projects.length, timeEntries.length, isLoadingContacts, isLoadingProjects, isLoadingTimeEntries, fetchContacts, fetchProjects, fetchTimeEntries]);
 
   const handleRefresh = () => {
     if (activeTab === "contacts") {
       fetchContacts();
     } else if (activeTab === "projects") {
       fetchProjects();
-    } else {
+    } else if (activeTab === "analytics" || activeTab === "timetracking") {
       fetchTimeEntries();
+      fetchContacts();
+      fetchProjects();
     }
   };
 
@@ -132,7 +136,11 @@ const Index = () => {
       {/* Main Content */}
       <main className="container mx-auto px-4 py-8">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full max-w-2xl grid-cols-3 mx-auto">
+          <TabsList className="grid w-full max-w-3xl grid-cols-4 mx-auto">
+            <TabsTrigger value="analytics" className="gap-2">
+              <BarChart3 className="h-4 w-4" />
+              Analytics
+            </TabsTrigger>
             <TabsTrigger value="contacts" className="gap-2">
               <Users className="h-4 w-4" />
               Contacts
@@ -146,6 +154,15 @@ const Index = () => {
               Time Tracking
             </TabsTrigger>
           </TabsList>
+
+          <TabsContent value="analytics" className="space-y-6">
+            <Analytics 
+              timeEntries={timeEntries}
+              contacts={contacts}
+              projects={projects}
+              isLoading={isLoadingTimeEntries}
+            />
+          </TabsContent>
 
           <TabsContent value="contacts" className="space-y-6">
             {contacts.length === 0 && !isLoadingContacts ? (

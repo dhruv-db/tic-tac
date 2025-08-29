@@ -185,10 +185,6 @@ export const TimeTrackingList = ({
     return Array.from(monthYears).sort().reverse();
   };
 
-  const totalDuration = filteredTimeEntries.reduce((acc, entry) => acc + toSeconds(entry.duration), 0);
-  const billableEntries = filteredTimeEntries.filter(entry => entry.allowable_bill);
-  const totalBillableDuration = billableEntries.reduce((acc, entry) => acc + toSeconds(entry.duration), 0);
-
   // Selection handlers
   const handleSelectEntry = (entryId: number, checked: boolean) => {
     setSelectedEntries(prev => 
@@ -324,53 +320,6 @@ export const TimeTrackingList = ({
         </TabsContent>
 
         <TabsContent value="list" className="space-y-6">
-          {/* Summary Cards */}
-          <div className="grid gap-4 md:grid-cols-3">
-            <Card className="corporate-card">
-              <CardContent className="p-6">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 rounded-full bg-primary-subtle">
-                    <Clock className="h-5 w-5 text-primary" />
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Total Time</p>
-                    <p className="text-2xl font-bold">{formatDuration(totalDuration)}</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="corporate-card">
-              <CardContent className="p-6">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 rounded-full bg-success/10">
-                    <DollarSign className="h-5 w-5 text-success" />
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Billable Time</p>
-                    <p className="text-2xl font-bold text-success">{formatDuration(totalBillableDuration)}</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="corporate-card">
-              <CardContent className="p-6">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 rounded-full bg-info/10">
-                    <User className="h-5 w-5 text-info" />
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Billable Rate</p>
-                    <p className="text-2xl font-bold text-info">
-                      {totalDuration > 0 ? Math.round((totalBillableDuration / totalDuration) * 100) : 0}%
-                    </p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
           {/* Filters */}
           <Card className="corporate-card">
             <CardContent className="p-4">
