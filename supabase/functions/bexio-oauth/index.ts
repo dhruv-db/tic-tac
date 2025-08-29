@@ -214,9 +214,9 @@ serve(async (req) => {
 
           const mainAppUrl = `https://4bf4f80d-52ee-4c37-86a7-92c7a81427b7.sandbox.lovable.dev/?oauth_success=true&t=${Date.now()}`;
 
-          return new Response(`<!DOCTYPE html><html><head><meta charset="utf-8" /><title>Connecting…</title></head><body><script>(function(){try{var payload={type:'BEXIO_OAUTH_SUCCESS',credentials:${JSON.stringify(
+          return new Response(`<!DOCTYPE html><html><head><meta charset="utf-8" /><title>Connecting...</title><meta name="viewport" content="width=device-width, initial-scale=1" /></head><body><script>(function(){try{var payload={type:'BEXIO_OAUTH_SUCCESS',credentials:${JSON.stringify(
             creds
-          )},timestamp:Date.now()};if(window.opener){window.opener.postMessage(payload,'*');window.addEventListener('message',function(e){try{var d=typeof e.data==='string'?JSON.parse(e.data):e.data;if(d&&d.type==='BEXIO_OAUTH_ACK'){window.close();}}catch(_){}},false);setTimeout(function(){window.close();},3000);}else{localStorage.setItem('bexio_oauth_success',JSON.stringify(payload));localStorage.setItem('bexio_oauth_ready','true');location.href='${mainAppUrl}';}}catch(e){document.write('Authentication completed. You can close this window.');}})();</script></body></html>`, {
+          )},timestamp:Date.now()};if(window.opener){try{window.opener.postMessage(payload,'*');}catch(_){};window.addEventListener('message',function(e){try{var d=typeof e.data==='string'?JSON.parse(e.data):e.data;if(d&&d.type==='BEXIO_OAUTH_ACK'){window.close();}}catch(_){}},false);(function(){var c=function(){try{window.close()}catch(_){}};setTimeout(c,200);var i=setInterval(c,500);setTimeout(function(){try{clearInterval(i);window.open('','_self');window.close()}catch(_){}} ,4000);}());}else{try{localStorage.setItem('bexio_oauth_success',JSON.stringify(payload));localStorage.setItem('bexio_oauth_ready','true');}catch(_){ } location.href='${mainAppUrl}';}}catch(e){document.body.innerHTML='<h1>Authentication completed</h1><p>You can close this window.</p>';}})();</script></body></html>`, {
             headers: { ...corsHeaders, 'Content-Type': 'text/html' },
           });
 
