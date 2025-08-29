@@ -45,33 +45,110 @@ const Index = () => {
   }, [loadStoredCredentials]);
 
   useEffect(() => {
-    console.log('🔍 Checking for OAuth success in URL...');
+    console.log('🎧 Setting up OAuth message listeners... isConnected:', isConnected);
     
     // Check if we just returned from OAuth
     const urlParams = new URLSearchParams(window.location.search);
     if (urlParams.get('oauth_success') === 'true') {
-      const credentialsParam = urlParams.get('credentials');
-      
-      if (credentialsParam) {
-        try {
-          const credentials = JSON.parse(decodeURIComponent(credentialsParam));
-          console.log('🎉 Found OAuth credentials in URL!');
-          
-          const { accessToken, refreshToken, companyId, userEmail } = credentials;
-          console.log('🚀 Calling connectWithOAuth from URL...');
+      console.log('🔄 Returned from OAuth, checking for credentials...');
+      // Clean up URL
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+    
+    const onMessage = (event: MessageEvent) => {
+      try {
+        console.log('📨 Message received in main app:', event.data, 'from origin:', event.origin);
+        // Accept messages from any origin for OAuth (since popup comes from Supabase domain)
+        const data = typeof (event as any).data === 'string' ? JSON.parse((event as any).data) : (event as any).data;
+        if (data?.type === 'BEXIO_OAUTH_SUCCESS' && !isConnected) {
+          console.log('🎉 BEXIO_OAUTH_SUCCESS detected! Processing...');
+          const { accessToken, refreshToken, companyId, userEmail } = data.credentials || {};
+          console.log('📋 Extracted credentials:', { hasAccessToken: !!accessToken, hasRefreshToken: !!refreshToken, companyId, userEmail });
+          console.log('🚀 Calling connectWithOAuth...');
           connectWithOAuth(accessToken, refreshToken, companyId, userEmail);
           
-          // Clean up URL
-          window.history.replaceState({}, document.title, window.location.pathname);
-          
-        } catch (error) {
-          console.error('❌ Failed to parse OAuth credentials from URL:', error);
+          // Send ACK back to popup to confirm receipt
+          try {
+            const popup = Array.from(window.frames).find(frame => {
+              try {
+                return frame !== window;
+              } catch (e) {
+                return false;
+              }
+            });
+            if (event.source && typeof event.source.postMessage === 'function') {
+              (event.source as Window).postMessage({ type: 'BEXIO_OAUTH_ACK' }, event.origin === 'null' ? '*' : event.origin);
+              console.log('✅ Sent ACK back to popup');
+            }
+          } catch (ackErr) {
+            console.warn('⚠️ Failed to send ACK:', ackErr);
+          }
+        } else {
+          console.log('ℹ️ Message ignored:', { 
+            type: data?.type, 
+            isOAuthSuccess: data?.type === 'BEXIO_OAUTH_SUCCESS',
+            isConnected: isConnected,
+            shouldProcess: data?.type === 'BEXIO_OAUTH_SUCCESS' && !isConnected
+          });
         }
-      } else {
-        console.log('⚠️ OAuth success flag found but no credentials in URL');
+      } catch (e) {
+        console.error('❌ Failed to handle OAuth message at app level:', e);
       }
-    }
-  }, [connectWithOAuth]);
+    };
+
+    // Primary method: Check localStorage for OAuth success
+    const checkLocalStorage = () => {
+      try {
+        // Check for ready flag first (faster)
+        const ready = localStorage.getItem('bexio_oauth_ready');
+        if (ready && !isConnected) {
+          const stored = localStorage.getItem('bexio_oauth_success');
+          if (stored) {
+            console.log('🎉 Found OAuth success in localStorage!');
+            const data = JSON.parse(stored);
+            console.log('📋 Parsed OAuth data:', data);
+            const { accessToken, refreshToken, companyId, userEmail } = data.credentials || {};
+            console.log('🚀 Calling connectWithOAuth from localStorage...');
+            connectWithOAuth(accessToken, refreshToken, companyId, userEmail);
+            
+            // Clean up
+            localStorage.removeItem('bexio_oauth_success');
+            localStorage.removeItem('bexio_oauth_ready');
+            console.log('🧹 Cleaned up localStorage');
+            return true;
+          }
+        }
+        return false;
+      } catch (e) {
+        console.error('❌ Failed to check localStorage for OAuth:', e);
+        return false;
+      }
+    };
+
+    window.addEventListener('message', onMessage);
+    console.log('👂 Added message listener (backup method)');
+    
+    // Primary method: Check localStorage immediately and frequently
+    console.log('🔍 Starting localStorage checks...');
+    if (checkLocalStorage()) return; // Exit early if found immediately
+    
+    const interval = setInterval(() => {
+      if (checkLocalStorage()) {
+        clearInterval(interval);
+      }
+    }, 250); // Check every 250ms for faster response
+    
+    setTimeout(() => {
+      clearInterval(interval);
+      console.log('⏰ Stopped localStorage polling after 15 seconds');
+    }, 15000); // Extended timeout
+
+    return () => {
+      window.removeEventListener('message', onMessage);
+      clearInterval(interval);
+      console.log('🧹 Cleaned up OAuth listeners');
+    };
+  }, [isConnected, connectWithOAuth]);
 
   useEffect(() => {
     // Auto-fetch contacts and projects when switching to Time Tracking or Analytics

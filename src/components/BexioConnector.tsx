@@ -38,16 +38,13 @@ export const BexioConnector = ({ onConnect, onOAuthConnect, isConnected }: Bexio
       
       console.log('🚀 Starting OAuth flow with state:', state);
       
-      // Get OAuth URL from our edge function with proper scope
+      // Get OAuth URL from our edge function
       const response = await fetch('https://opcjifbdwpyttaxqlqbf.supabase.co/functions/v1/bexio-oauth/auth', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ 
-          state,
-          scope: 'openid offline_access general'
-        }),
+        body: JSON.stringify({ state }),
       });
 
       console.log('📡 OAuth auth response status:', response.status);

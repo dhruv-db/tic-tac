@@ -32,8 +32,8 @@ serve(async (req) => {
       }
 
       const redirectUri = `https://${url.hostname}/functions/v1/bexio-oauth/callback`;
-      // Include necessary scopes for Bexio API access
-      const scope = requestedScope || 'openid offline_access general';
+      // Default to basic OIDC scopes; extend in your Bexio app if needed
+      const scope = requestedScope || 'openid offline_access';
 
       const params = new URLSearchParams({
         client_id: clientId,
@@ -177,25 +177,22 @@ serve(async (req) => {
           console.error('Error fetching profile data:', profileError);
         }
 
-          // Encode credentials as URL parameters and redirect
-          const credentials = {
+          // Minimal HTML to postMessage credentials back to opener and close
+          const creds = {
             accessToken: (tokenData as any).access_token,
             refreshToken: (tokenData as any).refresh_token || '',
-            companyId: companyId,
-            userEmail: userEmail,
-            idToken: idToken,
-            expiresIn: (tokenData as any).expires_in || 3600
+            companyId,
+            userEmail,
+            idToken,
+            expiresIn: (tokenData as any).expires_in || 3600,
           };
 
-          const encodedCredentials = encodeURIComponent(JSON.stringify(credentials));
-          const mainAppUrl = `https://4bf4f80d-52ee-4c37-86a7-92c7a81427b7.sandbox.lovable.dev/?oauth_success=true&credentials=${encodedCredentials}&t=${Date.now()}`;
-          
-          return new Response(null, {
-            status: 302,
-            headers: { 
-              ...corsHeaders, 
-              'Location': mainAppUrl 
-            },
+          const mainAppUrl = `https://4bf4f80d-52ee-4c37-86a7-92c7a81427b7.sandbox.lovable.dev/?oauth_success=true&t=${Date.now()}`;
+
+          return new Response(`<!DOCTYPE html><html><head><meta charset="utf-8" /><title>Connecting…</title></head><body><script>(function(){try{var payload={type:'BEXIO_OAUTH_SUCCESS',credentials:${JSON.stringify(
+            creds
+          )},timestamp:Date.now()};if(window.opener){window.opener.postMessage(payload,'*');window.addEventListener('message',function(e){try{var d=typeof e.data==='string'?JSON.parse(e.data):e.data;if(d&&d.type==='BEXIO_OAUTH_ACK'){window.close();}}catch(_){}},false);setTimeout(function(){window.close();},3000);}else{localStorage.setItem('bexio_oauth_success',JSON.stringify(payload));localStorage.setItem('bexio_oauth_ready','true');location.href='${mainAppUrl}';}}catch(e){document.write('Authentication completed. You can close this window.');}})();</script></body></html>`, {
+            headers: { ...corsHeaders, 'Content-Type': 'text/html' },
           });
 
       } catch (error) {
