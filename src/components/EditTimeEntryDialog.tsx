@@ -102,11 +102,11 @@ export const EditTimeEntryDialog = ({
     try {
       setIsLoadingWorkPackages(true);
       
-      // Fetch work packages from our local Supabase table (with explicit typing)
-      const result: any = await (supabase as any)
-        .from('work_packages')
-        .select('id, name, project_id')
-        .eq('project_id', String(projectId))
+      // Fetch work packages from our local Supabase table for Bexio mapping
+      const result = await supabase
+        .from('bexio_work_packages')
+        .select('id, name, bexio_project_id, color')
+        .eq('bexio_project_id', projectId)
         .eq('is_active', true)
         .order('name');
 
@@ -121,7 +121,7 @@ export const EditTimeEntryDialog = ({
       const pkgs = (data || []).map(wp => ({ 
         id: wp.id, 
         name: wp.name,
-        color: '#3b82f6' // Default color since column may not exist yet
+        color: wp.color || '#3b82f6'
       }));
       setWorkPackages(pkgs);
 

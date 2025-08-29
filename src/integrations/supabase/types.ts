@@ -14,6 +14,39 @@ export type Database = {
   }
   public: {
     Tables: {
+      bexio_work_packages: {
+        Row: {
+          bexio_project_id: number
+          color: string | null
+          created_at: string | null
+          description: string | null
+          id: string
+          is_active: boolean
+          name: string
+          updated_at: string | null
+        }
+        Insert: {
+          bexio_project_id: number
+          color?: string | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          updated_at?: string | null
+        }
+        Update: {
+          bexio_project_id?: number
+          color?: string | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       holidays: {
         Row: {
           created_at: string | null
