@@ -229,11 +229,22 @@ export const useBexioApi = () => {
       }
 
       const data = await response.json();
-      setTimeEntries(Array.isArray(data) ? data : []);
+      const normalized = (Array.isArray(data) ? data : []).map((d: any) => ({
+        id: d.id,
+        date: d.date,
+        duration: d.duration,
+        text: d.text,
+        allowable_bill: d.allowable_bill,
+        contact_id: d.contact_id ?? undefined,
+        project_id: d.pr_project_id ?? d.project_id ?? undefined,
+        user_id: d.user_id,
+        client_service_id: d.client_service_id,
+      }));
+      setTimeEntries(normalized);
       
       toast({
         title: "Time entries loaded successfully",
-        description: `Successfully fetched ${Array.isArray(data) ? data.length : 0} time entries.`,
+        description: `Successfully fetched ${normalized.length} time entries.`,
       });
     } catch (error) {
       console.error('Error fetching time entries:', error);
