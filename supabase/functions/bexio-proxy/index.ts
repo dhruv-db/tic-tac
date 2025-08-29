@@ -25,7 +25,7 @@ serve(async (req) => {
     console.log(`Proxying request to Bexio API: ${endpoint}`);
     console.log(`Using API key: ${apiKey.substring(0, 10)}...`);
     console.log(`Request method: ${method}`);
-    if (method === 'POST' && requestData) {
+    if ((method === 'POST' || method === 'PUT') && requestData) {
       console.log('Request payload:', JSON.stringify(requestData, null, 2));
     }
 
@@ -41,8 +41,10 @@ serve(async (req) => {
       },
     };
 
-    if (method === 'POST' && requestData) {
+    if ((method === 'POST' || method === 'PUT' || method === 'DELETE') && requestData) {
       requestOptions.body = JSON.stringify(requestData);
+    } else if (method === 'DELETE') {
+      // DELETE requests typically don't need a body, but we support it for flexibility
     }
     
     const response = await fetch(bexioUrl, requestOptions);

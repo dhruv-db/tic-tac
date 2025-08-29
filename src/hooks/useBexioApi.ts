@@ -408,6 +408,29 @@ export const useBexioApi = () => {
 
     setIsCreatingTimeEntry(true);
     try {
+      // Since Bexio doesn't support PUT operations for timesheet updates,
+      // we'll use a delete-and-recreate approach as a workaround
+      
+      // Step 1: Delete the existing entry
+      const deleteResponse = await fetch(`https://opcjifbdwpyttaxqlqbf.supabase.co/functions/v1/bexio-proxy`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          endpoint: `/timesheet/${id}`,
+          method: 'DELETE',
+          apiKey: credentials.apiKey,
+          companyId: credentials.companyId,
+        }),
+      });
+
+      if (!deleteResponse.ok) {
+        const errorData = await deleteResponse.json().catch(() => ({}));
+        throw new Error(`Failed to delete existing entry: ${errorData.error || deleteResponse.status}`);
+      }
+
+      // Step 2: Create a new entry with updated data
       // Calculate duration
       const [startHours, startMinutes] = timeEntryData.startTime.split(':').map(Number);
       const [endHours, endMinutes] = timeEntryData.endTime.split(':').map(Number);
@@ -438,23 +461,23 @@ export const useBexioApi = () => {
         ...(timeEntryData.project_id && { pr_project_id: timeEntryData.project_id }),
       };
 
-      const response = await fetch(`https://opcjifbdwpyttaxqlqbf.supabase.co/functions/v1/bexio-proxy`, {
+      const createResponse = await fetch(`https://opcjifbdwpyttaxqlqbf.supabase.co/functions/v1/bexio-proxy`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          endpoint: `/timesheet/${id}`,
-          method: 'PUT',
+          endpoint: '/timesheet',
+          method: 'POST',
           apiKey: credentials.apiKey,
           companyId: credentials.companyId,
           data: bexioData,
         }),
       });
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+      if (!createResponse.ok) {
+        const errorData = await createResponse.json().catch(() => ({}));
+        throw new Error(errorData.error || `HTTP error! status: ${createResponse.status}`);
       }
 
       toast({
