@@ -163,27 +163,18 @@ const Index = () => {
           </TabsContent>
 
           <TabsContent value="timetracking" className="space-y-6">
-            {timeEntries.length === 0 && !isLoadingTimeEntries ? (
-              <div className="text-center py-12">
-                <Button onClick={fetchTimeEntries} className="gap-2">
-                  <RefreshCw className="h-4 w-4" />
-                  Load Time Entries
-                </Button>
-              </div>
-            ) : (
-              <TimeTrackingList 
-                timeEntries={timeEntries} 
-                isLoading={isLoadingTimeEntries}
-                onCreateTimeEntry={createTimeEntry}
-                onUpdateTimeEntry={updateTimeEntry}
-                onDeleteTimeEntry={deleteTimeEntry}
-                onBulkUpdateTimeEntries={bulkUpdateTimeEntries}
-                onBulkDeleteTimeEntries={bulkDeleteTimeEntries}
-                isCreatingTimeEntry={isCreatingTimeEntry}
-                contacts={contacts}
-                projects={projects}
-              />
-            )}
+            <TimeTrackingList 
+              timeEntries={timeEntries} 
+              isLoading={isLoadingTimeEntries}
+              onCreateTimeEntry={createTimeEntry}
+              onUpdateTimeEntry={updateTimeEntry}
+              onDeleteTimeEntry={deleteTimeEntry}
+              onBulkUpdateTimeEntries={bulkUpdateTimeEntries}
+              onBulkDeleteTimeEntries={bulkDeleteTimeEntries}
+              isCreatingTimeEntry={isCreatingTimeEntry}
+              contacts={contacts}
+              projects={projects}
+            />
           </TabsContent>
         </Tabs>
       </main>
