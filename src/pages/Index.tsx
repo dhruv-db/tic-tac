@@ -47,6 +47,21 @@ const Index = () => {
   useEffect(() => {
     console.log('🎧 Setting up OAuth message listeners... isConnected:', isConnected);
     
+    // Pickup OAuth payload if this window was opened via redirect (popup flows)
+    try {
+      const wname = (window as Window).name;
+      if (wname && typeof wname === 'string' && wname.startsWith('BEXIO_OAUTH:')) {
+        console.log('📦 Found OAuth payload in window.name on app load');
+        const raw = decodeURIComponent(wname.slice('BEXIO_OAUTH:'.length));
+        const data = JSON.parse(raw);
+        localStorage.setItem('bexio_oauth_success', JSON.stringify(data));
+        localStorage.setItem('bexio_oauth_ready', 'true');
+        try { (window as any).name = ''; } catch (_) {}
+      }
+    } catch (e) {
+      console.warn('Failed to read window.name OAuth payload:', e);
+    }
+    
     // Check if we just returned from OAuth
     const urlParams = new URLSearchParams(window.location.search);
     if (urlParams.get('oauth_success') === 'true') {
