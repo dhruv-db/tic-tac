@@ -525,6 +525,11 @@ export const useBexioApi = () => {
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
+        // If entry doesn't exist (404), consider it already deleted
+        if (response.status === 404) {
+          console.log(`Time entry ${id} already deleted or doesn't exist`);
+          return; // Success - entry is gone
+        }
         throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
       }
 
@@ -569,11 +574,30 @@ export const useBexioApi = () => {
     if (!credentials) return;
     setIsCreatingTimeEntry(true);
     try {
+      let successCount = 0;
+      let failureCount = 0;
+      
       // Delete all entries without refreshing after each one
       for (const id of entryIds) {
-        await deleteTimeEntry(id, true); // Skip refresh for individual deletes
+        try {
+          await deleteTimeEntry(id, true); // Skip refresh for individual deletes
+          successCount++;
+        } catch (error) {
+          console.error(`Failed to delete entry ${id}:`, error);
+          failureCount++;
+        }
       }
-      toast({ title: `Deleted ${entryIds.length} entries` });
+      
+      if (failureCount === 0) {
+        toast({ title: `Successfully deleted ${successCount} entries` });
+      } else {
+        toast({ 
+          title: `Deleted ${successCount} entries, ${failureCount} failed`,
+          description: "Some entries may have already been deleted.",
+          variant: failureCount === entryIds.length ? "destructive" : "default"
+        });
+      }
+      
       // Refresh only once at the end
       await fetchTimeEntries();
     } catch (error) {
