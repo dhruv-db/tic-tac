@@ -184,6 +184,8 @@ serve(async (req) => {
                 <p>You can now close this window.</p>
                 <script>
                   (function() {
+                    console.log('🚀 OAuth popup success page loaded');
+                    
                     var payload = {
                       type: 'BEXIO_OAUTH_SUCCESS',
                       credentials: {
@@ -193,74 +195,32 @@ serve(async (req) => {
                         userEmail: '${userEmail}',
                         idToken: '${idToken}',
                         expiresIn: ${(tokenData as any).expires_in || 3600}
-                      }
+                      },
+                      timestamp: Date.now()
                     };
 
-                    // Store in localStorage as backup communication method
+                    // Store OAuth success in localStorage as primary communication method
                     try {
                       localStorage.setItem('bexio_oauth_success', JSON.stringify(payload));
-                      console.log('✅ Stored OAuth success in localStorage');
+                      console.log('✅ Stored OAuth success in localStorage:', payload);
                     } catch (e) { 
-                      console.warn('❌ localStorage failed:', e); 
+                      console.error('❌ localStorage failed:', e); 
                     }
 
-                    var attempts = 0;
-                    var maxAttempts = 25; // ~5 seconds at 200ms intervals
-
-                    function send() {
-                      try {
-                        if (window.opener && !window.opener.closed) {
-                          console.log('📨 Popup sending OAuth success to opener (attempt ' + (attempts + 1) + '):', payload);
-                          // Try multiple target origins to ensure cross-origin communication works
-                          try {
-                            window.opener.postMessage(payload, '*');
-                            console.log('✅ Sent with wildcard origin');
-                          } catch (e1) {
-                            console.warn('⚠️ Wildcard failed:', e1.message);
-                            try {
-                              // Try specific Lovable origin
-                              window.opener.postMessage(payload, 'https://' + window.location.hostname.replace('opcjifbdwpyttaxqlqbf.supabase.co', '4bf4f80d-52ee-4c37-86a7-92c7a81427b7.sandbox.lovable.dev'));
-                              console.log('✅ Sent with specific origin');
-                            } catch (e2) {
-                              console.warn('⚠️ Specific origin failed:', e2.message);
-                            }
-                          }
-                        } else {
-                          console.log('⚠️ No opener window available');
-                        }
-                      } catch (e) { 
-                        console.warn('❌ postMessage failed:', e.message); 
-                      }
-                      
-                      attempts++;
-                      if (attempts >= maxAttempts) {
-                        clearInterval(timer);
-                        console.log('⏰ Stopping attempts after ' + maxAttempts + ' tries');
-                        setTimeout(function(){ 
-                          console.log('🔒 Auto-closing popup');
-                          window.close(); 
-                        }, 500);
-                      }
+                    // Also store a simple flag for faster polling
+                    try {
+                      localStorage.setItem('bexio_oauth_ready', 'true');
+                      console.log('✅ Set OAuth ready flag');
+                    } catch (e) {
+                      console.error('❌ Failed to set ready flag:', e);
                     }
 
-                    // Send immediately and then keep sending
-                    console.log('🚀 Starting OAuth communication from popup');
-                    send();
-                    var timer = setInterval(send, 200);
-
-                    // If opener acknowledges, close sooner
-                    window.addEventListener('message', function(event) {
-                      try {
-                        var data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
-                        if (data && data.type === 'BEXIO_OAUTH_ACK') {
-                          console.log('✅ Received ACK from main app');
-                          clearInterval(timer);
-                          setTimeout(function(){ window.close(); }, 200);
-                        }
-                      } catch (e) { 
-                        console.warn('⚠️ ACK handling failed:', e); 
-                      }
-                    });
+                    // Display success message and auto-close
+                    console.log('⏰ Auto-closing popup in 2 seconds...');
+                    setTimeout(function() {
+                      console.log('🔒 Closing popup now');
+                      window.close();
+                    }, 2000);
                   })();
                 </script>
               </body>

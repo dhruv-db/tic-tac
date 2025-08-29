@@ -89,38 +89,52 @@ const Index = () => {
       }
     };
 
-    // Also check localStorage for OAuth success (backup method)
+    // Primary method: Check localStorage for OAuth success
     const checkLocalStorage = () => {
       try {
-        const stored = localStorage.getItem('bexio_oauth_success');
-        if (stored && !isConnected) {
-          console.log('📦 Found OAuth success in localStorage:', stored);
-          const data = JSON.parse(stored);
-          console.log('📋 Parsed localStorage data:', data);
-          const { accessToken, refreshToken, companyId, userEmail } = data.credentials || {};
-          console.log('🚀 Calling connectWithOAuth from localStorage...');
-          connectWithOAuth(accessToken, refreshToken, companyId, userEmail);
-          localStorage.removeItem('bexio_oauth_success'); // Clean up
-          console.log('🧹 Cleaned up localStorage');
-        } else {
-          console.log('📦 localStorage check:', { hasStored: !!stored, isConnected });
+        // Check for ready flag first (faster)
+        const ready = localStorage.getItem('bexio_oauth_ready');
+        if (ready && !isConnected) {
+          const stored = localStorage.getItem('bexio_oauth_success');
+          if (stored) {
+            console.log('🎉 Found OAuth success in localStorage!');
+            const data = JSON.parse(stored);
+            console.log('📋 Parsed OAuth data:', data);
+            const { accessToken, refreshToken, companyId, userEmail } = data.credentials || {};
+            console.log('🚀 Calling connectWithOAuth from localStorage...');
+            connectWithOAuth(accessToken, refreshToken, companyId, userEmail);
+            
+            // Clean up
+            localStorage.removeItem('bexio_oauth_success');
+            localStorage.removeItem('bexio_oauth_ready');
+            console.log('🧹 Cleaned up localStorage');
+            return true;
+          }
         }
+        return false;
       } catch (e) {
         console.error('❌ Failed to check localStorage for OAuth:', e);
+        return false;
       }
     };
 
     window.addEventListener('message', onMessage);
-    console.log('👂 Added message listener');
+    console.log('👂 Added message listener (backup method)');
     
-    // Check localStorage immediately and periodically for a short time
+    // Primary method: Check localStorage immediately and frequently
     console.log('🔍 Starting localStorage checks...');
-    checkLocalStorage();
-    const interval = setInterval(checkLocalStorage, 1000);
+    if (checkLocalStorage()) return; // Exit early if found immediately
+    
+    const interval = setInterval(() => {
+      if (checkLocalStorage()) {
+        clearInterval(interval);
+      }
+    }, 500); // Check every 500ms for faster response
+    
     setTimeout(() => {
       clearInterval(interval);
-      console.log('⏰ Stopped localStorage polling after 10 seconds');
-    }, 10000); // Stop after 10 seconds
+      console.log('⏰ Stopped localStorage polling after 15 seconds');
+    }, 15000); // Extended timeout
 
     return () => {
       window.removeEventListener('message', onMessage);
