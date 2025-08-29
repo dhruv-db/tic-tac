@@ -72,7 +72,8 @@ export const BexioConnector = ({ onConnect, onOAuthConnect, isConnected }: Bexio
           state,
           scope: fullScope,
           codeChallenge,
-          codeChallengeMethod: 'S256'
+          codeChallengeMethod: 'S256',
+          codeVerifier,
         }),
       });
 

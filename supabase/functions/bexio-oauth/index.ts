@@ -20,7 +20,7 @@ serve(async (req) => {
   try {
     // Handle OAuth initiation
     if (path.endsWith('/auth') && req.method === 'POST') {
-      const { state, scope: requestedScope, codeChallenge, codeChallengeMethod } = await req.json();
+      const { state, scope: requestedScope, codeChallenge, codeChallengeMethod, codeVerifier } = await req.json();
       
       const clientId = Deno.env.get('BEXIO_CLIENT_ID');
       if (!clientId) {
@@ -40,12 +40,18 @@ serve(async (req) => {
         .filter((s) => oidcAllowed.includes(s));
       const finalScope = (requested.length ? requested : oidcAllowed).join(' ');
 
+      // Pack state with code_verifier for PKCE token exchange later
+      let packedState = state;
+      try {
+        packedState = btoa(JSON.stringify({ s: state, cv: codeVerifier || null }));
+      } catch (_) {}
+
       const params = new URLSearchParams({
         client_id: clientId,
         redirect_uri: redirectUri,
         response_type: 'code',
         scope: finalScope,
-        state,
+        state: packedState,
       });
 
       // Add PKCE parameters if provided
@@ -65,10 +71,19 @@ serve(async (req) => {
     // Handle OAuth callback
     if (path.endsWith('/callback') && req.method === 'GET') {
       const code = url.searchParams.get('code');
-      const state = url.searchParams.get('state');
+      const stateParam = url.searchParams.get('state');
+      let originalState = stateParam || '';
+      let codeVerifierFromState: string | null = null;
+      try {
+        const decoded = JSON.parse(atob(stateParam || ''));
+        if (decoded && typeof decoded === 'object') {
+          originalState = decoded.s || originalState;
+          codeVerifierFromState = decoded.cv || null;
+        }
+      } catch (_) {}
       const error = url.searchParams.get('error');
 
-      console.log(`OAuth callback - code: ${code ? 'present' : 'missing'}, state: ${state}, error: ${error}`);
+      console.log(`OAuth callback - code: ${code ? 'present' : 'missing'}, state: ${originalState ? 'present' : 'missing'}, error: ${error}`);
 
       if (error) {
         console.error(`OAuth error: ${error}`);
@@ -124,9 +139,6 @@ serve(async (req) => {
       try {
         console.log('Exchanging code for access token...');
         
-        // Get codeVerifier from state if PKCE was used (stored in URL fragment or passed separately)
-        const codeVerifier = url.searchParams.get('code_verifier');
-        
         const tokenParams = new URLSearchParams({
           grant_type: 'authorization_code',
           client_id: clientId,
@@ -136,8 +148,8 @@ serve(async (req) => {
         });
 
         // Add PKCE code_verifier if present
-        if (codeVerifier) {
-          tokenParams.set('code_verifier', codeVerifier);
+        if (codeVerifierFromState) {
+          tokenParams.set('code_verifier', codeVerifierFromState);
         }
 
         const tokenResponse = await fetch('https://auth.bexio.com/realms/bexio/protocol/openid-connect/token', {
