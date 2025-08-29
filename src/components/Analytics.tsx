@@ -32,6 +32,7 @@ import {
   BarChart,
   Bar,
   PieChart as RechartsPieChart,
+  Pie,
   Cell,
   Area,
   AreaChart
@@ -167,31 +168,31 @@ export const Analytics = ({ timeEntries, contacts, projects, isLoading }: Analyt
     return `${hours}h ${mins}m`;
   };
 
-  // Daily chart data
-  const dailyChartData = useMemo(() => {
-    const dailyData: Record<string, { date: string; total: number; billable: number; nonBillable: number }> = {};
+  // Monthly chart data
+  const monthlyChartData = useMemo(() => {
+    const monthlyData: Record<string, { month: string; total: number; billable: number; nonBillable: number }> = {};
     
     filteredEntries.forEach(entry => {
-      const date = entry.date;
+      const monthKey = format(new Date(entry.date), 'yyyy-MM');
       const minutes = parseDurationToMinutes(entry.duration);
       
-      if (!dailyData[date]) {
-        dailyData[date] = { date, total: 0, billable: 0, nonBillable: 0 };
+      if (!monthlyData[monthKey]) {
+        monthlyData[monthKey] = { month: monthKey, total: 0, billable: 0, nonBillable: 0 };
       }
       
-      dailyData[date].total += minutes;
+      monthlyData[monthKey].total += minutes;
       if (entry.allowable_bill) {
-        dailyData[date].billable += minutes;
+        monthlyData[monthKey].billable += minutes;
       } else {
-        dailyData[date].nonBillable += minutes;
+        monthlyData[monthKey].nonBillable += minutes;
       }
     });
     
-    return Object.values(dailyData)
-      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+    return Object.values(monthlyData)
+      .sort((a, b) => new Date(a.month).getTime() - new Date(b.month).getTime())
       .map(item => ({
         ...item,
-        date: format(new Date(item.date), 'MMM dd'),
+        month: format(new Date(item.month), 'MMM yyyy'),
         total: Math.round(item.total / 60 * 100) / 100,
         billable: Math.round(item.billable / 60 * 100) / 100,
         nonBillable: Math.round(item.nonBillable / 60 * 100) / 100
@@ -217,6 +218,8 @@ export const Analytics = ({ timeEntries, contacts, projects, isLoading }: Analyt
         projectData[projectName].billable += minutes;
       }
     });
+
+    const totalMinutes = Object.values(projectData).reduce((sum, item) => sum + item.minutes, 0);
     
     return Object.values(projectData)
       .sort((a, b) => b.minutes - a.minutes)
@@ -224,6 +227,7 @@ export const Analytics = ({ timeEntries, contacts, projects, isLoading }: Analyt
         ...item,
         hours: Math.round(item.minutes / 60 * 100) / 100,
         billableHours: Math.round(item.billable / 60 * 100) / 100,
+        percentage: totalMinutes > 0 ? Math.round((item.minutes / totalMinutes) * 100) : 0,
         fill: CHART_COLORS[index % CHART_COLORS.length]
       }));
   }, [filteredEntries, projects]);
@@ -421,20 +425,20 @@ export const Analytics = ({ timeEntries, contacts, projects, isLoading }: Analyt
 
       {/* Charts Section */}
       <div className="grid gap-6 lg:grid-cols-2">
-        {/* Daily Time Trend */}
+        {/* Monthly Time Trend */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <TrendingUp className="h-4 w-4" />
-              Daily Time Trend
+              Monthly Time Trend
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="h-[300px]">
               <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={dailyChartData}>
+                <AreaChart data={monthlyChartData}>
                   <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="date" />
+                  <XAxis dataKey="month" />
                   <YAxis />
                   <Tooltip 
                     formatter={(value: any, name: any) => [
@@ -475,13 +479,27 @@ export const Analytics = ({ timeEntries, contacts, projects, isLoading }: Analyt
           <CardContent>
             <div className="h-[300px]">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={projectChartData} layout="horizontal">
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis type="number" />
-                  <YAxis dataKey="name" type="category" width={100} />
-                  <Tooltip formatter={(value: any) => [`${value}h`, 'Hours']} />
-                  <Bar dataKey="hours" fill="hsl(var(--primary))" />
-                </BarChart>
+                <RechartsPieChart>
+                  <Pie
+                    data={projectChartData}
+                    cx="50%"
+                    cy="50%"
+                    outerRadius={80}
+                    dataKey="hours"
+                    label={({ name, hours, percentage }) => `${name}: ${hours}h (${percentage}%)`}
+                    labelLine={false}
+                  >
+                    {projectChartData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.fill} />
+                    ))}
+                  </Pie>
+                  <Tooltip 
+                    formatter={(value: any, name: any, props: any) => [
+                      `${value}h (${props.payload.percentage}%)`, 
+                      'Hours'
+                    ]}
+                  />
+                </RechartsPieChart>
               </ResponsiveContainer>
             </div>
           </CardContent>
