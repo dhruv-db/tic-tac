@@ -179,48 +179,75 @@ serve(async (req) => {
 
           return new Response(`
             <html>
+              <head>
+                <title>Bexio Authentication</title>
+                <style>
+                  body { font-family: Arial, sans-serif; text-align: center; padding: 50px; background: #f0f2f5; }
+                  .success { background: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); display: inline-block; }
+                  .loading { color: #666; margin-top: 20px; }
+                </style>
+              </head>
               <body>
-                <h1>Authentication Successful!</h1>
-                <p>You can now close this window.</p>
+                <div class="success">
+                  <h1>✅ Authentication Successful!</h1>
+                  <p>Logging you into the app...</p>
+                  <div class="loading">This window will close automatically in 3 seconds.</div>
+                </div>
                 <script>
                   (function() {
-                    console.log('🚀 OAuth popup success page loaded');
+                    console.log('🚀 OAuth callback page loaded');
+                    console.log('🌐 Current URL:', window.location.href);
                     
-                    var payload = {
-                      type: 'BEXIO_OAUTH_SUCCESS',
-                      credentials: {
-                        accessToken: '${(tokenData as any).access_token}',
-                        refreshToken: '${(tokenData as any).refresh_token || ''}',
-                        companyId: '${companyId}',
-                        userEmail: '${userEmail}',
-                        idToken: '${idToken}',
-                        expiresIn: ${(tokenData as any).expires_in || 3600}
-                      },
-                      timestamp: Date.now()
-                    };
-
-                    // Store OAuth success in localStorage as primary communication method
                     try {
+                      var payload = {
+                        type: 'BEXIO_OAUTH_SUCCESS',
+                        credentials: {
+                          accessToken: '${(tokenData as any).access_token}',
+                          refreshToken: '${(tokenData as any).refresh_token || ''}',
+                          companyId: '${companyId}',
+                          userEmail: '${userEmail}',
+                          idToken: '${idToken}',
+                          expiresIn: ${(tokenData as any).expires_in || 3600}
+                        },
+                        timestamp: Date.now()
+                      };
+
+                      console.log('📋 Storing OAuth payload:', payload);
+
+                      // Store OAuth success in localStorage
                       localStorage.setItem('bexio_oauth_success', JSON.stringify(payload));
-                      console.log('✅ Stored OAuth success in localStorage:', payload);
-                    } catch (e) { 
-                      console.error('❌ localStorage failed:', e); 
-                    }
-
-                    // Also store a simple flag for faster polling
-                    try {
                       localStorage.setItem('bexio_oauth_ready', 'true');
-                      console.log('✅ Set OAuth ready flag');
-                    } catch (e) {
-                      console.error('❌ Failed to set ready flag:', e);
-                    }
+                      console.log('✅ Successfully stored OAuth data in localStorage');
 
-                    // Display success message and auto-close
-                    console.log('⏰ Auto-closing popup in 2 seconds...');
-                    setTimeout(function() {
-                      console.log('🔒 Closing popup now');
-                      window.close();
-                    }, 2000);
+                      // Update the page to show countdown
+                      var countdown = 3;
+                      var loadingEl = document.querySelector('.loading');
+                      
+                      var countdownTimer = setInterval(function() {
+                        countdown--;
+                        if (loadingEl) {
+                          loadingEl.textContent = 'This window will close automatically in ' + countdown + ' seconds.';
+                        }
+                        console.log('⏰ Closing in ' + countdown + ' seconds...');
+                        
+                        if (countdown <= 0) {
+                          clearInterval(countdownTimer);
+                          console.log('🔒 Closing popup now');
+                          try {
+                            window.close();
+                          } catch (e) {
+                            console.error('❌ Failed to close window:', e);
+                            if (loadingEl) {
+                              loadingEl.innerHTML = '<strong>Please close this window manually</strong>';
+                            }
+                          }
+                        }
+                      }, 1000);
+
+                    } catch (error) {
+                      console.error('❌ Error in OAuth callback script:', error);
+                      document.body.innerHTML = '<div class="success"><h1>❌ Error</h1><p>' + error.message + '</p><p>Please close this window manually.</p></div>';
+                    }
                   })();
                 </script>
               </body>
