@@ -93,6 +93,8 @@ export const useBexioApi = () => {
   const [isLoadingProjects, setIsLoadingProjects] = useState(false);
   const [isLoadingTimeEntries, setIsLoadingTimeEntries] = useState(false);
   const [isLoadingWorkPackages, setIsLoadingWorkPackages] = useState(false);
+  const [timesheetStatuses, setTimesheetStatuses] = useState<{ id: number; name: string }[]>([]);
+  const [isLoadingStatuses, setIsLoadingStatuses] = useState(false);
   const [isCreatingTimeEntry, setIsCreatingTimeEntry] = useState(false);
   const { toast } = useToast();
 
@@ -558,6 +560,71 @@ export const useBexioApi = () => {
     }
   }, [credentials, toast, fetchTimeEntries]);
 
+  const fetchTimesheetStatuses = useCallback(async () => {
+    if (!credentials) {
+      console.error('No credentials available');
+      toast({
+        title: "Error",
+        description: "API key not configured. Please connect to Bexio first.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsLoadingStatuses(true);
+    console.log('🔍 Fetching timesheet statuses from Bexio');
+    
+    try {
+      const response = await fetch(`https://opcjifbdwpyttaxqlqbf.supabase.co/functions/v1/bexio-proxy`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          endpoint: '/timesheet_status',
+          apiKey: credentials.apiKey,
+          companyId: credentials.companyId,
+        }),
+      });
+
+      console.log('📊 Timesheet statuses response status:', response.status);
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        console.error('❌ Error fetching timesheet statuses:', errorData);
+        throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      console.log('✅ Received timesheet statuses:', data);
+      
+      // Transform the data to our expected format
+      const statuses = Array.isArray(data) ? data.map((status: any) => ({
+        id: status.id,
+        name: status.name || `Status ${status.id}`
+      })) : [];
+      
+      setTimesheetStatuses(statuses);
+      
+      toast({
+        title: "Timesheet statuses loaded",
+        description: `Successfully fetched ${statuses.length} timesheet statuses.`,
+      });
+      
+    } catch (error) {
+      console.error('❌ Error fetching timesheet statuses:', error);
+      setTimesheetStatuses([]);
+      
+      toast({
+        title: "Failed to load timesheet statuses",
+        description: "Using default status values instead.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoadingStatuses(false);
+    }
+  }, [credentials, toast]);
+
   const updateTimeEntry = useCallback(async (id: number, timeEntryData: {
     dateRange: DateRange | undefined;
     startTime: string;
@@ -843,6 +910,9 @@ export const useBexioApi = () => {
     fetchProjects,
     fetchTimeEntries,
     fetchWorkPackages,
+    timesheetStatuses,
+    isLoadingStatuses,
+    fetchTimesheetStatuses,
     createTimeEntry,
     updateTimeEntry,
     deleteTimeEntry,

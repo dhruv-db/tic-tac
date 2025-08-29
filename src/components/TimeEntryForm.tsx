@@ -59,6 +59,8 @@ interface TimeEntryFormProps {
   initialData?: Partial<TimeEntryFormData>;
 }
 
+import { useBexioApi } from "@/hooks/useBexioApi";
+
 export const TimeEntryForm = ({ 
   onSubmit, 
   isSubmitting, 
@@ -69,6 +71,8 @@ export const TimeEntryForm = ({
   onFetchWorkPackages,
   initialData 
 }: TimeEntryFormProps) => {
+  const { timesheetStatuses, isLoadingStatuses, fetchTimesheetStatuses } = useBexioApi();
+  
   const getContactName = (contact: Contact) => {
     const names = [contact.name_1, contact.name_2].filter(Boolean);
     return names.length > 0 ? names.join(' ') : 'Unnamed Contact';
@@ -103,6 +107,12 @@ export const TimeEntryForm = ({
       lastProjectIdRef.current = undefined;
     }
   }, [formData.project_id, onFetchWorkPackages]);
+
+  useEffect(() => {
+    if (fetchTimesheetStatuses) {
+      fetchTimesheetStatuses();
+    }
+  }, [fetchTimesheetStatuses]);
 
   // Watch for initial data changes (from calendar clicks)
   useEffect(() => {
@@ -377,12 +387,24 @@ export const TimeEntryForm = ({
                 <SelectTrigger>
                   <SelectValue placeholder="Select status" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="bg-background border shadow-md z-50">
                   <SelectItem value="none">No status</SelectItem>
-                  <SelectItem value="1">Draft</SelectItem>
-                  <SelectItem value="2">In Progress</SelectItem>
-                  <SelectItem value="3">Completed</SelectItem>
-                  <SelectItem value="4">Approved</SelectItem>
+                  {isLoadingStatuses ? (
+                    <SelectItem value="loading" disabled>Loading statuses...</SelectItem>
+                  ) : timesheetStatuses.length > 0 ? (
+                    timesheetStatuses.map((status) => (
+                      <SelectItem key={status.id} value={status.id.toString()}>
+                        {status.name}
+                      </SelectItem>
+                    ))
+                  ) : (
+                    <>
+                      <SelectItem value="1">Draft</SelectItem>
+                      <SelectItem value="2">In Progress</SelectItem>
+                      <SelectItem value="3">Completed</SelectItem>
+                      <SelectItem value="4">Approved</SelectItem>
+                    </>
+                  )}
                 </SelectContent>
               </Select>
             </div>

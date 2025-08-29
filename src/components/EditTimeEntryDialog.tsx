@@ -76,6 +76,8 @@ interface EditTimeEntryDialogProps {
   isSubmitting: boolean;
 }
 
+import { useBexioApi } from "@/hooks/useBexioApi";
+
 export const EditTimeEntryDialog = ({
   entry,
   contacts,
@@ -88,6 +90,8 @@ export const EditTimeEntryDialog = ({
   onSubmit,
   isSubmitting
 }: EditTimeEntryDialogProps) => {
+  const { timesheetStatuses, isLoadingStatuses, fetchTimesheetStatuses } = useBexioApi();
+  
   const [formData, setFormData] = useState<TimeEntryFormData>({
     dateRange: undefined,
     startTime: "09:00",
@@ -173,6 +177,12 @@ export const EditTimeEntryDialog = ({
       });
     }
   }, [entry, isOpen]);
+
+  useEffect(() => {
+    if (fetchTimesheetStatuses) {
+      fetchTimesheetStatuses();
+    }
+  }, [fetchTimesheetStatuses]);
 
   const calculateDuration = (start: string, end: string): number => {
     const [startHours, startMinutes] = start.split(':').map(Number);
@@ -389,12 +399,24 @@ export const EditTimeEntryDialog = ({
                 <SelectTrigger>
                   <SelectValue placeholder="Select status" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="bg-background border shadow-md z-50">
                   <SelectItem value="none">No status</SelectItem>
-                  <SelectItem value="1">Draft</SelectItem>
-                  <SelectItem value="2">In Progress</SelectItem>
-                  <SelectItem value="3">Completed</SelectItem>
-                  <SelectItem value="4">Approved</SelectItem>
+                  {isLoadingStatuses ? (
+                    <SelectItem value="loading" disabled>Loading statuses...</SelectItem>
+                  ) : timesheetStatuses.length > 0 ? (
+                    timesheetStatuses.map((status) => (
+                      <SelectItem key={status.id} value={status.id.toString()}>
+                        {status.name}
+                      </SelectItem>
+                    ))
+                  ) : (
+                    <>
+                      <SelectItem value="1">Draft</SelectItem>
+                      <SelectItem value="2">In Progress</SelectItem>
+                      <SelectItem value="3">Completed</SelectItem>
+                      <SelectItem value="4">Approved</SelectItem>
+                    </>
+                  )}
                 </SelectContent>
               </Select>
             </div>
