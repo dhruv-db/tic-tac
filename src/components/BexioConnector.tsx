@@ -44,7 +44,11 @@ export const BexioConnector = ({ onConnect, onOAuthConnect, isConnected }: Bexio
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ state }),
+        body: JSON.stringify({ 
+          state,
+          // Request all read scopes needed by the app to avoid 401s
+          scope: 'openid offline_access contact_show pr_project_show timesheet_show company_profile'
+        }),
       });
 
       console.log('📡 OAuth auth response status:', response.status);
