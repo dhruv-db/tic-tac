@@ -362,30 +362,14 @@ export const useBexioApi = () => {
     } catch (error) {
       console.error('Error fetching work packages from Bexio:', error);
       
-      // Check if there's a "Test WP" work package that the user mentioned
-      // Fall back to creating some default work packages based on project
-      const defaultPackages: WorkPackage[] = [];
-      
-      if (projectId === 1) { // For the "Test" project
-        defaultPackages.push(
-          { id: 'test-wp-1', name: 'Test WP', description: 'Test work package for project', color: '#06b6d4', pr_project_id: projectId },
-          { id: 'analysis-1', name: 'Analysis', description: 'Analysis tasks', color: '#8b5cf6', pr_project_id: projectId },
-          { id: 'development-1', name: 'Development', description: 'Development tasks', color: '#3b82f6', pr_project_id: projectId },
-          { id: 'testing-1', name: 'Testing', description: 'QA tasks', color: '#22c55e', pr_project_id: projectId }
-        );
-      } else {
-        defaultPackages.push(
-          { id: 'analysis', name: 'Analysis', description: 'Analysis tasks', color: '#06b6d4', pr_project_id: projectId },
-          { id: 'development', name: 'Development', description: 'Development tasks', color: '#3b82f6', pr_project_id: projectId },
-          { id: 'testing', name: 'Testing', description: 'QA tasks', color: '#22c55e', pr_project_id: projectId }
-        );
-      }
-      
-      setWorkPackages(defaultPackages);
+      // Only show work packages that actually exist in Bexio API
+      // Don't create fallback packages
+      setWorkPackages([]);
       
       toast({
-        title: "Using default work packages",
-        description: `Bexio work package API not available. Using default packages including "Test WP" for project ${projectId}.`,
+        title: "No work packages found",
+        description: "Could not fetch work packages from Bexio API. Please check if work packages exist for this project.",
+        variant: "destructive",
       });
     } finally {
       setIsLoadingWorkPackages(false);
