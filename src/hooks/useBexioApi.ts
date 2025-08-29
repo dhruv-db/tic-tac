@@ -138,7 +138,7 @@ export const useBexioApi = () => {
   }, [toast]);
 
   const connectWithOAuth = useCallback(async (accessToken: string, refreshToken: string, companyId: string, userEmail: string) => {
-    console.log('connectWithOAuth called with:', { hasAccessToken: !!accessToken, hasRefreshToken: !!refreshToken, companyId, userEmail });
+    console.log('🔗 connectWithOAuth called with:', { hasAccessToken: !!accessToken, hasRefreshToken: !!refreshToken, companyId, userEmail });
     try {
       const expiresAt = Date.now() + (3600 * 1000); // 1 hour from now
       const creds: BexioCredentials = {
@@ -150,17 +150,18 @@ export const useBexioApi = () => {
         expiresAt
       };
       
-      console.log('Storing credentials:', creds);
+      console.log('💾 Storing credentials in localStorage:', creds);
       localStorage.setItem('bexio_credentials', JSON.stringify(creds));
+      console.log('🎯 Setting credentials state...');
       setCredentials(creds);
-      console.log('Credentials set, should now be connected');
+      console.log('✅ Credentials set! App should now be connected. isConnected will be:', !!creds);
       
       toast({
         title: "Connected successfully",
         description: `Authenticated with Bexio OAuth${userEmail ? ` as ${userEmail}` : ''}. You can now fetch data from Bexio.`,
       });
     } catch (error) {
-      console.error('OAuth connection error:', error);
+      console.error('❌ OAuth connection error:', error);
       toast({
         title: "OAuth connection failed",
         description: "Please try again.",

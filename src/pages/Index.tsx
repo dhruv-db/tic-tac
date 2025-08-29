@@ -46,16 +46,28 @@ const Index = () => {
 
   // Fallback global OAuth message handler to ensure we flip into the app
   useEffect(() => {
+    console.log('🎧 Setting up OAuth message listeners... isConnected:', isConnected);
+    
     const onMessage = (event: MessageEvent) => {
       try {
+        console.log('📨 Message received in main app:', event.data, 'from origin:', event.origin);
         const data = typeof (event as any).data === 'string' ? JSON.parse((event as any).data) : (event as any).data;
         if (data?.type === 'BEXIO_OAUTH_SUCCESS' && !isConnected) {
-          console.log('App received OAuth success message:', data);
+          console.log('🎉 BEXIO_OAUTH_SUCCESS detected! Processing...');
           const { accessToken, refreshToken, companyId, userEmail } = data.credentials || {};
+          console.log('📋 Extracted credentials:', { hasAccessToken: !!accessToken, hasRefreshToken: !!refreshToken, companyId, userEmail });
+          console.log('🚀 Calling connectWithOAuth...');
           connectWithOAuth(accessToken, refreshToken, companyId, userEmail);
+        } else {
+          console.log('ℹ️ Message ignored:', { 
+            type: data?.type, 
+            isOAuthSuccess: data?.type === 'BEXIO_OAUTH_SUCCESS',
+            isConnected: isConnected,
+            shouldProcess: data?.type === 'BEXIO_OAUTH_SUCCESS' && !isConnected
+          });
         }
       } catch (e) {
-        console.error('Failed to handle OAuth message at app level:', e);
+        console.error('❌ Failed to handle OAuth message at app level:', e);
       }
     };
 
@@ -64,27 +76,38 @@ const Index = () => {
       try {
         const stored = localStorage.getItem('bexio_oauth_success');
         if (stored && !isConnected) {
+          console.log('📦 Found OAuth success in localStorage:', stored);
           const data = JSON.parse(stored);
-          console.log('App found OAuth success in localStorage:', data);
+          console.log('📋 Parsed localStorage data:', data);
           const { accessToken, refreshToken, companyId, userEmail } = data.credentials || {};
+          console.log('🚀 Calling connectWithOAuth from localStorage...');
           connectWithOAuth(accessToken, refreshToken, companyId, userEmail);
           localStorage.removeItem('bexio_oauth_success'); // Clean up
+          console.log('🧹 Cleaned up localStorage');
+        } else {
+          console.log('📦 localStorage check:', { hasStored: !!stored, isConnected });
         }
       } catch (e) {
-        console.error('Failed to check localStorage for OAuth:', e);
+        console.error('❌ Failed to check localStorage for OAuth:', e);
       }
     };
 
     window.addEventListener('message', onMessage);
+    console.log('👂 Added message listener');
     
     // Check localStorage immediately and periodically for a short time
+    console.log('🔍 Starting localStorage checks...');
     checkLocalStorage();
     const interval = setInterval(checkLocalStorage, 1000);
-    setTimeout(() => clearInterval(interval), 10000); // Stop after 10 seconds
+    setTimeout(() => {
+      clearInterval(interval);
+      console.log('⏰ Stopped localStorage polling after 10 seconds');
+    }, 10000); // Stop after 10 seconds
 
     return () => {
       window.removeEventListener('message', onMessage);
       clearInterval(interval);
+      console.log('🧹 Cleaned up OAuth listeners');
     };
   }, [isConnected, connectWithOAuth]);
 
