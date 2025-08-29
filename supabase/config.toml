@@ -2,3 +2,6 @@ project_id = "opcjifbdwpyttaxqlqbf"
 
 [functions.bexio-proxy]
 verify_jwt = false
+
+[functions.bexio-oauth]
+verify_jwt = false

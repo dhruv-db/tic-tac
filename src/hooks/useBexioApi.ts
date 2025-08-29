@@ -79,8 +79,13 @@ interface WorkPackage {
 }
 
 interface BexioCredentials {
-  apiKey: string;
+  apiKey?: string;
   companyId: string;
+  accessToken?: string;
+  refreshToken?: string;
+  userEmail?: string;
+  authType: 'api' | 'oauth';
+  expiresAt?: number;
 }
 
 export const useBexioApi = () => {
@@ -110,7 +115,11 @@ export const useBexioApi = () => {
   const connect = useCallback(async (apiKey: string, companyId: string) => {
     try {
       // Store credentials in localStorage
-      const creds = { apiKey, companyId };
+      const creds: BexioCredentials = { 
+        apiKey, 
+        companyId, 
+        authType: 'api' 
+      };
       localStorage.setItem('bexio_credentials', JSON.stringify(creds));
       setCredentials(creds);
       
@@ -128,6 +137,93 @@ export const useBexioApi = () => {
     }
   }, [toast]);
 
+  const connectWithOAuth = useCallback(async (accessToken: string, refreshToken: string, companyId: string, userEmail: string) => {
+    try {
+      const expiresAt = Date.now() + (3600 * 1000); // 1 hour from now
+      const creds: BexioCredentials = {
+        accessToken,
+        refreshToken,
+        companyId,
+        userEmail,
+        authType: 'oauth',
+        expiresAt
+      };
+      
+      localStorage.setItem('bexio_credentials', JSON.stringify(creds));
+      setCredentials(creds);
+      
+      toast({
+        title: "Connected successfully",
+        description: `Authenticated as ${userEmail}. You can now fetch data from Bexio.`,
+      });
+    } catch (error) {
+      toast({
+        title: "OAuth connection failed",
+        description: "Please try again.",
+        variant: "destructive",
+      });
+      throw error;
+    }
+  }, [toast]);
+
+  // Helper function to refresh OAuth token if needed
+  const ensureValidToken = useCallback(async (): Promise<string | null> => {
+    if (!credentials) return null;
+    
+    if (credentials.authType === 'api') {
+      return credentials.apiKey || null;
+    }
+    
+    if (credentials.authType === 'oauth') {
+      // Check if token is still valid (with 5 minute buffer)
+      if (credentials.expiresAt && credentials.expiresAt > Date.now() + (5 * 60 * 1000)) {
+        return credentials.accessToken || null;
+      }
+      
+      // Token expired or about to expire, refresh it
+      if (credentials.refreshToken) {
+        try {
+          const response = await fetch('https://opcjifbdwpyttaxqlqbf.supabase.co/functions/v1/bexio-oauth/refresh', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ refreshToken: credentials.refreshToken }),
+          });
+          
+          if (response.ok) {
+            const { accessToken, refreshToken, expiresIn } = await response.json();
+            const expiresAt = Date.now() + (expiresIn * 1000);
+            
+            const updatedCreds: BexioCredentials = {
+              ...credentials,
+              accessToken,
+              refreshToken: refreshToken || credentials.refreshToken,
+              expiresAt
+            };
+            
+            localStorage.setItem('bexio_credentials', JSON.stringify(updatedCreds));
+            setCredentials(updatedCreds);
+            
+            return accessToken;
+          }
+        } catch (error) {
+          console.error('Failed to refresh token:', error);
+        }
+      }
+      
+      // Refresh failed, clear credentials
+      localStorage.removeItem('bexio_credentials');
+      setCredentials(null);
+      toast({
+        title: "Session expired",
+        description: "Please log in again.",
+        variant: "destructive",
+      });
+      return null;
+    }
+    
+    return null;
+  }, [credentials, toast]);
+
   const fetchContacts = useCallback(async () => {
     if (!credentials) {
       toast({
@@ -138,6 +234,9 @@ export const useBexioApi = () => {
       return;
     }
 
+    const authToken = await ensureValidToken();
+    if (!authToken) return;
+
     setIsLoadingContacts(true);
     try {
       const response = await fetch(`https://opcjifbdwpyttaxqlqbf.supabase.co/functions/v1/bexio-proxy`, {
@@ -147,7 +246,7 @@ export const useBexioApi = () => {
         },
         body: JSON.stringify({
           endpoint: '/contact',
-          apiKey: credentials.apiKey,
+          apiKey: authToken,
           companyId: credentials.companyId,
         }),
       });
@@ -174,7 +273,7 @@ export const useBexioApi = () => {
     } finally {
       setIsLoadingContacts(false);
     }
-  }, [credentials, toast]);
+  }, [credentials, ensureValidToken, toast]);
 
   const fetchProjects = useCallback(async () => {
     if (!credentials) {
@@ -186,6 +285,9 @@ export const useBexioApi = () => {
       return;
     }
 
+    const authToken = await ensureValidToken();
+    if (!authToken) return;
+
     setIsLoadingProjects(true);
     try {
       const response = await fetch(`https://opcjifbdwpyttaxqlqbf.supabase.co/functions/v1/bexio-proxy`, {
@@ -195,7 +297,7 @@ export const useBexioApi = () => {
         },
         body: JSON.stringify({
           endpoint: '/pr_project',
-          apiKey: credentials.apiKey,
+          apiKey: authToken,
           companyId: credentials.companyId,
         }),
       });
@@ -222,7 +324,7 @@ export const useBexioApi = () => {
     } finally {
       setIsLoadingProjects(false);
     }
-  }, [credentials, toast]);
+  }, [credentials, ensureValidToken, toast]);
 
   const fetchTimeEntries = useCallback(async () => {
     if (!credentials) {
@@ -234,6 +336,9 @@ export const useBexioApi = () => {
       return;
     }
 
+    const authToken = await ensureValidToken();
+    if (!authToken) return;
+
     setIsLoadingTimeEntries(true);
     try {
       const response = await fetch(`https://opcjifbdwpyttaxqlqbf.supabase.co/functions/v1/bexio-proxy`, {
@@ -243,7 +348,7 @@ export const useBexioApi = () => {
         },
         body: JSON.stringify({
           endpoint: '/timesheet',
-          apiKey: credentials.apiKey,
+          apiKey: authToken,
           companyId: credentials.companyId,
         }),
       });
@@ -284,7 +389,7 @@ export const useBexioApi = () => {
     } finally {
       setIsLoadingTimeEntries(false);
     }
-  }, [credentials, toast]);
+  }, [credentials, ensureValidToken, toast]);
 
   const fetchWorkPackages = useCallback(async (projectId?: number) => {
     if (!credentials) {
@@ -301,6 +406,9 @@ export const useBexioApi = () => {
       return;
     }
 
+    const authToken = await ensureValidToken();
+    if (!authToken) return;
+
     setIsLoadingWorkPackages(true);
     console.log(`🔍 Fetching work packages for project ID: ${projectId}`);
     
@@ -312,7 +420,7 @@ export const useBexioApi = () => {
         },
         body: JSON.stringify({
           endpoint: `/3.0/projects/${projectId}/packages`,
-          apiKey: credentials.apiKey,
+          apiKey: authToken,
           companyId: credentials.companyId,
         }),
       });
@@ -370,7 +478,7 @@ export const useBexioApi = () => {
     } finally {
       setIsLoadingWorkPackages(false);
     }
-  }, [credentials, toast]);
+  }, [credentials, ensureValidToken, toast]);
 
   // Load credentials from localStorage on mount
   const loadStoredCredentials = useCallback(() => {
@@ -419,6 +527,9 @@ export const useBexioApi = () => {
       });
       return;
     }
+
+    const authToken = await ensureValidToken();
+    if (!authToken) return;
 
     setIsCreatingTimeEntry(true);
     try {
@@ -500,7 +611,7 @@ export const useBexioApi = () => {
               body: JSON.stringify({
                 endpoint: '/timesheet',
                 method: 'POST',
-                apiKey: credentials.apiKey,
+                apiKey: authToken,
                 companyId: credentials.companyId,
                 data: bexioData,
               }),
@@ -579,7 +690,7 @@ export const useBexioApi = () => {
     } finally {
       setIsCreatingTimeEntry(false);
     }
-  }, [credentials, toast, fetchTimeEntries]);
+  }, [credentials, ensureValidToken, toast, fetchTimeEntries]);
 
   const fetchTimesheetStatuses = useCallback(async () => {
     if (!credentials) {
@@ -592,6 +703,9 @@ export const useBexioApi = () => {
       return;
     }
 
+    const authToken = await ensureValidToken();
+    if (!authToken) return;
+
     setIsLoadingStatuses(true);
     console.log('🔍 Fetching timesheet statuses from Bexio');
     
@@ -603,7 +717,7 @@ export const useBexioApi = () => {
         },
         body: JSON.stringify({
           endpoint: '/timesheet_status',
-          apiKey: credentials.apiKey,
+          apiKey: authToken,
           companyId: credentials.companyId,
         }),
       });
@@ -651,7 +765,7 @@ export const useBexioApi = () => {
     } finally {
     setIsLoadingStatuses(false);
     }
-  }, [credentials, toast]);
+  }, [credentials, ensureValidToken, toast]);
 
   const fetchBusinessActivities = useCallback(async () => {
     if (!credentials) {
@@ -664,6 +778,9 @@ export const useBexioApi = () => {
       return;
     }
 
+    const authToken = await ensureValidToken();
+    if (!authToken) return;
+
     setIsLoadingActivities(true);
     console.log('🔍 Fetching business activities from Bexio');
 
@@ -673,7 +790,7 @@ export const useBexioApi = () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           endpoint: '/client_service',
-          apiKey: credentials.apiKey,
+          apiKey: authToken,
           companyId: credentials.companyId,
         }),
       });
@@ -709,7 +826,7 @@ export const useBexioApi = () => {
     } finally {
       setIsLoadingActivities(false);
     }
-  }, [credentials, toast]);
+  }, [credentials, ensureValidToken, toast]);
 
   const updateTimeEntry = useCallback(async (id: number, timeEntryData: {
     dateRange: DateRange | undefined;
@@ -744,6 +861,9 @@ export const useBexioApi = () => {
       return;
     }
 
+    const authToken = await ensureValidToken();
+    if (!authToken) return;
+
     setIsCreatingTimeEntry(true);
     try {
       // Since Bexio doesn't support PUT operations for timesheet updates,
@@ -758,7 +878,7 @@ export const useBexioApi = () => {
         body: JSON.stringify({
           endpoint: `/timesheet/${id}`,
           method: 'DELETE',
-          apiKey: credentials.apiKey,
+          apiKey: authToken,
           companyId: credentials.companyId,
         }),
       });
@@ -825,7 +945,7 @@ export const useBexioApi = () => {
         body: JSON.stringify({
           endpoint: '/timesheet',
           method: 'POST',
-          apiKey: credentials.apiKey,
+          apiKey: authToken,
           companyId: credentials.companyId,
           data: bexioData,
         }),
@@ -853,7 +973,7 @@ export const useBexioApi = () => {
     } finally {
       setIsCreatingTimeEntry(false);
     }
-  }, [credentials, toast, fetchTimeEntries]);
+  }, [credentials, ensureValidToken, toast, fetchTimeEntries]);
 
   const deleteTimeEntry = useCallback(async (id: number, skipRefresh = false) => {
     if (!credentials) {
@@ -865,6 +985,9 @@ export const useBexioApi = () => {
       return;
     }
 
+    const authToken = await ensureValidToken();
+    if (!authToken) return;
+
     try {
       const response = await fetch(`https://opcjifbdwpyttaxqlqbf.supabase.co/functions/v1/bexio-proxy`, {
         method: 'POST',
@@ -874,7 +997,7 @@ export const useBexioApi = () => {
         body: JSON.stringify({
           endpoint: `/timesheet/${id}`,
           method: 'DELETE',
-          apiKey: credentials.apiKey,
+          apiKey: authToken,
           companyId: credentials.companyId,
         }),
       });
@@ -907,7 +1030,7 @@ export const useBexioApi = () => {
       }
       throw error;
     }
-  }, [credentials, toast, fetchTimeEntries]);
+  }, [credentials, ensureValidToken, toast, fetchTimeEntries]);
 
   const bulkUpdateTimeEntries = useCallback(async (entries: any[], updateData: any) => {
     if (!credentials) return;
@@ -1004,6 +1127,7 @@ export const useBexioApi = () => {
     isCreatingTimeEntry,
     isConnected: !!credentials,
     connect,
+    connectWithOAuth,
     fetchContacts,
     fetchProjects,
     fetchTimeEntries,

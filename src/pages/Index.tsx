@@ -24,6 +24,7 @@ const Index = () => {
     isCreatingTimeEntry,
     isConnected,
     connect,
+    connectWithOAuth,
     fetchContacts,
     fetchProjects,
     fetchTimeEntries,
@@ -81,7 +82,11 @@ const Index = () => {
               Connect to your Bexio account to access business intelligence and time tracking analytics
             </p>
           </div>
-          <BexioConnector onConnect={connect} isConnected={isConnected} />
+          <BexioConnector 
+            onConnect={connect} 
+            onOAuthConnect={connectWithOAuth}
+            isConnected={isConnected} 
+          />
         </div>
       </div>
     );
