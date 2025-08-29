@@ -196,6 +196,15 @@ export const TimeTrackingList = ({
         </Tabs>
       </div>
 
+      {onCreateTimeEntry && (
+        <TimeEntryForm 
+          onSubmit={onCreateTimeEntry} 
+          isSubmitting={isCreatingTimeEntry}
+          contacts={contacts}
+          projects={projects}
+        />
+      )}
+
       <Tabs value={activeView} className="space-y-6">
         <TabsContent value="calendar" className="space-y-6">
           <TimesheetCalendar
@@ -374,15 +383,6 @@ export const TimeTrackingList = ({
         </TabsContent>
       </Tabs>
 
-      {/* Add Time Entry Form */}
-      {onCreateTimeEntry && (
-        <TimeEntryForm 
-          onSubmit={onCreateTimeEntry} 
-          isSubmitting={isCreatingTimeEntry}
-          contacts={contacts}
-          projects={projects}
-        />
-      )}
 
       {/* Edit Dialog */}
       <EditTimeEntryDialog
