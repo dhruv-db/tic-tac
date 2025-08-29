@@ -37,6 +37,9 @@ interface TimeEntry {
   project_id?: number;
   user_id?: number;
   client_service_id?: number;
+  status_id?: number;
+  pr_package_id?: number;
+  pr_milestone_id?: number;
 }
 
 interface TimeEntryFormData {
@@ -47,6 +50,9 @@ interface TimeEntryFormData {
   allowable_bill: boolean;
   contact_id?: number;
   project_id?: number;
+  status_id?: number;
+  pr_package_id?: number;
+  pr_milestone_id?: number;
 }
 
 interface EditTimeEntryDialogProps {
@@ -74,6 +80,11 @@ export const EditTimeEntryDialog = ({
     endTime: "17:00",
     text: "",
     allowable_bill: true,
+    contact_id: undefined,
+    project_id: undefined,
+    status_id: undefined,
+    pr_package_id: undefined,
+    pr_milestone_id: undefined,
   });
   const { toast } = useToast();
 
@@ -127,6 +138,9 @@ export const EditTimeEntryDialog = ({
         allowable_bill: entry.allowable_bill,
         contact_id: entry.contact_id,
         project_id: entry.project_id,
+        status_id: entry.status_id,
+        pr_package_id: entry.pr_package_id,
+        pr_milestone_id: entry.pr_milestone_id,
       });
     }
   }, [entry, isOpen]);
@@ -319,6 +333,56 @@ export const EditTimeEntryDialog = ({
                       {project.name} (#{project.nr})
                     </SelectItem>
                   ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          {/* Status and Work Package */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Status Selection */}
+            <div className="space-y-2">
+              <Label htmlFor="status_id">Status (Optional)</Label>
+              <Select
+                value={formData.status_id?.toString() || "none"}
+                onValueChange={(value) => setFormData(prev => ({ 
+                  ...prev, 
+                  status_id: value === "none" ? undefined : parseInt(value) 
+                }))}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">No status</SelectItem>
+                  <SelectItem value="1">Draft</SelectItem>
+                  <SelectItem value="2">In Progress</SelectItem>
+                  <SelectItem value="3">Completed</SelectItem>
+                  <SelectItem value="4">Approved</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Work Package Selection */}
+            <div className="space-y-2">
+              <Label htmlFor="pr_package_id">Work Package (Optional)</Label>
+              <Select
+                value={formData.pr_package_id?.toString() || "none"}
+                onValueChange={(value) => setFormData(prev => ({ 
+                  ...prev, 
+                  pr_package_id: value === "none" ? undefined : parseInt(value) 
+                }))}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select work package" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">No work package</SelectItem>
+                  <SelectItem value="1">Development</SelectItem>
+                  <SelectItem value="2">Testing</SelectItem>
+                  <SelectItem value="3">Documentation</SelectItem>
+                  <SelectItem value="4">Meeting</SelectItem>
+                  <SelectItem value="5">Analysis</SelectItem>
                 </SelectContent>
               </Select>
             </div>

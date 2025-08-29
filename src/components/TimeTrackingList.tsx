@@ -25,6 +25,9 @@ export interface TimeEntry {
   project_id?: number;
   user_id?: number;
   client_service_id?: number;
+  status_id?: number;
+  pr_package_id?: number;
+  pr_milestone_id?: number;
 }
 
 interface Contact {
@@ -43,15 +46,18 @@ interface Project {
 interface TimeTrackingListProps {
   timeEntries: TimeEntry[];
   isLoading: boolean;
-  onCreateTimeEntry?: (data: {
-    dateRange: DateRange | undefined;
-    startTime: string;
-    endTime: string;
-    text: string;
-    allowable_bill: boolean;
-    contact_id?: number;
-    project_id?: number;
-  }) => Promise<void>;
+    onCreateTimeEntry?: (data: {
+      dateRange: DateRange | undefined;
+      startTime: string;
+      endTime: string;
+      text: string;
+      allowable_bill: boolean;
+      contact_id?: number;
+      project_id?: number;
+      status_id?: number;
+      pr_package_id?: number;
+      pr_milestone_id?: number;
+    }) => Promise<void>;
   onUpdateTimeEntry?: (id: number, data: any) => Promise<void>;
   onDeleteTimeEntry?: (id: number) => Promise<void>;
   onBulkUpdateTimeEntries?: (entries: TimeEntry[], updateData: any) => Promise<void>;
@@ -468,17 +474,23 @@ export const TimeTrackingList = ({
                            </p>
                          )}
 
-                         <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                           {entry.contact_id && (
-                             <span>Contact: {entry.contact_id}</span>
-                           )}
-                           {entry.project_id && (
-                             <span>Project: {entry.project_id}</span>
-                           )}
-                           {entry.user_id && (
-                             <span>User: {entry.user_id}</span>
-                           )}
-                         </div>
+                          <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                            {entry.contact_id && (
+                              <span>Contact: {entry.contact_id}</span>
+                            )}
+                            {entry.project_id && (
+                              <span>Project: {entry.project_id}</span>
+                            )}
+                            {entry.status_id && (
+                              <span>Status: {entry.status_id}</span>
+                            )}
+                            {entry.pr_package_id && (
+                              <span>Package: {entry.pr_package_id}</span>
+                            )}
+                            {entry.user_id && (
+                              <span>User: {entry.user_id}</span>
+                            )}
+                          </div>
                        </div>
                      </div>
 

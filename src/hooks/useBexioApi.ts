@@ -57,13 +57,16 @@ interface Project {
 interface TimeEntry {
   id: number;
   date: string;
-  duration: number;
+  duration: string | number;
   text?: string;
   allowable_bill: boolean;
   contact_id?: number;
   project_id?: number;
   user_id?: number;
   client_service_id?: number;
+  status_id?: number;
+  pr_package_id?: number;
+  pr_milestone_id?: number;
 }
 
 interface BexioCredentials {
@@ -239,6 +242,9 @@ export const useBexioApi = () => {
         project_id: d.pr_project_id ?? d.project_id ?? undefined,
         user_id: d.user_id,
         client_service_id: d.client_service_id,
+        status_id: d.status_id ?? undefined,
+        pr_package_id: d.pr_package_id ?? undefined,
+        pr_milestone_id: d.pr_milestone_id ?? undefined,
       }));
       setTimeEntries(normalized);
       
@@ -281,6 +287,9 @@ export const useBexioApi = () => {
     allowable_bill: boolean;
     contact_id?: number;
     project_id?: number;
+    status_id?: number;
+    pr_package_id?: number;
+    pr_milestone_id?: number;
   }) => {
     if (!credentials) {
       toast({
@@ -357,6 +366,9 @@ export const useBexioApi = () => {
           },
           ...(timeEntryData.contact_id !== undefined && { contact_id: timeEntryData.contact_id }),
           ...(timeEntryData.project_id !== undefined && { pr_project_id: timeEntryData.project_id }),
+          ...(timeEntryData.status_id !== undefined && { status_id: timeEntryData.status_id }),
+          ...(timeEntryData.pr_package_id !== undefined && { pr_package_id: timeEntryData.pr_package_id }),
+          ...(timeEntryData.pr_milestone_id !== undefined && { pr_milestone_id: timeEntryData.pr_milestone_id }),
         };
 
         const maxRetries = 3;
@@ -457,6 +469,9 @@ export const useBexioApi = () => {
     allowable_bill: boolean;
     contact_id?: number;
     project_id?: number;
+    status_id?: number;
+    pr_package_id?: number;
+    pr_milestone_id?: number;
   }) => {
     if (!credentials) {
       toast({
@@ -529,6 +544,9 @@ export const useBexioApi = () => {
         },
         ...(timeEntryData.contact_id !== undefined && { contact_id: timeEntryData.contact_id }),
         ...(timeEntryData.project_id !== undefined && { pr_project_id: timeEntryData.project_id }),
+        ...(timeEntryData.status_id !== undefined && { status_id: timeEntryData.status_id }),
+        ...(timeEntryData.pr_package_id !== undefined && { pr_package_id: timeEntryData.pr_package_id }),
+        ...(timeEntryData.pr_milestone_id !== undefined && { pr_milestone_id: timeEntryData.pr_milestone_id }),
       };
 
       console.log('Updating time entry with data:', {
