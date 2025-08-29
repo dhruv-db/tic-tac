@@ -348,10 +348,13 @@ export const EditTimeEntryDialog = ({
                 <Label htmlFor="duration">Duration (HH:MM)</Label>
                 <Input
                   id="duration"
-                  type="time"
+                  type="text"
+                  placeholder="08:00"
+                  pattern="[0-9]{1,2}:[0-9]{2}"
                   value={formData.duration}
                   onChange={(e) => setFormData(prev => ({ ...prev, duration: e.target.value }))}
                 />
+                <p className="text-xs text-muted-foreground">Enter duration in hours:minutes format (e.g., 8:30)</p>
               </div>
             ) : (
               /* Time Range */
