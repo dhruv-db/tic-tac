@@ -136,11 +136,35 @@ export const BexioConnector = ({ onConnect, onOAuthConnect, isConnected }: Bexio
       window.addEventListener('message', handleMessage);
       console.log('👂 Added message listener');
       
+      // Fallback: poll popup.name (cross-origin-safe) for payload
+      const checkName = setInterval(() => {
+        try {
+          const name = (popup as Window).name;
+          if (name && typeof name === 'string' && name.startsWith('BEXIO_OAUTH:')) {
+            console.log('📦 Found payload in popup.name');
+            const raw = decodeURIComponent(name.slice('BEXIO_OAUTH:'.length));
+            const data = JSON.parse(raw);
+            if (data?.type === 'BEXIO_OAUTH_SUCCESS' && data.credentials) {
+              const { accessToken, refreshToken, companyId, userEmail } = data.credentials;
+              onOAuthConnect(accessToken, refreshToken, companyId, userEmail);
+              try { (popup as Window).postMessage({ type: 'BEXIO_OAUTH_ACK' }, '*'); } catch (_) {}
+              try { popup.close(); } catch (_) {}
+              window.removeEventListener('message', handleMessage);
+              clearInterval(checkName);
+              clearInterval(checkClosed);
+              setIsOAuthLoading(false);
+              console.log('✅ OAuth completed via popup.name');
+            }
+          }
+        } catch (_) { /* ignore cross-origin errors */ }
+      }, 300);
+      
       // Handle popup being closed manually
       const checkClosed = setInterval(() => {
         if (popup?.closed) {
           console.log('🔒 Popup was closed manually');
           clearInterval(checkClosed);
+          clearInterval(checkName);
           window.removeEventListener('message', handleMessage);
           setIsOAuthLoading(false);
         }
