@@ -3,7 +3,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Clock, Calendar, User, DollarSign, PlayCircle, PauseCircle, Edit, Trash2, CalendarDays } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Clock, Calendar, User, DollarSign, PlayCircle, PauseCircle, Edit, Trash2, CalendarDays, Filter, X } from "lucide-react";
 import { format } from "date-fns";
 import { TimeEntryForm } from "./TimeEntryForm";
 import { TimesheetCalendar } from "./TimesheetCalendar";
@@ -77,6 +78,8 @@ export const TimeTrackingList = ({
   const [selectedEntries, setSelectedEntries] = useState<number[]>([]);
   const [showBulkUpdate, setShowBulkUpdate] = useState(false);
   const [calendarInitialData, setCalendarInitialData] = useState<any>(null);
+  const [projectFilter, setProjectFilter] = useState<string>("");
+  const [monthYearFilter, setMonthYearFilter] = useState<string>("");
   const { toast } = useToast();
   
   // Clear calendar initial data when form is submitted
@@ -114,8 +117,45 @@ export const TimeTrackingList = ({
     }
   };
 
-  const totalDuration = timeEntries.reduce((acc, entry) => acc + toSeconds(entry.duration), 0);
-  const billableEntries = timeEntries.filter(entry => entry.allowable_bill);
+  // Filter time entries based on selected filters
+  const filteredTimeEntries = timeEntries.filter(entry => {
+    // Project filter
+    if (projectFilter && projectFilter !== "all") {
+      if (projectFilter === "none" && entry.project_id) return false;
+      if (projectFilter !== "none" && entry.project_id?.toString() !== projectFilter) return false;
+    }
+    
+    // Month/Year filter
+    if (monthYearFilter && monthYearFilter !== "all") {
+      try {
+        const entryDate = new Date(entry.date);
+        const entryMonthYear = format(entryDate, "yyyy-MM");
+        if (entryMonthYear !== monthYearFilter) return false;
+      } catch {
+        return false;
+      }
+    }
+    
+    return true;
+  });
+
+  // Get unique month/year options from time entries
+  const getMonthYearOptions = () => {
+    const monthYears = new Set<string>();
+    timeEntries.forEach(entry => {
+      try {
+        const date = new Date(entry.date);
+        const monthYear = format(date, "yyyy-MM");
+        monthYears.add(monthYear);
+      } catch {
+        // Skip invalid dates
+      }
+    });
+    return Array.from(monthYears).sort().reverse();
+  };
+
+  const totalDuration = filteredTimeEntries.reduce((acc, entry) => acc + toSeconds(entry.duration), 0);
+  const billableEntries = filteredTimeEntries.filter(entry => entry.allowable_bill);
   const totalBillableDuration = billableEntries.reduce((acc, entry) => acc + toSeconds(entry.duration), 0);
 
   // Selection handlers
@@ -128,7 +168,7 @@ export const TimeTrackingList = ({
   };
 
   const handleSelectAll = (checked: boolean) => {
-    setSelectedEntries(checked ? timeEntries.map(entry => entry.id) : []);
+    setSelectedEntries(checked ? filteredTimeEntries.map(entry => entry.id) : []);
   };
 
   const handleBulkUpdate = async (entries: TimeEntry[], updateData: any) => {
@@ -146,11 +186,11 @@ export const TimeTrackingList = ({
   };
 
   const getSelectedEntries = () => {
-    return timeEntries.filter(entry => selectedEntries.includes(entry.id));
+    return filteredTimeEntries.filter(entry => selectedEntries.includes(entry.id));
   };
 
-  const isAllSelected = selectedEntries.length === timeEntries.length && timeEntries.length > 0;
-  const isIndeterminate = selectedEntries.length > 0 && selectedEntries.length < timeEntries.length;
+  const isAllSelected = selectedEntries.length === filteredTimeEntries.length && filteredTimeEntries.length > 0;
+  const isIndeterminate = selectedEntries.length > 0 && selectedEntries.length < filteredTimeEntries.length;
 
   if (isLoading) {
     return (
@@ -191,7 +231,12 @@ export const TimeTrackingList = ({
           <Clock className="h-5 w-5 text-primary" />
           <h2 className="text-2xl font-semibold">Time Tracking</h2>
           <Badge variant="secondary" className="ml-2">
-            {timeEntries.length} entries
+            {filteredTimeEntries.length} entries
+            {filteredTimeEntries.length !== timeEntries.length && (
+              <span className="text-muted-foreground ml-1">
+                / {timeEntries.length} total
+              </span>
+            )}
           </Badge>
         </div>
         
@@ -292,8 +337,70 @@ export const TimeTrackingList = ({
             </Card>
           </div>
 
+          {/* Filters */}
+          <Card className="corporate-card">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-4">
+                <div className="flex items-center gap-2">
+                  <Filter className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm font-medium">Filters:</span>
+                </div>
+                
+                <div className="flex items-center gap-2">
+                  <label className="text-sm text-muted-foreground">Project:</label>
+                  <Select value={projectFilter} onValueChange={setProjectFilter}>
+                    <SelectTrigger className="w-48">
+                      <SelectValue placeholder="All projects" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All projects</SelectItem>
+                      <SelectItem value="none">No project assigned</SelectItem>
+                      {projects.map((project) => (
+                        <SelectItem key={project.id} value={project.id.toString()}>
+                          {project.name} (#{project.nr})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <label className="text-sm text-muted-foreground">Month:</label>
+                  <Select value={monthYearFilter} onValueChange={setMonthYearFilter}>
+                    <SelectTrigger className="w-36">
+                      <SelectValue placeholder="All months" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All months</SelectItem>
+                      {getMonthYearOptions().map((monthYear) => (
+                        <SelectItem key={monthYear} value={monthYear}>
+                          {format(new Date(monthYear + "-01"), "MMM yyyy")}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {(projectFilter || monthYearFilter) && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setProjectFilter("");
+                      setMonthYearFilter("");
+                    }}
+                    className="gap-1"
+                  >
+                    <X className="h-3 w-3" />
+                    Clear
+                  </Button>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
           {/* Select All Header (only show when there are entries) */}
-          {timeEntries.length > 0 && (
+          {filteredTimeEntries.length > 0 && (
             <div className="flex items-center justify-between p-4 border-b border-border">
               <div className="flex items-center gap-3">
                 <Checkbox
@@ -303,7 +410,7 @@ export const TimeTrackingList = ({
                 <span className="text-sm text-muted-foreground">
                   {selectedEntries.length === 0 
                     ? "Select entries" 
-                    : `${selectedEntries.length} of ${timeEntries.length} selected`
+                    : `${selectedEntries.length} of ${filteredTimeEntries.length} selected`
                   }
                 </span>
               </div>
@@ -312,7 +419,7 @@ export const TimeTrackingList = ({
 
           {/* Time Entries List */}
           <div className="grid gap-4">
-            {timeEntries.map((entry) => (
+            {filteredTimeEntries.map((entry) => (
               <Card 
                 key={entry.id} 
                 className="corporate-card hover:shadow-[var(--shadow-elegant)] transition-[var(--transition-smooth)] hover:scale-[1.01] cursor-pointer group"
@@ -439,6 +546,27 @@ export const TimeTrackingList = ({
         contacts={contacts}
         projects={projects}
       />
+
+      {filteredTimeEntries.length === 0 && !isLoading && timeEntries.length > 0 && (
+        <Card className="corporate-card text-center py-12">
+          <CardContent>
+            <Filter className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+            <h3 className="text-lg font-medium mb-2">No entries match your filters</h3>
+            <p className="text-muted-foreground mb-4">
+              Try adjusting your project or date filters to see more results.
+            </p>
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                setProjectFilter("");
+                setMonthYearFilter("");
+              }}
+            >
+              Clear all filters
+            </Button>
+          </CardContent>
+        </Card>
+      )}
 
       {timeEntries.length === 0 && !isLoading && (
         <Card className="corporate-card text-center py-12">
