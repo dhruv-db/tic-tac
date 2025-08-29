@@ -118,13 +118,6 @@ serve(async (req) => {
       // Exchange code for access token
       const clientId = Deno.env.get('BEXIO_CLIENT_ID');
       const clientSecret = Deno.env.get('BEXIO_CLIENT_SECRET');
-      
-      console.log('🔍 Debug - Retrieved credentials:');
-      console.log('Client ID type:', typeof clientId, 'length:', clientId?.length);
-      console.log('Client ID (first 10 chars):', clientId?.substring(0, 10));
-      console.log('Client Secret type:', typeof clientSecret, 'length:', clientSecret?.length);
-      console.log('Client Secret (first 10 chars):', clientSecret?.substring(0, 10));
-      
       if (!clientId || !clientSecret) {
         console.error('OAuth credentials not found in environment');
         return new Response(`
