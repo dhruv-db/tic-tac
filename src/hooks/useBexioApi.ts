@@ -333,10 +333,16 @@ export const useBexioApi = () => {
       // Create time entries for each date with rate limiting + retries
       const results: any[] = [];
       const failures: { date: string; error: string }[] = [];
-      const batchSize = 5; // Process 5 entries at a time
-      const delayBetweenBatches = 1000; // 1s between batches
+      const batchSize = 5;
+      const delayBetweenBatches = 1000;
 
       const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+      // Show initial progress toast
+      toast({
+        title: "Creating time entries...",
+        description: `Processing ${dates.length} entries in batches of ${batchSize}`,
+      });
 
       const createWithRetry = async (date: Date) => {
         const bexioData = {
@@ -376,7 +382,6 @@ export const useBexioApi = () => {
             return await response.json();
           } catch (err) {
             if (attempt === maxRetries) throw err;
-            // Exponential backoff with jitter
             const backoff = 400 * Math.pow(2, attempt - 1) + Math.floor(Math.random() * 200);
             await sleep(backoff);
           }
@@ -387,7 +392,18 @@ export const useBexioApi = () => {
 
       for (let i = 0; i < dates.length; i += batchSize) {
         const batch = dates.slice(i, i + batchSize);
-        console.log(`Processing batch ${Math.floor(i / batchSize) + 1}/${Math.ceil(dates.length / batchSize)}`);
+        const batchNum = Math.floor(i / batchSize) + 1;
+        const totalBatches = Math.ceil(dates.length / batchSize);
+        
+        console.log(`Processing batch ${batchNum}/${totalBatches}`);
+        
+        // Update progress toast
+        if (totalBatches > 1) {
+          toast({
+            title: "Creating time entries...",
+            description: `Processing batch ${batchNum} of ${totalBatches} (${results.length}/${dates.length} completed)`,
+          });
+        }
 
         const settled = await Promise.allSettled(batch.map((d) => createWithRetry(d)));
         settled.forEach((res, idx) => {
@@ -633,15 +649,30 @@ export const useBexioApi = () => {
   const bulkDeleteTimeEntries = useCallback(async (entryIds: number[]) => {
     if (!credentials) return;
     setIsCreatingTimeEntry(true);
+    
+    // Show initial progress toast
+    toast({
+      title: "Deleting time entries...",
+      description: `Starting deletion of ${entryIds.length} entries`,
+    });
+    
     try {
       let successCount = 0;
       let failureCount = 0;
       
       // Delete all entries without refreshing after each one
-      for (const id of entryIds) {
+      for (const [index, id] of entryIds.entries()) {
         try {
           await deleteTimeEntry(id, true); // Skip refresh for individual deletes
           successCount++;
+          
+          // Update progress every 5 deletions or on last item
+          if ((index + 1) % 5 === 0 || index === entryIds.length - 1) {
+            toast({
+              title: "Deleting time entries...",
+              description: `Deleted ${successCount} of ${entryIds.length} entries`,
+            });
+          }
         } catch (error) {
           console.error(`Failed to delete entry ${id}:`, error);
           failureCount++;
