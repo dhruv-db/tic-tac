@@ -103,10 +103,10 @@ export const EditTimeEntryDialog = ({
       setIsLoadingWorkPackages(true);
       
       // Fetch work packages from our local Supabase table (with explicit typing)
-      const result: any = await supabase
+      const result: any = await (supabase as any)
         .from('work_packages')
         .select('id, name, project_id')
-        .eq('project_id', projectId)
+        .eq('project_id', String(projectId))
         .eq('is_active', true)
         .order('name');
 
