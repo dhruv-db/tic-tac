@@ -134,37 +134,90 @@ serve(async (req) => {
 
         const tokenData = await tokenResponse.json();
         console.log('Successfully obtained access token');
-
-        // Skip calling Bexio REST here (scopes may vary). Just return tokens to the app.
+        
+        // Extract ID token
         const idToken = (tokenData as any).id_token || '';
 
-        return new Response(`
-          <html>
-            <body>
-              <h1>Authentication Successful!</h1>
-              <p>You can now close this window.</p>
-              <script>
-                // Pass the credentials to the parent window
-                if (window.opener) {
-                  window.opener.postMessage({
-                    type: 'BEXIO_OAUTH_SUCCESS',
-                    credentials: {
-                      accessToken: '${(tokenData as any).access_token}',
-                      refreshToken: '${(tokenData as any).refresh_token || ''}',
-                      companyId: '',
-                      userEmail: '',
-                      idToken: '${idToken}',
-                      expiresIn: ${(tokenData as any).expires_in || 3600}
-                    }
-                  }, '*');
-                }
-                setTimeout(() => window.close(), 500);
-              </script>
-            </body>
-          </html>
-        `, {
-          headers: { ...corsHeaders, 'Content-Type': 'text/html' },
-        });
+        // Get user info from Bexio API to obtain company ID and email
+        try {
+          const userResponse = await fetch('https://api.bexio.com/3.0/profile', {
+            headers: {
+              'Authorization': `Bearer ${(tokenData as any).access_token}`,
+              'Accept': 'application/json',
+            },
+          });
+
+          let companyId = '';
+          let userEmail = '';
+
+          if (userResponse.ok) {
+            const userData = await userResponse.json();
+            console.log('User profile data:', userData);
+            companyId = userData.company_id || userData.companyId || '';
+            userEmail = userData.email || userData.mail || '';
+          } else {
+            console.warn(`Failed to get user profile: ${userResponse.status}, continuing without profile data`);
+          }
+
+          return new Response(`
+            <html>
+              <body>
+                <h1>Authentication Successful!</h1>
+                <p>You can now close this window.</p>
+                <script>
+                  // Pass the credentials to the parent window
+                  if (window.opener) {
+                    window.opener.postMessage({
+                      type: 'BEXIO_OAUTH_SUCCESS',
+                      credentials: {
+                        accessToken: '${(tokenData as any).access_token}',
+                        refreshToken: '${(tokenData as any).refresh_token || ''}',
+                        companyId: '${companyId}',
+                        userEmail: '${userEmail}',
+                        idToken: '${idToken}',
+                        expiresIn: ${(tokenData as any).expires_in || 3600}
+                      }
+                    }, '*');
+                  }
+                  setTimeout(() => window.close(), 500);
+                </script>
+              </body>
+            </html>
+          `, {
+            headers: { ...corsHeaders, 'Content-Type': 'text/html' },
+          });
+
+        } catch (profileError) {
+          console.error('Error fetching user profile:', profileError);
+          // Continue without profile data
+          return new Response(`
+            <html>
+              <body>
+                <h1>Authentication Successful!</h1>
+                <p>You can now close this window.</p>
+                <script>
+                  // Pass the credentials to the parent window
+                  if (window.opener) {
+                    window.opener.postMessage({
+                      type: 'BEXIO_OAUTH_SUCCESS',
+                      credentials: {
+                        accessToken: '${(tokenData as any).access_token}',
+                        refreshToken: '${(tokenData as any).refresh_token || ''}',
+                        companyId: '',
+                        userEmail: '',
+                        idToken: '${idToken}',
+                        expiresIn: ${(tokenData as any).expires_in || 3600}
+                      }
+                    }, '*');
+                  }
+                  setTimeout(() => window.close(), 500);
+                </script>
+              </body>
+            </html>
+          `, {
+            headers: { ...corsHeaders, 'Content-Type': 'text/html' },
+          });
+        }
 
       } catch (error) {
         console.error('Error during token exchange:', error);
