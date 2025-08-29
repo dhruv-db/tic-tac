@@ -407,19 +407,21 @@ export const TimeEntryForm = ({
                 <SelectContent>
                   <SelectItem value="none">No work package</SelectItem>
                   {isLoadingWorkPackages ? (
-                    <SelectItem value="none" disabled>Loading...</SelectItem>
-                  ) : (
+                    <SelectItem value="__loading" disabled>Loading...</SelectItem>
+                  ) : workPackages.length > 0 ? (
                     workPackages.map((wp) => (
-                    <SelectItem key={wp.id} value={wp.id}>
-                      <div className="flex items-center gap-2">
-                        <div 
-                          className="w-3 h-3 rounded-full" 
-                          style={{ backgroundColor: wp.color }}
-                        />
-                        {wp.name}
-                      </div>
-                    </SelectItem>
+                      <SelectItem key={wp.id} value={wp.id}>
+                        <div className="flex items-center gap-2">
+                          <div 
+                            className="w-3 h-3 rounded-full" 
+                            style={{ backgroundColor: wp.color }}
+                          />
+                          {wp.name}
+                        </div>
+                      </SelectItem>
                     ))
+                  ) : (
+                    <SelectItem value="__empty" disabled>No work packages available</SelectItem>
                   )}
                 </SelectContent>
               </Select>

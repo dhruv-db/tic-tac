@@ -416,8 +416,8 @@ export const EditTimeEntryDialog = ({
                 <SelectContent>
                   <SelectItem value="none">No work package</SelectItem>
                   {isLoadingWorkPackages ? (
-                    <SelectItem value="none" disabled>Loading...</SelectItem>
-                  ) : (
+                    <SelectItem value="__loading" disabled>Loading...</SelectItem>
+                  ) : workPackages.length > 0 ? (
                     workPackages.map((wp) => (
                       <SelectItem key={wp.id} value={wp.id}>
                         <div className="flex items-center gap-2">
@@ -429,6 +429,8 @@ export const EditTimeEntryDialog = ({
                         </div>
                       </SelectItem>
                     ))
+                  ) : (
+                    <SelectItem value="__empty" disabled>No work packages available</SelectItem>
                   )}
                 </SelectContent>
               </Select>
