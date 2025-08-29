@@ -27,6 +27,10 @@ All colors MUST be HSL for consistency. */
     --primary-subtle: 221 39% 95%;
     --primary-glow: 221 39% 25%;
     
+    /* Major Titles Color */
+    --title: 210 77% 17%;
+    --title-foreground: 0 0% 100%;
+    
     /* Databridge Accent - Golden Yellow */
     --accent: 45 93% 58%;
     --accent-foreground: 221 39% 11%;
@@ -106,6 +110,10 @@ All colors MUST be HSL for consistency. */
     --primary-subtle: 221 83% 15%;
     --primary-glow: 221 83% 75%;
     
+    /* Major Titles Color - same in dark mode */
+    --title: 210 77% 17%;
+    --title-foreground: 0 0% 100%;
+    
     --secondary: 215 16% 25%;
     --secondary-foreground: 210 40% 98%;
     
@@ -161,7 +169,7 @@ All colors MUST be HSL for consistency. */
   }
   
   h1, h2, h3, h4, h5, h6 {
-    @apply font-semibold;
+    @apply font-semibold text-title;
     letter-spacing: -0.01em;
   }
   

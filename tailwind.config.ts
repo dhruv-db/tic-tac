@@ -33,6 +33,10 @@ export default {
 					glow: 'hsl(var(--primary-glow))',
 					subtle: 'hsl(var(--primary-subtle))'
 				},
+				title: {
+					DEFAULT: 'hsl(var(--title))',
+					foreground: 'hsl(var(--title-foreground))'
+				},
 				secondary: {
 					DEFAULT: 'hsl(var(--secondary))',
 					foreground: 'hsl(var(--secondary-foreground))'
