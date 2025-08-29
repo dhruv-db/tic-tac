@@ -44,9 +44,16 @@ const Index = () => {
     loadStoredCredentials();
   }, [loadStoredCredentials]);
 
-  // Fallback global OAuth message handler to ensure we flip into the app
   useEffect(() => {
     console.log('🎧 Setting up OAuth message listeners... isConnected:', isConnected);
+    
+    // Check if we just returned from OAuth
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('oauth_success') === 'true') {
+      console.log('🔄 Returned from OAuth, checking for credentials...');
+      // Clean up URL
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
     
     const onMessage = (event: MessageEvent) => {
       try {
@@ -129,7 +136,7 @@ const Index = () => {
       if (checkLocalStorage()) {
         clearInterval(interval);
       }
-    }, 500); // Check every 500ms for faster response
+    }, 250); // Check every 250ms for faster response
     
     setTimeout(() => {
       clearInterval(interval);

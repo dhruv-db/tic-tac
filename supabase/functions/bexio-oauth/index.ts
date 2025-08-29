@@ -177,138 +177,62 @@ serve(async (req) => {
           console.error('Error fetching profile data:', profileError);
         }
 
+          // Store credentials in localStorage and redirect back to main app
+          const mainAppUrl = `https://4bf4f80d-52ee-4c37-86a7-92c7a81427b7.sandbox.lovable.dev/?oauth_success=true&t=${Date.now()}`;
+          
           return new Response(`
             <!DOCTYPE html>
             <html>
               <head>
-                <title>Bexio Authentication Success</title>
-                <meta charset="utf-8">
-                <meta name="viewport" content="width=device-width, initial-scale=1">
+                <title>Redirecting...</title>
                 <style>
                   body { 
-                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; 
+                    font-family: system-ui, sans-serif; 
+                    display: flex; 
+                    align-items: center; 
+                    justify-content: center; 
+                    min-height: 100vh; 
+                    margin: 0; 
+                    background: #f8f9fa; 
+                  }
+                  .loader { 
                     text-align: center; 
-                    padding: 40px 20px; 
-                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-                    color: white;
-                    margin: 0;
-                    min-height: 100vh;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
+                    color: #666; 
                   }
-                  .container { 
-                    background: rgba(255,255,255,0.95); 
-                    color: #333;
-                    padding: 40px; 
-                    border-radius: 20px; 
-                    box-shadow: 0 20px 40px rgba(0,0,0,0.1);
-                    max-width: 400px;
-                    width: 100%;
-                  }
-                  .success-icon { font-size: 48px; margin-bottom: 20px; }
-                  h1 { margin: 0 0 15px 0; color: #2d3748; }
-                  p { margin: 10px 0; color: #4a5568; }
-                  .countdown { 
-                    font-size: 18px; 
-                    font-weight: bold; 
-                    color: #38a169; 
-                    margin: 20px 0;
-                  }
-                  .manual-close {
-                    background: #e53e3e;
-                    color: white;
-                    border: none;
-                    padding: 12px 24px;
-                    border-radius: 8px;
-                    font-size: 16px;
-                    cursor: pointer;
-                    margin-top: 20px;
-                  }
-                  .manual-close:hover { background: #c53030; }
                 </style>
               </head>
               <body>
-                <div class="container">
-                  <div class="success-icon">✅</div>
-                  <h1>Authentication Successful!</h1>
-                  <p>You have been successfully authenticated with Bexio.</p>
-                  <p>Logging you into the app...</p>
-                  <div class="countdown" id="countdown">This window will close in 3 seconds</div>
-                  <button class="manual-close" onclick="closeWindow()" id="manual-btn" style="display:none;">Close Window</button>
+                <div class="loader">
+                  <div>✅ Authentication successful!</div>
+                  <div>Redirecting back to app...</div>
                 </div>
-                
                 <script>
-                  console.log('🚀 OAuth success page loaded');
-                  console.log('🌐 URL:', window.location.href);
+                  // Store OAuth credentials in localStorage
+                  const payload = {
+                    type: 'BEXIO_OAUTH_SUCCESS',
+                    credentials: {
+                      accessToken: '${(tokenData as any).access_token}',
+                      refreshToken: '${(tokenData as any).refresh_token || ''}',
+                      companyId: '${companyId}',
+                      userEmail: '${userEmail}',
+                      idToken: '${idToken}',
+                      expiresIn: ${(tokenData as any).expires_in || 3600}
+                    },
+                    timestamp: Date.now()
+                  };
                   
                   try {
-                    // OAuth payload
-                    var payload = {
-                      type: 'BEXIO_OAUTH_SUCCESS',
-                      credentials: {
-                        accessToken: '${(tokenData as any).access_token}',
-                        refreshToken: '${(tokenData as any).refresh_token || ''}',
-                        companyId: '${companyId}',
-                        userEmail: '${userEmail}',
-                        idToken: '${idToken}',
-                        expiresIn: ${(tokenData as any).expires_in || 3600}
-                      },
-                      timestamp: Date.now()
-                    };
-
-                    console.log('📋 Storing OAuth payload in localStorage...');
-                    
-                    // Store in localStorage
                     localStorage.setItem('bexio_oauth_success', JSON.stringify(payload));
                     localStorage.setItem('bexio_oauth_ready', 'true');
-                    
-                    console.log('✅ OAuth data stored successfully');
-
-                    // Countdown and auto-close
-                    var countdown = 3;
-                    var countdownEl = document.getElementById('countdown');
-                    var manualBtn = document.getElementById('manual-btn');
-                    
-                    function updateCountdown() {
-                      if (countdownEl) {
-                        countdownEl.textContent = 'This window will close in ' + countdown + ' seconds';
-                      }
-                      console.log('⏰ Auto-close in ' + countdown + ' seconds');
-                      countdown--;
-                    }
-                    
-                    function closeWindow() {
-                      console.log('🔒 Attempting to close window...');
-                      try {
-                        window.close();
-                      } catch (e) {
-                        console.error('❌ Cannot close window automatically:', e);
-                        if (countdownEl) countdownEl.textContent = 'Please close this window manually';
-                        if (manualBtn) manualBtn.style.display = 'block';
-                      }
-                    }
-                    
-                    // Start countdown
-                    updateCountdown();
-                    var timer = setInterval(function() {
-                      if (countdown < 0) {
-                        clearInterval(timer);
-                        closeWindow();
-                      } else {
-                        updateCountdown();
-                      }
-                    }, 1000);
-                    
-                    // Show manual close button after 5 seconds if still open
-                    setTimeout(function() {
-                      if (manualBtn) manualBtn.style.display = 'block';
-                    }, 5000);
-
-                  } catch (error) {
-                    console.error('❌ Error in OAuth success script:', error);
-                    document.body.innerHTML = '<div class="container"><h1>❌ Error</h1><p>' + error.message + '</p><button class="manual-close" onclick="window.close()">Close Window</button></div>';
+                    console.log('✅ OAuth credentials stored');
+                  } catch (e) {
+                    console.error('Failed to store credentials:', e);
                   }
+                  
+                  // Redirect back to main app
+                  setTimeout(() => {
+                    window.location.href = '${mainAppUrl}';
+                  }, 1000);
                 </script>
               </body>
             </html>
