@@ -65,8 +65,15 @@ export const BexioConnector = ({ onConnect, onOAuthConnect, isConnected }: Bexio
       
       // Listen for OAuth completion
       const handleMessage = (event: MessageEvent) => {
+        console.log('Received OAuth message:', event.data);
         if (event.data.type === 'BEXIO_OAUTH_SUCCESS') {
           const { accessToken, refreshToken, companyId, userEmail } = event.data.credentials;
+          console.log('OAuth success - credentials:', { 
+            hasAccessToken: !!accessToken, 
+            hasRefreshToken: !!refreshToken, 
+            companyId, 
+            userEmail 
+          });
           onOAuthConnect(accessToken, refreshToken, companyId, userEmail);
           popup?.close();
           window.removeEventListener('message', handleMessage);
