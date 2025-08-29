@@ -338,8 +338,8 @@ export const useBexioApi = () => {
             date: date.toISOString().split('T')[0],
             duration: durationString,
           },
-          ...(timeEntryData.contact_id && { contact_id: timeEntryData.contact_id }),
-          ...(timeEntryData.project_id && { pr_project_id: timeEntryData.project_id }),
+          ...(timeEntryData.contact_id !== undefined && { contact_id: timeEntryData.contact_id }),
+          ...(timeEntryData.project_id !== undefined && { pr_project_id: timeEntryData.project_id }),
         };
 
         const maxRetries = 3;
@@ -500,9 +500,15 @@ export const useBexioApi = () => {
           date: timeEntryData.dateRange.from.toISOString().split('T')[0],
           duration: durationString,
         },
-        ...(timeEntryData.contact_id && { contact_id: timeEntryData.contact_id }),
-        ...(timeEntryData.project_id && { pr_project_id: timeEntryData.project_id }),
+        ...(timeEntryData.contact_id !== undefined && { contact_id: timeEntryData.contact_id }),
+        ...(timeEntryData.project_id !== undefined && { pr_project_id: timeEntryData.project_id }),
       };
+
+      console.log('Updating time entry with data:', {
+        originalId: id,
+        bexioData,
+        formData: timeEntryData
+      });
 
       const createResponse = await fetch(`https://opcjifbdwpyttaxqlqbf.supabase.co/functions/v1/bexio-proxy`, {
         method: 'POST',
