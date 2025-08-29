@@ -72,9 +72,10 @@ interface TimeEntry {
 interface WorkPackage {
   id: string;
   name: string;
-  description?: string;
-  color?: string;
-  pr_project_id?: number;
+  spent_time_in_hours?: number;
+  estimated_time_in_hours?: number;
+  comment?: string;
+  pr_milestone_id?: number;
 }
 
 interface BexioCredentials {
@@ -285,91 +286,57 @@ export const useBexioApi = () => {
     }
 
     if (!projectId) {
-      console.log('No project ID provided, clearing work packages');
       setWorkPackages([]);
       return;
     }
 
     setIsLoadingWorkPackages(true);
     try {
-      console.log(`🔍 Testing specific Bexio API endpoint for project ${projectId}`);
-      
-      // Test the specific endpoint the user mentioned
-      const endpoint = `/3.0/projects/${projectId}/packages`;
-      console.log(`📡 Making request to: ${endpoint}`);
-      
       const response = await fetch(`https://opcjifbdwpyttaxqlqbf.supabase.co/functions/v1/bexio-proxy`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          endpoint: endpoint,
+          endpoint: `/3.0/projects/${projectId}/packages`,
           apiKey: credentials.apiKey,
           companyId: credentials.companyId,
         }),
       });
 
-      console.log(`📊 Response status: ${response.status} ${response.statusText}`);
-
-      const responseText = await response.text();
-      console.log(`📄 Raw response body:`, responseText);
-
-      let data;
-      try {
-        data = JSON.parse(responseText);
-        console.log(`✅ Parsed JSON data:`, data);
-      } catch (parseError) {
-        console.error('❌ Failed to parse JSON response:', parseError);
-        throw new Error(`Invalid JSON response from ${endpoint}`);
-      }
-
       if (!response.ok) {
-        console.error(`❌ Bexio API error for ${endpoint}:`, data);
-        throw new Error(data.error || `HTTP ${response.status}: ${response.statusText}`);
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
       }
 
-      // Check if data is an array and what's in it
-      console.log(`🔍 Data type: ${Array.isArray(data) ? 'Array' : typeof data}`);
-      if (Array.isArray(data)) {
-        console.log(`📦 Found ${data.length} items in response`);
-        data.forEach((item, index) => {
-          console.log(`   Item ${index + 1}:`, item);
-        });
-      }
-
-      // Transform the data to our expected format
+      const data = await response.json();
+      
+      // Transform the data to our expected format based on the API response structure
       const workPackages = Array.isArray(data) ? data : [];
       
-      const transformedPackages = workPackages.map((pkg: any, index: number) => {
-        const transformed = {
-          id: pkg.id?.toString() || pkg.uuid?.toString() || `pkg-${index}`,
-          name: pkg.name || pkg.title || pkg.package_name || `Package ${index + 1}`,
-          description: pkg.description || pkg.comment || '',
-          color: pkg.color || '#3b82f6',
-          pr_project_id: projectId
-        };
-        console.log(`🔄 Transformed package ${index + 1}:`, transformed);
-        return transformed;
-      });
+      const transformedPackages = workPackages.map((pkg: any) => ({
+        id: pkg.id?.toString(),
+        name: pkg.name,
+        spent_time_in_hours: pkg.spent_time_in_hours,
+        estimated_time_in_hours: pkg.estimated_time_in_hours,
+        comment: pkg.comment,
+        pr_milestone_id: pkg.pr_milestone_id,
+      }));
       
       setWorkPackages(transformedPackages);
       
-      console.log(`✅ Successfully loaded ${transformedPackages.length} work packages for project ${projectId}`);
-      
       toast({
-        title: `Found ${transformedPackages.length} work packages`,
-        description: `From endpoint: ${endpoint}`,
+        title: "Work packages loaded successfully",
+        description: `Successfully fetched ${transformedPackages.length} work packages.`,
       });
       
     } catch (error) {
-      console.error('❌ Error fetching work packages from Bexio:', error);
-      
+      console.error('Error fetching work packages:', error);
       setWorkPackages([]);
       
       toast({
-        title: "No work packages found",
-        description: `Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        title: "Failed to fetch work packages",
+        description: error instanceof Error ? error.message : "An error occurred while fetching work packages.",
         variant: "destructive",
       });
     } finally {
