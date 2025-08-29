@@ -59,8 +59,8 @@ export const BexioConnector = ({ onConnect, onOAuthConnect, isConnected }: Bexio
       
       console.log('🚀 Starting OAuth flow with PKCE:', { state, hasCodeChallenge: !!codeChallenge });
       
-      // Full API access scopes
-      const fullScope = 'openid profile email company_profile offline_access accounting contact_show contact_edit project_show project_edit timesheet_show timesheet_edit invoice_show invoice_edit kb_offer_show kb_invoice_show kb_credit_voucher_show kb_bill_show';
+      // OIDC scopes only (Bexio rejects API scopes in authorize request)
+      const fullScope = 'openid profile email offline_access';
       
       // Get OAuth URL from our edge function
       const response = await fetch('https://opcjifbdwpyttaxqlqbf.supabase.co/functions/v1/bexio-oauth/auth', {

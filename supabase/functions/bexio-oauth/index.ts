@@ -33,14 +33,18 @@ serve(async (req) => {
 
       const redirectUri = `https://${url.hostname}/functions/v1/bexio-oauth/callback`;
       
-      // Full API access scopes: OIDC + all API scopes
-      const fullScope = requestedScope || 'openid profile email company_profile offline_access accounting contact_show contact_edit project_show project_edit timesheet_show timesheet_edit invoice_show invoice_edit kb_offer_show kb_invoice_show kb_credit_voucher_show kb_bill_show';
+      // Only allow OIDC scopes (API scopes are configured per app in Bexio)
+      const oidcAllowed = ['openid', 'profile', 'email', 'offline_access'];
+      const requested = (requestedScope || '')
+        .split(/\s+/)
+        .filter((s) => oidcAllowed.includes(s));
+      const finalScope = (requested.length ? requested : oidcAllowed).join(' ');
 
       const params = new URLSearchParams({
         client_id: clientId,
         redirect_uri: redirectUri,
         response_type: 'code',
-        scope: fullScope,
+        scope: finalScope,
         state,
       });
 
@@ -51,7 +55,7 @@ serve(async (req) => {
       }
 
       const authUrl = `https://auth.bexio.com/realms/bexio/protocol/openid-connect/auth?${params.toString()}`;
-      console.log(`Generated OAuth URL with full API access: ${authUrl}`);
+      console.log(`Generated OAuth URL (OIDC scopes): ${authUrl}`);
 
       return new Response(JSON.stringify({ authUrl }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
