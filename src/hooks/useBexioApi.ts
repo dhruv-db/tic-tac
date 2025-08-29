@@ -499,7 +499,7 @@ export const useBexioApi = () => {
     }
   }, [credentials, toast, fetchTimeEntries]);
 
-  const deleteTimeEntry = useCallback(async (id: number) => {
+  const deleteTimeEntry = useCallback(async (id: number, skipRefresh = false) => {
     if (!credentials) {
       toast({
         title: "Not connected",
@@ -528,19 +528,22 @@ export const useBexioApi = () => {
         throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
       }
 
-      toast({
-        title: "Time entry deleted",
-        description: "The time entry has been successfully deleted.",
-      });
-
-      await fetchTimeEntries();
+      if (!skipRefresh) {
+        toast({
+          title: "Time entry deleted",
+          description: "The time entry has been successfully deleted.",
+        });
+        await fetchTimeEntries();
+      }
     } catch (error) {
       console.error('Error deleting time entry:', error);
-      toast({
-        title: "Failed to delete time entry",
-        description: error instanceof Error ? error.message : "An error occurred while deleting the time entry.",
-        variant: "destructive",
-      });
+      if (!skipRefresh) {
+        toast({
+          title: "Failed to delete time entry",
+          description: error instanceof Error ? error.message : "An error occurred while deleting the time entry.",
+          variant: "destructive",
+        });
+      }
       throw error;
     }
   }, [credentials, toast, fetchTimeEntries]);
@@ -566,16 +569,19 @@ export const useBexioApi = () => {
     if (!credentials) return;
     setIsCreatingTimeEntry(true);
     try {
+      // Delete all entries without refreshing after each one
       for (const id of entryIds) {
-        await deleteTimeEntry(id);
+        await deleteTimeEntry(id, true); // Skip refresh for individual deletes
       }
       toast({ title: `Deleted ${entryIds.length} entries` });
+      // Refresh only once at the end
+      await fetchTimeEntries();
     } catch (error) {
       toast({ title: "Bulk delete failed", variant: "destructive" });
     } finally {
       setIsCreatingTimeEntry(false);
     }
-  }, [credentials, toast, deleteTimeEntry]);
+  }, [credentials, toast, deleteTimeEntry, fetchTimeEntries]);
 
   const disconnect = useCallback(() => {
     localStorage.removeItem('bexio_credentials');
