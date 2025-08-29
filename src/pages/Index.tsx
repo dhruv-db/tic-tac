@@ -27,6 +27,8 @@ const Index = () => {
     createTimeEntry,
     updateTimeEntry,
     deleteTimeEntry,
+    bulkUpdateTimeEntries,
+    bulkDeleteTimeEntries,
     loadStoredCredentials,
     disconnect,
   } = useBexioApi();
@@ -175,6 +177,8 @@ const Index = () => {
                 onCreateTimeEntry={createTimeEntry}
                 onUpdateTimeEntry={updateTimeEntry}
                 onDeleteTimeEntry={deleteTimeEntry}
+                onBulkUpdateTimeEntries={bulkUpdateTimeEntries}
+                onBulkDeleteTimeEntries={bulkDeleteTimeEntries}
                 isCreatingTimeEntry={isCreatingTimeEntry}
                 contacts={contacts}
                 projects={projects}

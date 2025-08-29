@@ -2,11 +2,14 @@ import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Clock, Calendar, User, DollarSign, PlayCircle, PauseCircle, Edit, Trash2, CalendarDays } from "lucide-react";
 import { format } from "date-fns";
 import { TimeEntryForm } from "./TimeEntryForm";
 import { TimesheetCalendar } from "./TimesheetCalendar";
 import { EditTimeEntryDialog } from "./EditTimeEntryDialog";
+import { BulkActionToolbar } from "./BulkActionToolbar";
+import { BulkUpdateDialog } from "./BulkUpdateDialog";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { DateRange } from "react-day-picker";
@@ -50,6 +53,8 @@ interface TimeTrackingListProps {
   }) => Promise<void>;
   onUpdateTimeEntry?: (id: number, data: any) => Promise<void>;
   onDeleteTimeEntry?: (id: number) => Promise<void>;
+  onBulkUpdateTimeEntries?: (entries: TimeEntry[], updateData: any) => Promise<void>;
+  onBulkDeleteTimeEntries?: (entryIds: number[]) => Promise<void>;
   isCreatingTimeEntry?: boolean;
   contacts: Contact[];
   projects: Project[];
@@ -61,12 +66,16 @@ export const TimeTrackingList = ({
   onCreateTimeEntry, 
   onUpdateTimeEntry,
   onDeleteTimeEntry,
+  onBulkUpdateTimeEntries,
+  onBulkDeleteTimeEntries,
   isCreatingTimeEntry = false, 
   contacts, 
   projects 
 }: TimeTrackingListProps) => {
   const [editingEntry, setEditingEntry] = useState<TimeEntry | null>(null);
   const [activeView, setActiveView] = useState<'list' | 'calendar'>('list');
+  const [selectedEntries, setSelectedEntries] = useState<number[]>([]);
+  const [showBulkUpdate, setShowBulkUpdate] = useState(false);
   const { toast } = useToast();
   
   const toSeconds = (duration: string | number): number => {
@@ -95,6 +104,40 @@ export const TimeTrackingList = ({
   const totalDuration = timeEntries.reduce((acc, entry) => acc + toSeconds(entry.duration), 0);
   const billableEntries = timeEntries.filter(entry => entry.allowable_bill);
   const totalBillableDuration = billableEntries.reduce((acc, entry) => acc + toSeconds(entry.duration), 0);
+
+  // Selection handlers
+  const handleSelectEntry = (entryId: number, checked: boolean) => {
+    setSelectedEntries(prev => 
+      checked 
+        ? [...prev, entryId]
+        : prev.filter(id => id !== entryId)
+    );
+  };
+
+  const handleSelectAll = (checked: boolean) => {
+    setSelectedEntries(checked ? timeEntries.map(entry => entry.id) : []);
+  };
+
+  const handleBulkUpdate = async (entries: TimeEntry[], updateData: any) => {
+    if (onBulkUpdateTimeEntries) {
+      await onBulkUpdateTimeEntries(entries, updateData);
+      setSelectedEntries([]);
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (onBulkDeleteTimeEntries && window.confirm(`Are you sure you want to delete ${selectedEntries.length} time entries?`)) {
+      await onBulkDeleteTimeEntries(selectedEntries);
+      setSelectedEntries([]);
+    }
+  };
+
+  const getSelectedEntries = () => {
+    return timeEntries.filter(entry => selectedEntries.includes(entry.id));
+  };
+
+  const isAllSelected = selectedEntries.length === timeEntries.length && timeEntries.length > 0;
+  const isIndeterminate = selectedEntries.length > 0 && selectedEntries.length < timeEntries.length;
 
   if (isLoading) {
     return (
@@ -215,6 +258,24 @@ export const TimeTrackingList = ({
             </Card>
           </div>
 
+          {/* Select All Header (only show when there are entries) */}
+          {timeEntries.length > 0 && (
+            <div className="flex items-center justify-between p-4 border-b border-border">
+              <div className="flex items-center gap-3">
+                <Checkbox
+                  checked={isAllSelected || isIndeterminate}
+                  onCheckedChange={handleSelectAll}
+                />
+                <span className="text-sm text-muted-foreground">
+                  {selectedEntries.length === 0 
+                    ? "Select entries" 
+                    : `${selectedEntries.length} of ${timeEntries.length} selected`
+                  }
+                </span>
+              </div>
+            </div>
+          )}
+
           {/* Time Entries List */}
           <div className="grid gap-4">
             {timeEntries.map((entry) => (
@@ -222,49 +283,55 @@ export const TimeTrackingList = ({
                 key={entry.id} 
                 className="corporate-card hover:shadow-[var(--shadow-elegant)] transition-[var(--transition-smooth)] hover:scale-[1.01] cursor-pointer group"
               >
-                <CardContent className="p-6">
-                  <div className="flex items-center justify-between">
-                    <div className="flex-1 space-y-2">
-                      <div className="flex items-center gap-3">
-                        <div className={`p-1.5 rounded-full ${entry.allowable_bill ? 'bg-success/10' : 'bg-muted'}`}>
-                          {entry.allowable_bill ? (
-                            <PlayCircle className="h-4 w-4 text-success" />
-                          ) : (
-                            <PauseCircle className="h-4 w-4 text-muted-foreground" />
-                          )}
-                        </div>
-                        
-                        <div className="flex items-center gap-2">
-                          <Calendar className="h-4 w-4 text-muted-foreground" />
-                          <span className="font-medium">{formatDate(entry.date)}</span>
-                        </div>
+                 <CardContent className="p-6">
+                   <div className="flex items-center justify-between">
+                     <div className="flex items-center gap-3">
+                       <Checkbox
+                         checked={selectedEntries.includes(entry.id)}
+                         onCheckedChange={(checked) => handleSelectEntry(entry.id, checked as boolean)}
+                       />
+                       <div className="flex-1 space-y-2">
+                         <div className="flex items-center gap-3">
+                           <div className={`p-1.5 rounded-full ${entry.allowable_bill ? 'bg-success/10' : 'bg-muted'}`}>
+                             {entry.allowable_bill ? (
+                               <PlayCircle className="h-4 w-4 text-success" />
+                             ) : (
+                               <PauseCircle className="h-4 w-4 text-muted-foreground" />
+                             )}
+                           </div>
+                           
+                           <div className="flex items-center gap-2">
+                             <Calendar className="h-4 w-4 text-muted-foreground" />
+                             <span className="font-medium">{formatDate(entry.date)}</span>
+                           </div>
 
-                        <Badge 
-                          variant={entry.allowable_bill ? "default" : "secondary"}
-                          className={entry.allowable_bill ? "bg-success text-success-foreground" : ""}
-                        >
-                          {entry.allowable_bill ? "Billable" : "Non-billable"}
-                        </Badge>
-                      </div>
+                           <Badge 
+                             variant={entry.allowable_bill ? "default" : "secondary"}
+                             className={entry.allowable_bill ? "bg-success text-success-foreground" : ""}
+                           >
+                             {entry.allowable_bill ? "Billable" : "Non-billable"}
+                           </Badge>
+                         </div>
 
-                      {entry.text && (
-                        <p className="text-sm text-muted-foreground group-hover:text-foreground transition-[var(--transition-smooth)]">
-                          {entry.text}
-                        </p>
-                      )}
+                         {entry.text && (
+                           <p className="text-sm text-muted-foreground group-hover:text-foreground transition-[var(--transition-smooth)]">
+                             {entry.text}
+                           </p>
+                         )}
 
-                      <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                        {entry.contact_id && (
-                          <span>Contact: {entry.contact_id}</span>
-                        )}
-                        {entry.project_id && (
-                          <span>Project: {entry.project_id}</span>
-                        )}
-                        {entry.user_id && (
-                          <span>User: {entry.user_id}</span>
-                        )}
-                      </div>
-                    </div>
+                         <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                           {entry.contact_id && (
+                             <span>Contact: {entry.contact_id}</span>
+                           )}
+                           {entry.project_id && (
+                             <span>Project: {entry.project_id}</span>
+                           )}
+                           {entry.user_id && (
+                             <span>User: {entry.user_id}</span>
+                           )}
+                         </div>
+                       </div>
+                     </div>
 
                     <div className="flex items-center gap-2">
                       <div className="text-right mr-4">
@@ -326,6 +393,26 @@ export const TimeTrackingList = ({
         onClose={() => setEditingEntry(null)}
         onSubmit={onUpdateTimeEntry || (async () => {})}
         isSubmitting={isCreatingTimeEntry}
+      />
+
+      {/* Bulk Action Toolbar */}
+      <BulkActionToolbar
+        selectedCount={selectedEntries.length}
+        onBulkUpdate={() => setShowBulkUpdate(true)}
+        onBulkDelete={handleBulkDelete}
+        onClearSelection={() => setSelectedEntries([])}
+        isLoading={isCreatingTimeEntry}
+      />
+
+      {/* Bulk Update Dialog */}
+      <BulkUpdateDialog
+        isOpen={showBulkUpdate}
+        onClose={() => setShowBulkUpdate(false)}
+        selectedEntries={getSelectedEntries()}
+        onSubmit={handleBulkUpdate}
+        isSubmitting={isCreatingTimeEntry}
+        contacts={contacts}
+        projects={projects}
       />
 
       {timeEntries.length === 0 && !isLoading && (
