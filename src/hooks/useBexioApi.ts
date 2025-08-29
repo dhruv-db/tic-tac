@@ -156,10 +156,7 @@ export const useBexioApi = () => {
       setCredentials(creds);
       console.log('✅ Credentials set! App should now be connected. isConnected will be:', !!creds);
       
-      toast({
-        title: "Connected successfully",
-        description: `Authenticated with Bexio OAuth${userEmail ? ` as ${userEmail}` : ''}. You can now fetch data from Bexio.`,
-      });
+      // No toast notification - seamless authentication
     } catch (error) {
       console.error('❌ OAuth connection error:', error);
       toast({
