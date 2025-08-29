@@ -54,6 +54,7 @@ interface TimeTrackingListProps {
       allowable_bill: boolean;
       contact_id?: number;
       project_id?: number;
+      client_service_id?: number;
       status_id?: number;
       pr_package_id?: string;
       pr_milestone_id?: number;

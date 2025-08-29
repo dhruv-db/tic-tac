@@ -58,6 +58,7 @@ interface TimeEntryFormData {
   allowable_bill: boolean;
   contact_id?: number;
   project_id?: number;
+  client_service_id?: number;
   status_id?: number;
   pr_package_id?: string;
   pr_milestone_id?: number;
@@ -90,7 +91,14 @@ export const EditTimeEntryDialog = ({
   onSubmit,
   isSubmitting
 }: EditTimeEntryDialogProps) => {
-  const { timesheetStatuses, isLoadingStatuses, fetchTimesheetStatuses } = useBexioApi();
+  const { 
+    timesheetStatuses, 
+    isLoadingStatuses, 
+    fetchTimesheetStatuses,
+    businessActivities,
+    isLoadingActivities,
+    fetchBusinessActivities
+  } = useBexioApi();
   
   const [formData, setFormData] = useState<TimeEntryFormData>({
     dateRange: undefined,
@@ -100,6 +108,7 @@ export const EditTimeEntryDialog = ({
     allowable_bill: true,
     contact_id: undefined,
     project_id: undefined,
+    client_service_id: undefined,
     status_id: undefined,
     pr_package_id: undefined,
     pr_milestone_id: undefined,
@@ -171,6 +180,7 @@ export const EditTimeEntryDialog = ({
         allowable_bill: entry.allowable_bill,
         contact_id: entry.contact_id,
         project_id: entry.project_id,
+        client_service_id: entry.client_service_id,
         status_id: entry.status_id,
         pr_package_id: entry.pr_package_id,
         pr_milestone_id: entry.pr_milestone_id,
@@ -179,10 +189,11 @@ export const EditTimeEntryDialog = ({
   }, [entry, isOpen]);
 
   useEffect(() => {
-    if (fetchTimesheetStatuses) {
+    if (fetchTimesheetStatuses && fetchBusinessActivities) {
       fetchTimesheetStatuses();
+      fetchBusinessActivities();
     }
-  }, [fetchTimesheetStatuses]);
+  }, [fetchTimesheetStatuses, fetchBusinessActivities]);
 
   const calculateDuration = (start: string, end: string): number => {
     const [startHours, startMinutes] = start.split(':').map(Number);
@@ -382,6 +393,36 @@ export const EditTimeEntryDialog = ({
                 </SelectContent>
               </Select>
             </div>
+          </div>
+
+          {/* Activity Selection */}
+          <div className="space-y-2">
+            <Label htmlFor="client_service_id">Activity (Optional)</Label>
+            <Select
+              value={formData.client_service_id?.toString() || "none"}
+              onValueChange={(value) => setFormData(prev => ({ 
+                ...prev, 
+                client_service_id: value === "none" ? undefined : parseInt(value) 
+              }))}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select activity" />
+              </SelectTrigger>
+              <SelectContent className="bg-background border shadow-md z-50">
+                <SelectItem value="none">No activity</SelectItem>
+                {isLoadingActivities ? (
+                  <SelectItem value="loading" disabled>Loading activities...</SelectItem>
+                ) : businessActivities.length > 0 ? (
+                  businessActivities.map((activity) => (
+                    <SelectItem key={activity.id} value={activity.id.toString()}>
+                      {activity.name}
+                    </SelectItem>
+                  ))
+                ) : (
+                  <SelectItem value="5">Default Activity</SelectItem>
+                )}
+              </SelectContent>
+            </Select>
           </div>
 
           {/* Status and Work Package */}

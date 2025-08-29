@@ -22,6 +22,7 @@ interface TimeEntryFormData {
   allowable_bill: boolean;
   contact_id?: number;
   project_id?: number;
+  client_service_id?: number;
   status_id?: number;
   pr_package_id?: string;
   pr_milestone_id?: number;
@@ -71,7 +72,14 @@ export const TimeEntryForm = ({
   onFetchWorkPackages,
   initialData 
 }: TimeEntryFormProps) => {
-  const { timesheetStatuses, isLoadingStatuses, fetchTimesheetStatuses } = useBexioApi();
+  const { 
+    timesheetStatuses, 
+    isLoadingStatuses, 
+    fetchTimesheetStatuses,
+    businessActivities,
+    isLoadingActivities,
+    fetchBusinessActivities
+  } = useBexioApi();
   
   const getContactName = (contact: Contact) => {
     const names = [contact.name_1, contact.name_2].filter(Boolean);
@@ -85,6 +93,7 @@ export const TimeEntryForm = ({
     allowable_bill: initialData?.allowable_bill ?? true,
     contact_id: initialData?.contact_id,
     project_id: initialData?.project_id,
+    client_service_id: initialData?.client_service_id,
     status_id: initialData?.status_id,
     pr_package_id: initialData?.pr_package_id,
     pr_milestone_id: initialData?.pr_milestone_id,
@@ -109,10 +118,11 @@ export const TimeEntryForm = ({
   }, [formData.project_id, onFetchWorkPackages]);
 
   useEffect(() => {
-    if (fetchTimesheetStatuses) {
+    if (fetchTimesheetStatuses && fetchBusinessActivities) {
       fetchTimesheetStatuses();
+      fetchBusinessActivities();
     }
-  }, [fetchTimesheetStatuses]);
+  }, [fetchTimesheetStatuses, fetchBusinessActivities]);
 
   // Watch for initial data changes (from calendar clicks)
   useEffect(() => {
@@ -125,6 +135,7 @@ export const TimeEntryForm = ({
         allowable_bill: initialData.allowable_bill ?? true,
         contact_id: initialData.contact_id,
         project_id: initialData.project_id,
+        client_service_id: initialData.client_service_id,
         status_id: initialData.status_id,
         pr_package_id: initialData.pr_package_id,
         pr_milestone_id: initialData.pr_milestone_id,
@@ -203,6 +214,7 @@ export const TimeEntryForm = ({
         allowable_bill: true,
         contact_id: undefined,
         project_id: undefined,
+        client_service_id: undefined,
         status_id: undefined,
         pr_package_id: undefined,
         pr_milestone_id: undefined,
@@ -370,6 +382,36 @@ export const TimeEntryForm = ({
                 </SelectContent>
               </Select>
             </div>
+          </div>
+
+          {/* Activity Selection */}
+          <div className="space-y-2">
+            <Label htmlFor="client_service_id">Activity (Optional)</Label>
+            <Select
+              value={formData.client_service_id?.toString() || "none"}
+              onValueChange={(value) => setFormData(prev => ({ 
+                ...prev, 
+                client_service_id: value === "none" ? undefined : parseInt(value) 
+              }))}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select activity" />
+              </SelectTrigger>
+              <SelectContent className="bg-background border shadow-md z-50">
+                <SelectItem value="none">No activity</SelectItem>
+                {isLoadingActivities ? (
+                  <SelectItem value="loading" disabled>Loading activities...</SelectItem>
+                ) : businessActivities.length > 0 ? (
+                  businessActivities.map((activity) => (
+                    <SelectItem key={activity.id} value={activity.id.toString()}>
+                      {activity.name}
+                    </SelectItem>
+                  ))
+                ) : (
+                  <SelectItem value="5">Default Activity</SelectItem>
+                )}
+              </SelectContent>
+            </Select>
           </div>
 
           {/* Status and Work Package */}
