@@ -287,17 +287,22 @@ export const useBexioApi = () => {
     setIsLoadingWorkPackages(true);
     try {
       // Try different possible endpoints for work packages
-      // Based on Bexio API documentation, work packages might be under different paths
+      // Based on user suggestion and Bexio API documentation
       let endpoint;
       let response;
       
-      // Try the most likely endpoints in order
-      const endpoints = [
-        `/pr_work_package`, // Project work packages
-        `/pr_milestone`, // Project milestones (often used similarly)
-        `/work_package`, // Simple work package endpoint
-        `/pr_project/${projectId}/work_package`, // Work packages under project
-        `/pr_project/${projectId}/milestone` // Milestones under project
+      // Try the most likely endpoints in order, starting with the user's suggested endpoint
+      const endpoints = projectId ? [
+        `/3.0/projects/${projectId}/packages`, // User suggested endpoint (API 3.0)
+        `/pr_work_package?pr_project_id=${projectId}`, // Project work packages
+        `/pr_milestone?pr_project_id=${projectId}`, // Project milestones (often used similarly)
+        `/work_package?project_id=${projectId}`, // Simple work package endpoint with filter
+        `/projects/${projectId}/work_packages`, // Alternative structure
+        `/projects/${projectId}/packages` // Alternative structure
+      ] : [
+        `/pr_work_package`, // All work packages
+        `/pr_milestone`, // All milestones
+        `/work_package` // All work packages
       ];
 
       for (const testEndpoint of endpoints) {
@@ -320,7 +325,8 @@ export const useBexioApi = () => {
             console.log(`Success with endpoint: ${testEndpoint}`);
             break;
           } else {
-            console.log(`Failed with endpoint: ${testEndpoint} - Status: ${response.status}`);
+            const errorData = await response.json().catch(() => ({}));
+            console.log(`Failed with endpoint: ${testEndpoint} - Status: ${response.status}, Error:`, errorData);
           }
         } catch (err) {
           console.log(`Error with endpoint: ${testEndpoint}`, err);
@@ -335,30 +341,22 @@ export const useBexioApi = () => {
       const data = await response.json();
       console.log('Work package data from Bexio:', data);
       
-      // Filter by project if specified and transform data
+      // Transform the data to our expected format
       let workPackages = Array.isArray(data) ? data : [];
-      
-      if (projectId) {
-        workPackages = workPackages.filter((pkg: any) => 
-          pkg.pr_project_id === projectId || 
-          pkg.project_id === projectId ||
-          pkg.projectId === projectId
-        );
-      }
       
       const transformedPackages = workPackages.map((pkg: any) => ({
         id: pkg.id?.toString() || pkg.uuid?.toString() || Math.random().toString(),
         name: pkg.name || pkg.title || 'Unnamed Package',
         description: pkg.description || pkg.comment || '',
         color: pkg.color || '#3b82f6',
-        pr_project_id: pkg.pr_project_id || pkg.project_id || pkg.projectId
+        pr_project_id: pkg.pr_project_id || pkg.project_id || pkg.projectId || projectId
       }));
       
       setWorkPackages(transformedPackages);
       
       toast({
         title: "Work packages loaded successfully",
-        description: `Successfully fetched ${transformedPackages.length} work packages from Bexio API.`,
+        description: `Successfully fetched ${transformedPackages.length} work packages from Bexio API (${endpoint}).`,
       });
       
     } catch (error) {
