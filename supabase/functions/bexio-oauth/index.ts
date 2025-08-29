@@ -177,67 +177,25 @@ serve(async (req) => {
           console.error('Error fetching profile data:', profileError);
         }
 
-          // Store credentials in localStorage and redirect back to main app
-          const mainAppUrl = `https://4bf4f80d-52ee-4c37-86a7-92c7a81427b7.sandbox.lovable.dev/?oauth_success=true&t=${Date.now()}`;
+          // Encode credentials as URL parameters and redirect
+          const credentials = {
+            accessToken: (tokenData as any).access_token,
+            refreshToken: (tokenData as any).refresh_token || '',
+            companyId: companyId,
+            userEmail: userEmail,
+            idToken: idToken,
+            expiresIn: (tokenData as any).expires_in || 3600
+          };
+
+          const encodedCredentials = encodeURIComponent(JSON.stringify(credentials));
+          const mainAppUrl = `https://4bf4f80d-52ee-4c37-86a7-92c7a81427b7.sandbox.lovable.dev/?oauth_success=true&credentials=${encodedCredentials}&t=${Date.now()}`;
           
-          return new Response(`
-            <!DOCTYPE html>
-            <html>
-              <head>
-                <title>Redirecting...</title>
-                <style>
-                  body { 
-                    font-family: system-ui, sans-serif; 
-                    display: flex; 
-                    align-items: center; 
-                    justify-content: center; 
-                    min-height: 100vh; 
-                    margin: 0; 
-                    background: #f8f9fa; 
-                  }
-                  .loader { 
-                    text-align: center; 
-                    color: #666; 
-                  }
-                </style>
-              </head>
-              <body>
-                <div class="loader">
-                  <div>✅ Authentication successful!</div>
-                  <div>Redirecting back to app...</div>
-                </div>
-                <script>
-                  // Store OAuth credentials in localStorage
-                  const payload = {
-                    type: 'BEXIO_OAUTH_SUCCESS',
-                    credentials: {
-                      accessToken: '${(tokenData as any).access_token}',
-                      refreshToken: '${(tokenData as any).refresh_token || ''}',
-                      companyId: '${companyId}',
-                      userEmail: '${userEmail}',
-                      idToken: '${idToken}',
-                      expiresIn: ${(tokenData as any).expires_in || 3600}
-                    },
-                    timestamp: Date.now()
-                  };
-                  
-                  try {
-                    localStorage.setItem('bexio_oauth_success', JSON.stringify(payload));
-                    localStorage.setItem('bexio_oauth_ready', 'true');
-                    console.log('✅ OAuth credentials stored');
-                  } catch (e) {
-                    console.error('Failed to store credentials:', e);
-                  }
-                  
-                  // Redirect back to main app
-                  setTimeout(() => {
-                    window.location.href = '${mainAppUrl}';
-                  }, 1000);
-                </script>
-              </body>
-            </html>
-          `, {
-            headers: { ...corsHeaders, 'Content-Type': 'text/html' },
+          return new Response(null, {
+            status: 302,
+            headers: { 
+              ...corsHeaders, 
+              'Location': mainAppUrl 
+            },
           });
 
       } catch (error) {
