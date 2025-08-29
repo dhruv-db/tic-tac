@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -92,76 +92,58 @@ export const EditTimeEntryDialog = ({
   const [workPackages, setWorkPackages] = useState<{ id: number; name: string }[]>([]);
   const [isLoadingWorkPackages, setIsLoadingWorkPackages] = useState(false);
 
+  const lastProjectIdRef = useRef<number | undefined>(undefined);
+  const mountedRef = useRef(true);
+  useEffect(() => () => { mountedRef.current = false; }, []);
+
   useEffect(() => {
     const loadWorkPackages = async (projectId: number) => {
       try {
         setIsLoadingWorkPackages(true);
         const stored = localStorage.getItem('bexio_credentials');
-        if (!stored) {
-          setWorkPackages([]);
-          return;
-        }
+        if (!stored) { setWorkPackages([]); return; }
         const { apiKey, companyId } = JSON.parse(stored);
-        
-        // Try different possible endpoints for work packages/milestones
+
         const possibleEndpoints = ['/pr_milestone', '/pr_work_package', '/work_package'];
-        let data = null;
-        
+        let data: any = null;
+
         for (const endpoint of possibleEndpoints) {
           try {
-            console.log(`Trying endpoint: ${endpoint}`);
             const resp = await fetch(`https://opcjifbdwpyttaxqlqbf.supabase.co/functions/v1/bexio-proxy`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
+              method: 'POST', headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ endpoint, apiKey, companyId }),
             });
-            
-            if (resp.ok) {
-              data = await resp.json();
-              console.log(`Success with endpoint: ${endpoint}`, data);
-              break;
-            } else {
-              console.log(`Failed with endpoint: ${endpoint}, status: ${resp.status}`);
-            }
-          } catch (e) {
-            console.log(`Error with endpoint: ${endpoint}`, e);
-            continue;
-          }
+            if (resp.ok) { data = await resp.json(); break; }
+          } catch (_) { /* try next */ }
         }
-        
-        if (!data) {
-          console.log('No valid work package endpoint found');
-          setWorkPackages([]);
-          return;
-        }
-        
+
+        if (!mountedRef.current) return;
+        if (!data) { setWorkPackages([]); return; }
+
         const pkgs = (Array.isArray(data) ? data : [])
           .filter((p: any) => p.pr_project_id === projectId)
-          .map((p: any) => ({ 
-            id: p.id, 
-            name: p.name || p.title || `Work Package #${p.id}` 
-          }));
+          .map((p: any) => ({ id: p.id, name: p.name || p.title || `Work Package #${p.id}` }));
         setWorkPackages(pkgs);
 
-        // If current selection is not in fetched list, reset to none to avoid 422s
-        setFormData(prev => ({
-          ...prev,
-          pr_package_id: pkgs.some((p) => p.id === prev.pr_package_id) ? prev.pr_package_id : undefined,
-        }));
-      } catch (e) {
-        console.error('Error loading work packages:', e);
-        setWorkPackages([]);
+        // Only update if needed to avoid render loops
+        setFormData(prev => (
+          pkgs.some(p => p.id === prev.pr_package_id) ? prev : { ...prev, pr_package_id: undefined }
+        ));
       } finally {
-        setIsLoadingWorkPackages(false);
+        if (mountedRef.current) setIsLoadingWorkPackages(false);
       }
     };
 
-    if (formData.project_id) {
-      loadWorkPackages(formData.project_id);
-    } else {
+    const currentProjectId = formData.project_id;
+    if (currentProjectId && lastProjectIdRef.current !== currentProjectId) {
+      lastProjectIdRef.current = currentProjectId;
+      loadWorkPackages(currentProjectId);
+    }
+    if (!currentProjectId) {
+      lastProjectIdRef.current = undefined;
       setWorkPackages([]);
-      // Clear work package when project is cleared
-      setFormData(prev => ({ ...prev, pr_package_id: undefined }));
+      // Only clear if previously set
+      setFormData(prev => (prev.pr_package_id !== undefined ? { ...prev, pr_package_id: undefined } : prev));
     }
   }, [formData.project_id]);
 
