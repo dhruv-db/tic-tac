@@ -39,6 +39,14 @@ const Index = () => {
     loadStoredCredentials();
   }, [loadStoredCredentials]);
 
+  useEffect(() => {
+    // Auto-fetch contacts and projects when switching to Time Tracking
+    if (activeTab === "timetracking") {
+      if (contacts.length === 0 && !isLoadingContacts) fetchContacts();
+      if (projects.length === 0 && !isLoadingProjects) fetchProjects();
+    }
+  }, [activeTab, contacts.length, projects.length, isLoadingContacts, isLoadingProjects, fetchContacts, fetchProjects]);
+
   const handleRefresh = () => {
     if (activeTab === "contacts") {
       fetchContacts();
