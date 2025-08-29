@@ -144,8 +144,8 @@ export const useBexioApi = () => {
       const creds: BexioCredentials = {
         accessToken,
         refreshToken,
-        companyId,
-        userEmail,
+        companyId: companyId || 'unknown', // Fallback for missing company ID
+        userEmail: userEmail || 'OAuth User', // Fallback for missing email
         authType: 'oauth',
         expiresAt
       };
@@ -157,7 +157,7 @@ export const useBexioApi = () => {
       
       toast({
         title: "Connected successfully",
-        description: `Authenticated as ${userEmail}. You can now fetch data from Bexio.`,
+        description: `Authenticated with Bexio OAuth${userEmail ? ` as ${userEmail}` : ''}. You can now fetch data from Bexio.`,
       });
     } catch (error) {
       console.error('OAuth connection error:', error);

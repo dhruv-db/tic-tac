@@ -139,25 +139,43 @@ serve(async (req) => {
         const idToken = (tokenData as any).id_token || '';
 
         // Get user info from Bexio API to obtain company ID and email
+        let companyId = '';
+        let userEmail = '';
+        
         try {
-          const userResponse = await fetch('https://api.bexio.com/3.0/profile', {
+          // Try the company profile endpoint first
+          const companyResponse = await fetch('https://api.bexio.com/2.0/company_profile', {
             headers: {
               'Authorization': `Bearer ${(tokenData as any).access_token}`,
               'Accept': 'application/json',
             },
           });
 
-          let companyId = '';
-          let userEmail = '';
-
-          if (userResponse.ok) {
-            const userData = await userResponse.json();
-            console.log('User profile data:', userData);
-            companyId = userData.company_id || userData.companyId || '';
-            userEmail = userData.email || userData.mail || '';
+          if (companyResponse.ok) {
+            const companyData = await companyResponse.json();
+            console.log('Company profile data:', companyData);
+            companyId = companyData.id?.toString() || '';
+            userEmail = companyData.email || '';
           } else {
-            console.warn(`Failed to get user profile: ${userResponse.status}, continuing without profile data`);
+            console.warn(`Failed to get company profile: ${companyResponse.status}`);
+            
+            // Fallback: try to get user info from JWT token
+            try {
+              const accessToken = (tokenData as any).access_token;
+              const tokenParts = accessToken.split('.');
+              if (tokenParts.length === 3) {
+                const payload = JSON.parse(atob(tokenParts[1]));
+                console.log('JWT payload:', payload);
+                companyId = payload.company_id || '';
+                userEmail = payload.email || payload.login_id || '';
+              }
+            } catch (jwtError) {
+              console.warn('Failed to parse JWT token:', jwtError);
+            }
           }
+        } catch (profileError) {
+          console.error('Error fetching profile data:', profileError);
+        }
 
           return new Response(`
             <html>
@@ -186,38 +204,6 @@ serve(async (req) => {
           `, {
             headers: { ...corsHeaders, 'Content-Type': 'text/html' },
           });
-
-        } catch (profileError) {
-          console.error('Error fetching user profile:', profileError);
-          // Continue without profile data
-          return new Response(`
-            <html>
-              <body>
-                <h1>Authentication Successful!</h1>
-                <p>You can now close this window.</p>
-                <script>
-                  // Pass the credentials to the parent window
-                  if (window.opener) {
-                    window.opener.postMessage({
-                      type: 'BEXIO_OAUTH_SUCCESS',
-                      credentials: {
-                        accessToken: '${(tokenData as any).access_token}',
-                        refreshToken: '${(tokenData as any).refresh_token || ''}',
-                        companyId: '',
-                        userEmail: '',
-                        idToken: '${idToken}',
-                        expiresIn: ${(tokenData as any).expires_in || 3600}
-                      }
-                    }, '*');
-                  }
-                  setTimeout(() => window.close(), 500);
-                </script>
-              </body>
-            </html>
-          `, {
-            headers: { ...corsHeaders, 'Content-Type': 'text/html' },
-          });
-        }
 
       } catch (error) {
         console.error('Error during token exchange:', error);
