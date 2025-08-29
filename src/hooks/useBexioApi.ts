@@ -95,6 +95,8 @@ export const useBexioApi = () => {
   const [isLoadingWorkPackages, setIsLoadingWorkPackages] = useState(false);
   const [timesheetStatuses, setTimesheetStatuses] = useState<{ id: number; name: string }[]>([]);
   const [isLoadingStatuses, setIsLoadingStatuses] = useState(false);
+  const [businessActivities, setBusinessActivities] = useState<{ id: number; name: string }[]>([]);
+  const [isLoadingActivities, setIsLoadingActivities] = useState(false);
   const [isCreatingTimeEntry, setIsCreatingTimeEntry] = useState(false);
   const { toast } = useToast();
 
@@ -386,6 +388,7 @@ export const useBexioApi = () => {
     allowable_bill: boolean;
     contact_id?: number;
     project_id?: number;
+    client_service_id?: number;
     status_id?: number;
     pr_package_id?: string;
     pr_milestone_id?: number;
@@ -455,7 +458,7 @@ export const useBexioApi = () => {
       const createWithRetry = async (date: Date) => {
         const bexioData = {
           user_id: 1,
-          client_service_id: 5,
+          client_service_id: timeEntryData.client_service_id ?? 5,
           text: timeEntryData.text || "",
           allowable_bill: timeEntryData.allowable_bill,
           tracking: {
@@ -581,7 +584,7 @@ export const useBexioApi = () => {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          endpoint: '/timesheet_status',
+          endpoint: '/timesheet/status',
           apiKey: credentials.apiKey,
           companyId: credentials.companyId,
         }),
@@ -621,7 +624,65 @@ export const useBexioApi = () => {
         variant: "destructive",
       });
     } finally {
-      setIsLoadingStatuses(false);
+    setIsLoadingStatuses(false);
+    }
+  }, [credentials, toast]);
+
+  const fetchBusinessActivities = useCallback(async () => {
+    if (!credentials) {
+      console.error('No credentials available');
+      toast({
+        title: "Error",
+        description: "API key not configured. Please connect to Bexio first.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsLoadingActivities(true);
+    console.log('🔍 Fetching business activities from Bexio');
+
+    try {
+      const response = await fetch(`https://opcjifbdwpyttaxqlqbf.supabase.co/functions/v1/bexio-proxy`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          endpoint: '/business_activity',
+          apiKey: credentials.apiKey,
+          companyId: credentials.companyId,
+        }),
+      });
+
+      console.log('📊 Business activities response status:', response.status);
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        console.error('❌ Error fetching business activities:', errorData);
+        throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      console.log('✅ Received business activities:', data);
+
+      const activities = Array.isArray(data) ? data.map((a: any) => ({
+        id: a.id,
+        name: a.name || a.label || a.text || a.title || a.description || `Activity ${a.id}`,
+      })) : [];
+
+      setBusinessActivities(activities);
+      toast({
+        title: "Activities loaded",
+        description: `Fetched ${activities.length} activities.`,
+      });
+    } catch (error) {
+      console.error('❌ Error fetching business activities:', error);
+      setBusinessActivities([]);
+      toast({
+        title: "Failed to load activities",
+        description: "Please try again later.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoadingActivities(false);
     }
   }, [credentials, toast]);
 
@@ -633,6 +694,7 @@ export const useBexioApi = () => {
     allowable_bill: boolean;
     contact_id?: number;
     project_id?: number;
+    client_service_id?: number;
     status_id?: number;
     pr_package_id?: string;
     pr_milestone_id?: number;
@@ -698,7 +760,7 @@ export const useBexioApi = () => {
 
       const bexioData = {
         user_id: 1,
-        client_service_id: 5,
+        client_service_id: timeEntryData.client_service_id ?? 5,
         text: timeEntryData.text || "",
         allowable_bill: timeEntryData.allowable_bill,
         tracking: {
@@ -913,6 +975,9 @@ export const useBexioApi = () => {
     timesheetStatuses,
     isLoadingStatuses,
     fetchTimesheetStatuses,
+    businessActivities,
+    isLoadingActivities,
+    fetchBusinessActivities,
     createTimeEntry,
     updateTimeEntry,
     deleteTimeEntry,
