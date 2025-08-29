@@ -4,7 +4,6 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
 import { BexioConnector } from "@/components/BexioConnector";
-import { BexioOAuthExample } from "@/components/BexioOAuthExample";
 import { ContactList } from "@/components/ContactList";
 import { ProjectList } from "@/components/ProjectList";
 import { TimeTrackingList } from "@/components/TimeTrackingList";
@@ -194,9 +193,6 @@ const Index = () => {
             onOAuthConnect={connectWithOAuth}
             isConnected={isConnected} 
           />
-          <div className="mt-8">
-            <BexioOAuthExample />
-          </div>
         </div>
       </div>
     );
