@@ -284,7 +284,7 @@ export const TimeEntryForm = ({ onSubmit, isSubmitting, contacts, projects, init
                 <SelectTrigger>
                   <SelectValue placeholder="Select a contact" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="z-50">
                   {contacts.map((contact) => (
                     <SelectItem key={contact.id} value={contact.id.toString()}>
                       {getContactName(contact)} (#{contact.nr})
@@ -307,7 +307,7 @@ export const TimeEntryForm = ({ onSubmit, isSubmitting, contacts, projects, init
                 <SelectTrigger>
                   <SelectValue placeholder="Select a project" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="z-50">
                   {projects.map((project) => (
                     <SelectItem key={project.id} value={project.id.toString()}>
                       {project.name} (#{project.nr})

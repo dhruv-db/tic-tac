@@ -302,7 +302,7 @@ export const EditTimeEntryDialog = ({
                 <SelectTrigger>
                   <SelectValue placeholder="Select a contact" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="z-50">
                   <SelectItem value="none">No contact</SelectItem>
                   {contacts.map((contact) => (
                     <SelectItem key={contact.id} value={contact.id.toString()}>
@@ -326,7 +326,7 @@ export const EditTimeEntryDialog = ({
                 <SelectTrigger>
                   <SelectValue placeholder="Select a project" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="z-50">
                   <SelectItem value="none">No project</SelectItem>
                   {projects.map((project) => (
                     <SelectItem key={project.id} value={project.id.toString()}>
