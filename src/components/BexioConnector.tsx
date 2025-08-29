@@ -36,25 +36,26 @@ export const BexioConnector = ({ onConnect, onOAuthConnect, isConnected }: Bexio
       // Generate a random state for security
       const state = Math.random().toString(36).substring(2, 15);
       
-      // Generate PKCE parameters for enhanced security
+      // Generate PKCE parameters that meet RFC 7636 requirements
       const generatePKCE = () => {
-        const codeVerifier = Array.from(crypto.getRandomValues(new Uint8Array(32)))
-          .map(b => String.fromCharCode(b))
-          .join('')
-          .replace(/[^a-zA-Z0-9]/g, '')
-          .substring(0, 43);
-        
+        const length = 64; // 43-128 allowed; 64 is a safe default
+        const charset = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~';
+        const random = new Uint8Array(length);
+        crypto.getRandomValues(random);
+        let codeVerifier = '';
+        for (let i = 0; i < length; i++) {
+          codeVerifier += charset[random[i] % charset.length];
+        }
+
         const encoder = new TextEncoder();
         const data = encoder.encode(codeVerifier);
-        return crypto.subtle.digest('SHA-256', data).then(hash => {
-          const codeChallenge = btoa(String.fromCharCode(...new Uint8Array(hash)))
-            .replace(/\+/g, '-')
-            .replace(/\//g, '_')
-            .replace(/=/g, '');
+        return crypto.subtle.digest('SHA-256', data).then(hashBuffer => {
+          const hashBytes = new Uint8Array(hashBuffer);
+          let base64 = btoa(String.fromCharCode(...hashBytes));
+          const codeChallenge = base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
           return { codeVerifier, codeChallenge };
         });
       };
-
       const { codeVerifier, codeChallenge } = await generatePKCE();
       
       console.log('🚀 Starting OAuth flow with PKCE:', { state, hasCodeChallenge: !!codeChallenge });
