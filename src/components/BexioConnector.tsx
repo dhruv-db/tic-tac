@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Settings, Key, CheckCircle2, User, Shield } from "lucide-react";
-
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 interface BexioConnectorProps {
   onConnect: (apiKey: string, companyId: string) => void;
   onOAuthConnect: (accessToken: string, refreshToken: string, companyId: string, userEmail: string) => void;
@@ -18,7 +18,7 @@ export const BexioConnector = ({ onConnect, onOAuthConnect, isConnected }: Bexio
   const [companyId, setCompanyId] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isOAuthLoading, setIsOAuthLoading] = useState(false);
-
+  const [extraScope, setExtraScope] = useState<'none' | 'contact_show' | 'contacts:read' | 'timesheet_show' | 'timesheets:read'>('none');
   // Listen for OAuth success from popup and finalize connection
   useEffect(() => {
     const onMessage = (event: MessageEvent) => {
@@ -82,12 +82,15 @@ export const BexioConnector = ({ onConnect, onOAuthConnect, isConnected }: Bexio
         ru: window.location.origin 
       }));
 
+      // Determine requested scopes per user selection (OIDC base + optional API scope)
+      const baseScope = 'openid profile email offline_access';
+      const requestedScope = extraScope !== 'none' ? `${baseScope} ${extraScope}` : baseScope;
+
       // Request auth URL from Edge Function using server-configured client and scopes
       const { data, error } = await (await import('@/integrations/supabase/client')).supabase.functions.invoke('bexio-oauth/auth', {
         body: {
           state: state,
-          // Only OIDC scopes here; API scopes are attached via the Bexio app configuration
-          scope: 'openid profile email offline_access',
+          scope: requestedScope,
           codeChallenge,
           codeChallengeMethod: 'S256',
           codeVerifier,

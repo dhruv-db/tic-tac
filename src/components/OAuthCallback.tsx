@@ -97,7 +97,7 @@ export function OAuthCallback() {
       case 'success':
         return {
           title: 'Authentication Successful!',
-          message: 'You have been successfully authenticated with Bexio.',
+          message: 'You have been successfully authenticated with Bexio. You can close this window.',
           className: 'text-green-600'
         } as const;
       case 'error':

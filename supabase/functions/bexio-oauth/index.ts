@@ -33,12 +33,18 @@ serve(async (req) => {
 
       const redirectUri = `https://${url.hostname}/functions/v1/bexio-oauth/callback`;
       
-      // Only allow OIDC scopes (API scopes are configured per app in Bexio)
-      const oidcAllowed = ['openid', 'profile', 'email', 'offline_access'];
-      const requested = (requestedScope || '')
+      // Allow OIDC base scopes plus a safe whitelist of API scopes for testing
+      const oidcBase = ['openid', 'profile', 'email', 'offline_access'];
+      const allowedApi = [
+        'contact_show', 'contact_edit', 'contacts:read', 'contacts:write',
+        'timesheet_show', 'timesheet_edit', 'timesheets:read', 'timesheets:write',
+        'project_show', 'project_edit', 'projects:read', 'projects:write'
+      ];
+      const requestedList = (requestedScope || '')
         .split(/\s+/)
-        .filter((s) => oidcAllowed.includes(s));
-      const finalScope = (requested.length ? requested : oidcAllowed).join(' ');
+        .filter(Boolean);
+      const apiScopes = requestedList.filter((s) => allowedApi.includes(s));
+      const finalScope = [...oidcBase, ...apiScopes].join(' ');
 
       // Pack state with code_verifier and return URL for redirect
       let packedState = state;
