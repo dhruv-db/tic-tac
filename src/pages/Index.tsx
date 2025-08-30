@@ -152,9 +152,9 @@ const Index = () => {
                 </div>
                 <div>
                   <h1 className="text-3xl font-bold">
-                    <span className="text-white">tik</span>
-                    <span className="text-accent">tak</span>
-                    <span className="text-white/90 text-lg ml-2">2.0</span>
+                    <span className="text-accent">tik</span>
+                    <span className="text-white">tak</span>
+                    <span className="text-primary text-lg ml-2">2.0</span>
                   </h1>
                   <p className="text-white/80 text-sm">Smart & simple time-tracking</p>
                 </div>
