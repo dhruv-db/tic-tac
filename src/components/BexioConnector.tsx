@@ -87,8 +87,8 @@ export const BexioConnector = ({ onConnect, onOAuthConnect, isConnected }: Bexio
       let requestedScope = baseScope;
       
       if (extraScope === 'all_scopes') {
-        // Request all available Bexio API scopes for full access
-        requestedScope = `${baseScope} contact_show timesheet_show project_show user_show article_show invoice_show order_show kb_invoice_show`;
+        // Request specific Bexio API scopes
+        requestedScope = `${baseScope} project_edit contact_edit company_profile`;
       } else if (extraScope !== 'none') {
         requestedScope = `${baseScope} ${extraScope}`;
       }
