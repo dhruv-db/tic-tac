@@ -234,7 +234,7 @@ serve(async (req) => {
   </style>
 </head>
 <body>
-  <div class="success">✅ Authentication Successful!</div>
+  <div class="success">Authentication Successful</div>
   <div class="loading">Connecting to your application...</div>
   
   <script>
@@ -268,19 +268,21 @@ serve(async (req) => {
         }
       } catch(e) {
         console.error('OAuth callback error:', e);
-        document.body.innerHTML = '<div class="success">✅ Authentication completed</div><p>Please close this window manually.</p>';
+        document.body.innerHTML = '<div class="success">Authentication completed</div><p>Please close this window manually.</p>';
       }
     })();
   </script>
 </body>
 </html>`;
 
-          return new Response(htmlContent, {
+          const blob = new Blob([htmlContent], { type: 'text/html; charset=utf-8' });
+          return new Response(blob, {
             status: 200,
             headers: { 
               ...corsHeaders, 
               'Content-Type': 'text/html; charset=utf-8',
-              'Cache-Control': 'no-cache, no-store, must-revalidate'
+              'Cache-Control': 'no-cache, no-store, must-revalidate',
+              'Content-Disposition': 'inline'
             },
           });
 
