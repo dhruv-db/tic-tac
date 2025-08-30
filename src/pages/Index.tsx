@@ -178,11 +178,14 @@ const Index = () => {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={disconnect}
+                onClick={() => {
+                  disconnect();
+                  window.location.reload(); // Force page reload to clear state
+                }}
                 className="gap-2 text-destructive hover:text-destructive"
               >
                 <LogOut className="h-4 w-4" />
-                Disconnect
+                Re-authenticate
               </Button>
             </div>
           </div>
