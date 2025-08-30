@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -18,6 +18,23 @@ export const BexioConnector = ({ onConnect, onOAuthConnect, isConnected }: Bexio
   const [companyId, setCompanyId] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isOAuthLoading, setIsOAuthLoading] = useState(false);
+
+  // Listen for OAuth success from popup and finalize connection
+  useEffect(() => {
+    const onMessage = (event: MessageEvent) => {
+      const data = (event?.data || {}) as any;
+      if (data && data.type === 'BEXIO_OAUTH_SUCCESS' && data.credentials) {
+        try {
+          const { accessToken, refreshToken, companyId, userEmail } = data.credentials;
+          onOAuthConnect?.(accessToken, refreshToken, companyId, userEmail);
+        } finally {
+          setIsOAuthLoading(false);
+        }
+      }
+    };
+    window.addEventListener('message', onMessage);
+    return () => window.removeEventListener('message', onMessage);
+  }, [onOAuthConnect]);
 
   const handleConnect = async () => {
     if (!apiKey || !companyId) return;
