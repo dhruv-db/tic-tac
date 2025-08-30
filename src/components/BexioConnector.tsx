@@ -158,118 +158,115 @@ export const BexioConnector = ({ onConnect, onOAuthConnect, isConnected }: Bexio
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Settings className="h-5 w-5" />
-          Connect to Bexio
-        </CardTitle>
-        <CardDescription>
-          Choose your preferred method to connect to your Bexio account
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <Tabs defaultValue="oauth" className="w-full">
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="oauth" className="flex items-center gap-2">
-              <User className="h-4 w-4" />
-              OAuth (Recommended)
-            </TabsTrigger>
-            <TabsTrigger value="api-key" className="flex items-center gap-2">
-              <Key className="h-4 w-4" />
-              API Key
-            </TabsTrigger>
-          </TabsList>
-          
-          <TabsContent value="oauth" className="space-y-4">
-            <div className="space-y-3">
-              <div className="flex items-start gap-2 text-sm text-muted-foreground">
-                <Shield className="h-4 w-4 mt-0.5 text-green-600" />
-                <div>
-                  <p className="font-medium">Secure OAuth Authentication</p>
-                  <p>Connect securely without sharing your credentials. This is the recommended method.</p>
-                </div>
-              </div>
-              <div className="space-y-2">
-                <Label>Extra API scope (optional)</Label>
-                <Select value={extraScope} onValueChange={(v) => setExtraScope(v as any)}>
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="None (OIDC only)" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">None (OIDC only)</SelectItem>
-                    <SelectItem value="all_scopes">🎯 All Available Scopes (Recommended)</SelectItem>
-                    <SelectItem value="contact_show">Contacts: contact_show</SelectItem>
-                    <SelectItem value="contacts:read">Contacts: contacts:read</SelectItem>
-                    <SelectItem value="timesheet_show">Timesheets: timesheet_show</SelectItem>
-                    <SelectItem value="timesheets:read">Timesheets: timesheets:read</SelectItem>
-                    <SelectItem value="project_show">Projects: project_show</SelectItem>
-                    <SelectItem value="projects:read">Projects: projects:read</SelectItem>
-                    <SelectItem value="user_show">Users: user_show</SelectItem>
-                    <SelectItem value="users:read">Users: users:read</SelectItem>
-                    <SelectItem value="article_show">Articles: article_show</SelectItem>
-                    <SelectItem value="articles:read">Articles: articles:read</SelectItem>
-                    <SelectItem value="invoice_show">Invoices: invoice_show</SelectItem>
-                    <SelectItem value="invoices:read">Invoices: invoices:read</SelectItem>
-                    <SelectItem value="order_show">Orders: order_show</SelectItem>
-                    <SelectItem value="orders:read">Orders: orders:read</SelectItem>
-                    <SelectItem value="kb_invoice_show">KB Invoices: kb_invoice_show</SelectItem>
-                    <SelectItem value="kb_invoices:read">KB Invoices: kb_invoices:read</SelectItem>
-                  </SelectContent>
-                </Select>
-                <p className="text-xs text-muted-foreground">If “invalid scope”, pick the other style and re-auth.</p>
-              </div>
-              
-              <Button 
-                onClick={handleOAuthConnect} 
-                disabled={isOAuthLoading}
-                className="w-full"
-                size="lg"
-              >
-                {isOAuthLoading ? "Connecting..." : "Connect with Bexio OAuth"}
-              </Button>
-            </div>
-          </TabsContent>
-          
-          <TabsContent value="api-key" className="space-y-4">
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="api-key">API Key</Label>
-                <Input
-                  id="api-key"
-                  type="password"
-                  placeholder="Enter your Bexio API key"
-                  value={apiKey}
-                  onChange={(e) => setApiKey(e.target.value)}
-                />
-              </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="company-id">Company ID</Label>
-                <Input
-                  id="company-id"
-                  placeholder="Enter your Company ID"
-                  value={companyId}
-                  onChange={(e) => setCompanyId(e.target.value)}
-                />
-              </div>
-              
-              <Button 
-                onClick={handleConnect} 
-                disabled={!apiKey || !companyId || isLoading}
-                className="w-full"
-              >
-                {isLoading ? "Connecting..." : "Connect"}
-              </Button>
-              
-              <div className="text-xs text-muted-foreground space-y-1">
-                <p>• Find your API key in Bexio Settings → Integrations → API</p>
-                <p>• Company ID is shown in your Bexio URL or account settings</p>
+    <div className="space-y-6">
+      <Tabs defaultValue="oauth" className="w-full">
+        <TabsList className="grid w-full grid-cols-2 bg-white/10 border-white/20">
+          <TabsTrigger value="oauth" className="flex items-center gap-2 text-white data-[state=active]:bg-white data-[state=active]:text-primary">
+            <User className="h-4 w-4" />
+            OAuth
+          </TabsTrigger>
+          <TabsTrigger value="api-key" className="flex items-center gap-2 text-white data-[state=active]:bg-white data-[state=active]:text-primary">
+            <Key className="h-4 w-4" />
+            API Key
+          </TabsTrigger>
+        </TabsList>
+        
+        <TabsContent value="oauth" className="space-y-4 mt-6">
+          <div className="space-y-3">
+            <div className="flex items-start gap-2 text-sm text-white/80">
+              <Shield className="h-4 w-4 mt-0.5 text-accent" />
+              <div>
+                <p className="font-medium text-white">Secure OAuth Authentication</p>
+                <p>Connect securely without sharing your credentials.</p>
               </div>
             </div>
-          </TabsContent>
-        </Tabs>
-      </CardContent>
-    </Card>
+            <div className="space-y-2">
+              <Label className="text-white">Extra API scope (optional)</Label>
+              <Select value={extraScope} onValueChange={(v) => setExtraScope(v as any)}>
+                <SelectTrigger className="w-full bg-white/10 border-white/20 text-white">
+                  <SelectValue placeholder="None (OIDC only)" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">None (OIDC only)</SelectItem>
+                  <SelectItem value="all_scopes">🎯 All Available Scopes (Recommended)</SelectItem>
+                  <SelectItem value="contact_show">Contacts: contact_show</SelectItem>
+                  <SelectItem value="contacts:read">Contacts: contacts:read</SelectItem>
+                  <SelectItem value="timesheet_show">Timesheets: timesheet_show</SelectItem>
+                  <SelectItem value="timesheets:read">Timesheets: timesheets:read</SelectItem>
+                  <SelectItem value="project_show">Projects: project_show</SelectItem>
+                  <SelectItem value="projects:read">Projects: projects:read</SelectItem>
+                  <SelectItem value="user_show">Users: user_show</SelectItem>
+                  <SelectItem value="users:read">Users: users:read</SelectItem>
+                  <SelectItem value="article_show">Articles: article_show</SelectItem>
+                  <SelectItem value="articles:read">Articles: articles:read</SelectItem>
+                  <SelectItem value="invoice_show">Invoices: invoice_show</SelectItem>
+                  <SelectItem value="invoices:read">Invoices: invoices:read</SelectItem>
+                  <SelectItem value="order_show">Orders: order_show</SelectItem>
+                  <SelectItem value="orders:read">Orders: orders:read</SelectItem>
+                  <SelectItem value="kb_invoice_show">KB Invoices: kb_invoice_show</SelectItem>
+                  <SelectItem value="kb_invoices:read">KB Invoices: kb_invoices:read</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-white/60">If "invalid scope", pick the other style and re-auth.</p>
+            </div>
+            
+            <Button 
+              onClick={handleOAuthConnect} 
+              disabled={isOAuthLoading}
+              className="w-full bg-accent hover:bg-accent/90 text-white font-bold py-4 text-lg rounded-lg shadow-lg hover:shadow-xl transition-all duration-200 flex items-center justify-center gap-3"
+              size="lg"
+            >
+              <div className="bg-white/20 px-2 py-1 rounded font-mono text-sm">
+                bx
+              </div>
+              {isOAuthLoading ? "CONNECTING..." : "REGISTRIEREN MIT BEXIO"}
+            </Button>
+            <p className="text-xs text-white/60 text-center">
+              (OHNE KREDITKARTE)
+            </p>
+          </div>
+        </TabsContent>
+        
+        <TabsContent value="api-key" className="space-y-4 mt-6">
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="api-key" className="text-white">API Key</Label>
+              <Input
+                id="api-key"
+                type="password"
+                placeholder="Enter your Bexio API key"
+                value={apiKey}
+                onChange={(e) => setApiKey(e.target.value)}
+                className="bg-white/10 border-white/20 text-white placeholder:text-white/50"
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="company-id" className="text-white">Company ID</Label>
+              <Input
+                id="company-id"
+                placeholder="Enter your Company ID"
+                value={companyId}
+                onChange={(e) => setCompanyId(e.target.value)}
+                className="bg-white/10 border-white/20 text-white placeholder:text-white/50"
+              />
+            </div>
+            
+            <Button 
+              onClick={handleConnect} 
+              disabled={!apiKey || !companyId || isLoading}
+              className="w-full bg-accent hover:bg-accent/90 text-white font-bold py-4 text-lg rounded-lg"
+            >
+              {isLoading ? "CONNECTING..." : "CONNECT"}
+            </Button>
+            
+            <div className="text-xs text-white/60 space-y-1">
+              <p>• Find your API key in Bexio Settings → Integrations → API</p>
+              <p>• Company ID is shown in your Bexio URL or account settings</p>
+            </div>
+          </div>
+        </TabsContent>
+      </Tabs>
+    </div>
   );
 };

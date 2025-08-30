@@ -120,24 +120,108 @@ const Index = () => {
 
   if (!isConnected) {
     return (
-      <div className="min-h-screen bg-[var(--gradient-subtle)] flex items-center justify-center p-4">
-        <div className="w-full max-w-2xl">
-          <div className="text-center mb-8">
-            <div className="mx-auto mb-6 p-4 rounded-full bg-primary-subtle w-fit">
-              <Database className="h-8 w-8 text-primary" />
-            </div>
-            <h1 className="text-4xl font-bold mb-4 bg-[var(--gradient-primary)] bg-clip-text text-transparent">
-              Databridge Analytics
-            </h1>
-            <p className="text-xl text-muted-foreground max-w-md mx-auto">
-              Connect to your Bexio account to access business intelligence and time tracking analytics
-            </p>
-          </div>
-          <BexioConnector 
-            onConnect={connect} 
-            onOAuthConnect={connectWithOAuth}
-            isConnected={isConnected} 
+      <div className="min-h-screen overflow-hidden relative">
+        {/* Curved Background Split */}
+        <div className="absolute inset-0">
+          {/* Left curved section */}
+          <div 
+            className="absolute inset-0 bg-[var(--gradient-hero)]"
+            style={{
+              clipPath: 'polygon(0% 0%, 65% 0%, 45% 100%, 0% 100%)'
+            }}
           />
+          {/* Right white section */}
+          <div className="absolute inset-0 bg-white" />
+        </div>
+
+        <div className="relative z-10 grid lg:grid-cols-2 min-h-screen">
+          {/* Left Side - Hero */}
+          <div className="flex flex-col justify-center px-8 lg:px-16 text-white">
+            <div className="max-w-md">
+              {/* Logo */}
+              <div className="mb-8">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-12 h-12 bg-accent rounded-lg flex items-center justify-center">
+                    <CheckCircle2 className="h-7 w-7 text-white" />
+                  </div>
+                  <div>
+                    <h1 className="text-3xl font-bold">
+                      <span className="text-white">data</span>
+                      <span className="text-accent">bridge</span>
+                    </h1>
+                    <p className="text-white/80 text-sm">Smart & simple time-tracking</p>
+                  </div>
+                </div>
+              </div>
+
+              <h2 className="text-3xl font-bold mb-6 leading-tight">
+                Wahrscheinlich die beste Zeiterfassungs-App für bexio.
+              </h2>
+
+              <BexioConnector 
+                onConnect={connect} 
+                onOAuthConnect={connectWithOAuth}
+                isConnected={isConnected} 
+              />
+            </div>
+          </div>
+
+          {/* Right Side - Features */}
+          <div className="flex flex-col justify-center px-8 lg:px-16 bg-white">
+            <div className="max-w-lg">
+              {/* Features Grid */}
+              <div className="grid grid-cols-2 gap-8 mb-12">
+                <div className="text-center">
+                  <div className="w-16 h-16 bg-primary-subtle rounded-xl flex items-center justify-center mx-auto mb-4">
+                    <RefreshCw className="h-8 w-8 text-primary" />
+                  </div>
+                  <h3 className="font-semibold text-title mb-2">Arbeitszeit</h3>
+                  <p className="text-sm text-muted-foreground">Erfassen Sie Ihre tägliche Arbeitszeit in weniger als einer Minute.</p>
+                </div>
+
+                <div className="text-center">
+                  <div className="w-16 h-16 bg-primary-subtle rounded-xl flex items-center justify-center mx-auto mb-4">
+                    <FolderOpen className="h-8 w-8 text-primary" />
+                  </div>
+                  <h3 className="font-semibold text-title mb-2">Projekt Arbeit</h3>
+                  <p className="text-sm text-muted-foreground">Erfassen Sie Ihre Zeit für Projekte. Verwalten Sie Projekte einfach.</p>
+                </div>
+
+                <div className="text-center">
+                  <div className="w-16 h-16 bg-primary-subtle rounded-xl flex items-center justify-center mx-auto mb-4">
+                    <Users className="h-8 w-8 text-primary" />
+                  </div>
+                  <h3 className="font-semibold text-title mb-2">Absenzen & Ferien</h3>
+                  <p className="text-sm text-muted-foreground">Erfassen Sie Ihre Abwesenheiten wie Ferien, Krankheit, Militär und mehr.</p>
+                </div>
+
+                <div className="text-center">
+                  <div className="w-16 h-16 bg-primary-subtle rounded-xl flex items-center justify-center mx-auto mb-4">
+                    <BarChart3 className="h-8 w-8 text-primary" />
+                  </div>
+                  <h3 className="font-semibold text-title mb-2">Analyse & Reporting</h3>
+                  <p className="text-sm text-muted-foreground">Sehen Sie, wie Ihr Team Zeit, Geld und Ressourcen einsetzt.</p>
+                </div>
+              </div>
+
+              {/* Pricing Section */}
+              <div className="bg-primary-subtle/20 rounded-xl p-6 border border-primary-subtle">
+                <h3 className="text-2xl font-bold text-accent mb-2">PREIS</h3>
+                <p className="text-sm text-muted-foreground mb-4">Kostenlos testen - ohne Kreditkarte</p>
+                
+                <div className="flex items-baseline gap-2 mb-4">
+                  <span className="text-sm text-muted-foreground">CHF</span>
+                  <span className="text-4xl font-bold text-title">8.40</span>
+                  <span className="text-sm text-muted-foreground">Pro Benutzer (CHF 84.- jährlich abgerechnet)</span>
+                </div>
+
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <CheckCircle2 className="h-4 w-4 text-accent" />
+                  <span>Kontaktieren sie uns bei einer grösseren Anzahl Benutzer</span>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     );
