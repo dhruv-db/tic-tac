@@ -155,6 +155,35 @@ export const BexioConnector = ({ onConnect, onOAuthConnect, isConnected }: Bexio
         } catch (_) { /* ignore cross-origin errors */ }
       }, 300);
       
+      // Fallback 2: when popup navigates back to our origin (oauth-complete.html), read the hash
+      const checkSameOrigin = setInterval(() => {
+        try {
+          if (!popup || popup.closed) return;
+          const href = (popup as Window).location.href;
+          if (href && href.startsWith(window.location.origin)) {
+            const hash = (popup as Window).location.hash || '';
+            const query = hash.startsWith('#') ? hash.substring(1) : hash;
+            const p = new URLSearchParams(query).get('p');
+            if (p) {
+              const json = atob(decodeURIComponent(p));
+              const data = JSON.parse(json);
+              if (data?.type === 'BEXIO_OAUTH_SUCCESS' && data.credentials) {
+                const { accessToken, refreshToken, companyId, userEmail } = data.credentials;
+                onOAuthConnect(accessToken, refreshToken, companyId, userEmail);
+                try { (popup as Window).postMessage({ type: 'BEXIO_OAUTH_ACK' }, '*'); } catch (_) {}
+                try { popup.close(); } catch (_) {}
+                window.removeEventListener('message', handleMessage);
+                clearInterval(checkName);
+                clearInterval(checkSameOrigin);
+                clearInterval(checkClosed);
+                setIsOAuthLoading(false);
+                console.log('✅ OAuth completed via same-origin hash');
+              }
+            }
+          }
+        } catch (_) { /* ignore until same-origin */ }
+      }, 300);
+      
       // Handle popup being closed manually
       const checkClosed = setInterval(() => {
         if (popup?.closed) {
