@@ -86,8 +86,20 @@ export const BexioConnector = ({ onConnect, onOAuthConnect, isConnected }: Bexio
       const authUrl = `https://auth.bexio.com/realms/bexio/protocol/openid-connect/auth?${params.toString()}`;
       console.log('✅ Generated Bexio OAuth URL:', authUrl);
       
-      // Redirect to the OAuth URL - this will come back to /oauth/callback
-      window.location.href = authUrl;
+      // Open in popup to avoid iframe X-Frame-Options issues
+      const width = 520, height = 700;
+      const left = window.screenX + (window.outerWidth - width) / 2;
+      const top = window.screenY + (window.outerHeight - height) / 2;
+      const features = `popup=yes,toolbar=no,location=no,status=no,menubar=no,scrollbars=yes,resizable=yes,width=${width},height=${height},left=${left},top=${top}`;
+      const popup = window.open(authUrl, 'bexio_oauth', features);
+      if (!popup) {
+        // Fallback to top-level navigation
+        if (window.top) {
+          window.top.location.href = authUrl;
+        } else {
+          window.location.href = authUrl;
+        }
+      }
       
     } catch (error) {
       console.error('❌ OAuth initiation failed:', error);
