@@ -18,7 +18,7 @@ export const BexioConnector = ({ onConnect, onOAuthConnect, isConnected }: Bexio
   const [companyId, setCompanyId] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isOAuthLoading, setIsOAuthLoading] = useState(false);
-  const [extraScope, setExtraScope] = useState<'none' | 'contact_show' | 'contacts:read' | 'timesheet_show' | 'timesheets:read' | 'project_show' | 'projects:read'>('none');
+  const [extraScope, setExtraScope] = useState<'none' | 'all_scopes' | 'contact_show' | 'contacts:read' | 'timesheet_show' | 'timesheets:read' | 'project_show' | 'projects:read' | 'user_show' | 'users:read' | 'article_show' | 'articles:read' | 'invoice_show' | 'invoices:read' | 'order_show' | 'orders:read' | 'kb_invoice_show' | 'kb_invoices:read'>('none');
   // Listen for OAuth success from popup and finalize connection
   useEffect(() => {
     const onMessage = (event: MessageEvent) => {
@@ -84,7 +84,14 @@ export const BexioConnector = ({ onConnect, onOAuthConnect, isConnected }: Bexio
 
       // Determine requested scopes per user selection (OIDC base + optional API scope)
       const baseScope = 'openid profile email offline_access';
-      const requestedScope = extraScope !== 'none' ? `${baseScope} ${extraScope}` : baseScope;
+      let requestedScope = baseScope;
+      
+      if (extraScope === 'all_scopes') {
+        // Request all available Bexio API scopes for full access
+        requestedScope = `${baseScope} contact_show timesheet_show project_show user_show article_show invoice_show order_show kb_invoice_show`;
+      } else if (extraScope !== 'none') {
+        requestedScope = `${baseScope} ${extraScope}`;
+      }
 
       // Request auth URL from Edge Function using server-configured client and scopes
       const { data, error } = await (await import('@/integrations/supabase/client')).supabase.functions.invoke('bexio-oauth/auth', {
@@ -175,12 +182,23 @@ export const BexioConnector = ({ onConnect, onOAuthConnect, isConnected }: Bexio
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="none">None (OIDC only)</SelectItem>
+                    <SelectItem value="all_scopes">🎯 All Available Scopes (Recommended)</SelectItem>
                     <SelectItem value="contact_show">Contacts: contact_show</SelectItem>
                     <SelectItem value="contacts:read">Contacts: contacts:read</SelectItem>
                     <SelectItem value="timesheet_show">Timesheets: timesheet_show</SelectItem>
                     <SelectItem value="timesheets:read">Timesheets: timesheets:read</SelectItem>
                     <SelectItem value="project_show">Projects: project_show</SelectItem>
                     <SelectItem value="projects:read">Projects: projects:read</SelectItem>
+                    <SelectItem value="user_show">Users: user_show</SelectItem>
+                    <SelectItem value="users:read">Users: users:read</SelectItem>
+                    <SelectItem value="article_show">Articles: article_show</SelectItem>
+                    <SelectItem value="articles:read">Articles: articles:read</SelectItem>
+                    <SelectItem value="invoice_show">Invoices: invoice_show</SelectItem>
+                    <SelectItem value="invoices:read">Invoices: invoices:read</SelectItem>
+                    <SelectItem value="order_show">Orders: order_show</SelectItem>
+                    <SelectItem value="orders:read">Orders: orders:read</SelectItem>
+                    <SelectItem value="kb_invoice_show">KB Invoices: kb_invoice_show</SelectItem>
+                    <SelectItem value="kb_invoices:read">KB Invoices: kb_invoices:read</SelectItem>
                   </SelectContent>
                 </Select>
                 <p className="text-xs text-muted-foreground">If “invalid scope”, pick the other style and re-auth.</p>
