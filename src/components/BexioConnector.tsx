@@ -173,15 +173,15 @@ export const BexioConnector = ({ onConnect, onOAuthConnect, isConnected }: Bexio
         
         <TabsContent value="oauth" className="space-y-4 mt-6">
           <div className="space-y-3">
-            <div className="flex items-start gap-2 text-sm text-white/80">
+            <div className="flex items-start gap-2 text-sm text-white/90">
               <Shield className="h-4 w-4 mt-0.5 text-accent" />
               <div>
-                <p className="font-medium text-white">Secure OAuth Authentication</p>
-                <p>Connect securely without sharing your credentials.</p>
+                <p className="font-medium text-accent">Secure OAuth Authentication</p>
+                <p className="text-white/90">Connect securely without sharing your credentials.</p>
               </div>
             </div>
             <div className="space-y-2">
-              <Label className="text-white font-medium">Extra API scope (optional)</Label>
+              <Label className="text-accent font-semibold">Extra API scope (optional)</Label>
               <Select value={extraScope} onValueChange={(v) => setExtraScope(v as any)}>
                 <SelectTrigger className="w-full bg-white/20 border-white/30 text-white backdrop-blur-sm">
                   <SelectValue placeholder="None (OIDC only)" className="text-white" />
@@ -207,7 +207,7 @@ export const BexioConnector = ({ onConnect, onOAuthConnect, isConnected }: Bexio
                   <SelectItem value="kb_invoices:read">KB Invoices: kb_invoices:read</SelectItem>
                 </SelectContent>
               </Select>
-              <p className="text-xs text-white/80">If "invalid scope", pick the other style and re-auth.</p>
+              <p className="text-xs text-accent/90">If "invalid scope", pick the other style and re-auth.</p>
             </div>
             
             <Button 
@@ -221,7 +221,7 @@ export const BexioConnector = ({ onConnect, onOAuthConnect, isConnected }: Bexio
               </div>
               {isOAuthLoading ? "CONNECTING..." : "REGISTRIEREN MIT BEXIO"}
             </Button>
-            <p className="text-xs text-white/80 text-center">
+            <p className="text-xs text-accent/90 text-center">
               (OHNE KREDITKARTE)
             </p>
           </div>
@@ -230,25 +230,25 @@ export const BexioConnector = ({ onConnect, onOAuthConnect, isConnected }: Bexio
         <TabsContent value="api-key" className="space-y-4 mt-6">
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="api-key" className="text-white font-medium">API Key</Label>
+              <Label htmlFor="api-key" className="text-accent font-semibold">API Key</Label>
               <Input
                 id="api-key"
                 type="password"
                 placeholder="Enter your Bexio API key"
                 value={apiKey}
                 onChange={(e) => setApiKey(e.target.value)}
-                className="bg-white/20 border-white/30 text-white placeholder:text-white/70 backdrop-blur-sm"
+                className="bg-white/20 border-white/30 text-white placeholder:text-accent/80 backdrop-blur-sm"
               />
             </div>
             
             <div className="space-y-2">
-              <Label htmlFor="company-id" className="text-white font-medium">Company ID</Label>
+              <Label htmlFor="company-id" className="text-accent font-semibold">Company ID</Label>
               <Input
                 id="company-id"
                 placeholder="Enter your Company ID"
                 value={companyId}
                 onChange={(e) => setCompanyId(e.target.value)}
-                className="bg-white/20 border-white/30 text-white placeholder:text-white/70 backdrop-blur-sm"
+                className="bg-white/20 border-white/30 text-white placeholder:text-accent/80 backdrop-blur-sm"
               />
             </div>
             
@@ -260,7 +260,7 @@ export const BexioConnector = ({ onConnect, onOAuthConnect, isConnected }: Bexio
               {isLoading ? "CONNECTING..." : "CONNECT"}
             </Button>
             
-            <div className="text-xs text-white/80 space-y-1">
+            <div className="text-xs text-accent/90 space-y-1">
               <p>• Find your API key in Bexio Settings → Integrations → API</p>
               <p>• Company ID is shown in your Bexio URL or account settings</p>
             </div>
