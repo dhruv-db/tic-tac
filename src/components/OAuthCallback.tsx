@@ -58,6 +58,16 @@ export function OAuthCallback() {
           data.userEmail
         );
 
+        // Also persist credentials in localStorage as a fallback for opener listeners
+        try {
+          localStorage.setItem('bexio_oauth_success', JSON.stringify({
+            accessToken: data.accessToken,
+            refreshToken: data.refreshToken,
+            companyId: data.companyId,
+            userEmail: data.userEmail
+          }));
+        } catch {}
+
         // If opened in a popup, notify and close
         if (window.opener && !window.opener.closed) {
           const payload = {

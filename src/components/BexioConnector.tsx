@@ -36,6 +36,22 @@ export const BexioConnector = ({ onConnect, onOAuthConnect, isConnected }: Bexio
     return () => window.removeEventListener('message', onMessage);
   }, [onOAuthConnect]);
 
+  useEffect(() => {
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === 'bexio_oauth_success' && e.newValue) {
+        try {
+          const creds = JSON.parse(e.newValue);
+          onOAuthConnect?.(creds.accessToken, creds.refreshToken, creds.companyId, creds.userEmail);
+        } finally {
+          try { localStorage.removeItem('bexio_oauth_success'); } catch {}
+          setIsOAuthLoading(false);
+        }
+      }
+    };
+    window.addEventListener('storage', onStorage);
+    return () => window.removeEventListener('storage', onStorage);
+  }, [onOAuthConnect]);
+
   const handleConnect = async () => {
     if (!apiKey || !companyId) return;
     

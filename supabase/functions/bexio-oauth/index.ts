@@ -34,7 +34,7 @@ serve(async (req) => {
       const redirectUri = `https://${url.hostname}/functions/v1/bexio-oauth/callback`;
       
       // Allow OIDC base scopes plus a safe whitelist of API scopes for testing
-      const oidcBase = ['openid', 'profile', 'email', 'offline_access'];
+      const oidcBase = ['openid', 'profile', 'email', 'offline_access', 'company_profile'];
       const allowedApi = [
         'contact_show', 'contact_edit', 'contacts:read', 'contacts:write',
         'timesheet_show', 'timesheet_edit', 'timesheets:read', 'timesheets:write',
