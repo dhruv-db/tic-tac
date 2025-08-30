@@ -133,23 +133,32 @@ const Index = () => {
         </div>
 
         <div className="relative z-10 grid lg:grid-cols-2 min-h-screen">
+          {/* Language Selector */}
+          <div className="absolute top-4 right-4 z-20">
+            <select className="bg-white/20 border border-white/30 text-white rounded-lg px-3 py-2 text-sm backdrop-blur-sm">
+              <option value="de" className="text-primary">🇩🇪 DE</option>
+              <option value="en" className="text-primary">🇬🇧 EN</option>
+            </select>
+          </div>
+
           {/* Left Side - Hero */}
           <div className="flex flex-col justify-center px-8 lg:px-16 text-white">
             <div className="max-w-md">
               {/* Logo */}
               <div className="mb-8">
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="w-12 h-12 bg-accent rounded-lg flex items-center justify-center">
-                    <CheckCircle2 className="h-7 w-7 text-white" />
-                  </div>
-                  <div>
-                    <h1 className="text-3xl font-bold">
-                      <span className="text-white">data</span>
-                      <span className="text-accent">bridge</span>
-                    </h1>
-                    <p className="text-white/80 text-sm">Smart & simple time-tracking</p>
-                  </div>
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-12 h-12 bg-accent rounded-lg flex items-center justify-center">
+                  <CheckCircle2 className="h-7 w-7 text-white" />
                 </div>
+                <div>
+                  <h1 className="text-3xl font-bold">
+                    <span className="text-white">tik</span>
+                    <span className="text-accent">tak</span>
+                    <span className="text-white/90 text-lg ml-2">2.0</span>
+                  </h1>
+                  <p className="text-white/80 text-sm">Smart & simple time-tracking</p>
+                </div>
+              </div>
               </div>
 
               <h2 className="text-3xl font-bold mb-6 leading-tight">
@@ -237,10 +246,9 @@ const Index = () => {
               </div>
               <div>
                 <h1 className="text-2xl font-bold">
-                  <span className="databridge-brand">data</span>
-                  <span className="databridge-accent">^</span>
-                  <span className="databridge-brand">bridge</span>
-                  <span className="text-muted-foreground text-lg ml-2">Analytics</span>
+                  <span className="text-primary">tik</span>
+                  <span className="text-accent">tak</span>
+                  <span className="text-muted-foreground text-lg ml-2">2.0 Analytics</span>
                 </h1>
                 <p className="text-sm text-muted-foreground">Business Intelligence Platform</p>
               </div>
