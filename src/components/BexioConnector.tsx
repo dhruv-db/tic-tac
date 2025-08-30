@@ -58,13 +58,13 @@ export const BexioConnector = ({ onConnect, onOAuthConnect, isConnected }: Bexio
       };
       const { codeVerifier, codeChallenge } = await generatePKCE();
       
-      console.log('🚀 Starting OAuth flow with PKCE:', { state, hasCodeChallenge: !!codeChallenge });
+      console.log('🚀 Starting OAuth flow with redirect');
       
       // Pack state with code_verifier and return URL for callback
       const packedState = btoa(JSON.stringify({ 
         s: state, 
         cv: codeVerifier, 
-        ru: `${window.location.origin}/` 
+        ru: window.location.origin 
       }));
       
       // Build OAuth URL directly (no API call needed)
@@ -83,145 +83,37 @@ export const BexioConnector = ({ onConnect, onOAuthConnect, isConnected }: Bexio
       });
 
       const authUrl = `https://auth.bexio.com/realms/bexio/protocol/openid-connect/auth?${params.toString()}`;
-      console.log('✅ Generated Bexio OAuth URL directly:', authUrl);
+      console.log('✅ Generated Bexio OAuth URL:', authUrl);
       
-      // Open popup immediately to avoid blockers
-      const popup = window.open(authUrl, 'bexio-oauth', 'width=600,height=700,scrollbars=yes,resizable=yes');
+      // Redirect to the OAuth URL - this will come back to /oauth/callback
+      window.location.href = authUrl;
       
-      // Check if popup was blocked
-      if (!popup || popup.closed || typeof popup.closed === 'undefined') {
-        throw new Error('Popup was blocked by your browser. Please allow popups for this site and try again.');
-      }
-      
-      // Listen for OAuth completion
-      const handleMessage = (event: MessageEvent) => {
-        try {
-          console.log('📨 Received message in main window:', event.data, 'from origin:', event.origin);
-          const data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
-          if (data?.type === 'BEXIO_OAUTH_SUCCESS') {
-            console.log('🎉 OAuth success detected!');
-            const { accessToken, refreshToken, companyId, userEmail } = data.credentials || {};
-            console.log('📋 Credentials received:', { 
-              hasAccessToken: !!accessToken, 
-              hasRefreshToken: !!refreshToken, 
-              companyId, 
-              userEmail 
-            });
-            
-            // Call the OAuth connect function
-            console.log('🔗 Calling onOAuthConnect...');
-            onOAuthConnect(accessToken, refreshToken, companyId, userEmail);
-            
-            // Send ACK back so popup can close reliably
-            try {
-              (event.source as Window | null)?.postMessage({ type: 'BEXIO_OAUTH_ACK' }, event.origin || '*');
-              console.log('✅ Sent ACK to popup');
-            } catch (ackErr) {
-              console.warn('⚠️ Failed to send OAuth ACK to popup:', ackErr);
-            }
-            popup?.close();
-            window.removeEventListener('message', handleMessage);
-            setIsOAuthLoading(false);
-            console.log('🏁 OAuth flow completed');
-          }
-        } catch (e) {
-          console.error('❌ Error handling OAuth message:', e);
-        }
-      };
-
-      window.addEventListener('message', handleMessage);
-      console.log('👂 Added message listener');
-      
-      // Fallback: poll popup.name (cross-origin-safe) for payload
-      const checkName = setInterval(() => {
-        try {
-          const name = (popup as Window).name;
-          if (name && typeof name === 'string' && name.startsWith('BEXIO_OAUTH:')) {
-            console.log('📦 Found payload in popup.name');
-            const raw = decodeURIComponent(name.slice('BEXIO_OAUTH:'.length));
-            const data = JSON.parse(raw);
-            if (data?.type === 'BEXIO_OAUTH_SUCCESS' && data.credentials) {
-              const { accessToken, refreshToken, companyId, userEmail } = data.credentials;
-              onOAuthConnect(accessToken, refreshToken, companyId, userEmail);
-              try { (popup as Window).postMessage({ type: 'BEXIO_OAUTH_ACK' }, '*'); } catch (_) {}
-              try { popup.close(); } catch (_) {}
-              window.removeEventListener('message', handleMessage);
-              clearInterval(checkName);
-              clearInterval(checkClosed);
-              setIsOAuthLoading(false);
-              console.log('✅ OAuth completed via popup.name');
-            }
-          }
-        } catch (_) { /* ignore cross-origin errors */ }
-      }, 300);
-      
-      // Fallback 2: when popup navigates back to our origin (oauth-complete.html), read the hash
-      const checkSameOrigin = setInterval(() => {
-        try {
-          if (!popup || popup.closed) return;
-          const href = (popup as Window).location.href;
-          if (href && href.startsWith(window.location.origin)) {
-            const hash = (popup as Window).location.hash || '';
-            const query = hash.startsWith('#') ? hash.substring(1) : hash;
-            const p = new URLSearchParams(query).get('p');
-            if (p) {
-              const json = atob(decodeURIComponent(p));
-              const data = JSON.parse(json);
-              if (data?.type === 'BEXIO_OAUTH_SUCCESS' && data.credentials) {
-                const { accessToken, refreshToken, companyId, userEmail } = data.credentials;
-                onOAuthConnect(accessToken, refreshToken, companyId, userEmail);
-                try { (popup as Window).postMessage({ type: 'BEXIO_OAUTH_ACK' }, '*'); } catch (_) {}
-                try { popup.close(); } catch (_) {}
-                window.removeEventListener('message', handleMessage);
-                clearInterval(checkName);
-                clearInterval(checkSameOrigin);
-                clearInterval(checkClosed);
-                setIsOAuthLoading(false);
-                console.log('✅ OAuth completed via same-origin hash');
-              }
-            }
-          }
-        } catch (_) { /* ignore until same-origin */ }
-      }, 300);
-      
-      // Handle popup being closed manually
-      const checkClosed = setInterval(() => {
-        if (popup?.closed) {
-          console.log('🔒 Popup was closed manually');
-          clearInterval(checkClosed);
-          clearInterval(checkName);
-          window.removeEventListener('message', handleMessage);
-          setIsOAuthLoading(false);
-        }
-      }, 1000);
-
     } catch (error) {
-      console.error('❌ OAuth error:', error);
-      alert(`OAuth Login Error: ${error instanceof Error ? error.message : 'Unknown error occurred'}`);
+      console.error('❌ OAuth initiation failed:', error);
       setIsOAuthLoading(false);
     }
   };
 
   if (isConnected) {
     return (
-      <Alert className="border-success bg-success/5">
-        <CheckCircle2 className="h-4 w-4 text-success" />
-        <AlertDescription className="text-success-foreground">
-          Successfully connected to Bexio! You can now fetch your data.
+      <Alert className="border-green-200 bg-green-50">
+        <CheckCircle2 className="h-4 w-4 text-green-600" />
+        <AlertDescription className="text-green-800">
+          Successfully connected to Bexio! You can now track your time entries.
         </AlertDescription>
       </Alert>
     );
   }
 
   return (
-    <Card className="w-full max-w-lg mx-auto shadow-[var(--shadow-elegant)]">
-      <CardHeader className="text-center">
-        <div className="mx-auto mb-4 p-3 rounded-full bg-primary-subtle">
-          <Settings className="h-6 w-6 text-primary" />
-        </div>
-        <CardTitle>Connect to Bexio</CardTitle>
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Settings className="h-5 w-5" />
+          Connect to Bexio
+        </CardTitle>
         <CardDescription>
-          Choose your authentication method to start fetching customer and time tracking data
+          Choose your preferred method to connect to your Bexio account
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -229,54 +121,45 @@ export const BexioConnector = ({ onConnect, onOAuthConnect, isConnected }: Bexio
           <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="oauth" className="flex items-center gap-2">
               <User className="h-4 w-4" />
-              Login with Bexio
+              OAuth (Recommended)
             </TabsTrigger>
-            <TabsTrigger value="api" className="flex items-center gap-2">
-              <Shield className="h-4 w-4" />
-              API Token
+            <TabsTrigger value="api-key" className="flex items-center gap-2">
+              <Key className="h-4 w-4" />
+              API Key
             </TabsTrigger>
           </TabsList>
-
-          <TabsContent value="oauth" className="space-y-4 mt-6">
-            <div className="text-center space-y-4">
-              <div>
-                <h3 className="font-medium text-title">Recommended Method</h3>
-                <p className="text-sm text-muted-foreground mt-1">
-                  Login with your Bexio username and password for secure authentication
-                </p>
+          
+          <TabsContent value="oauth" className="space-y-4">
+            <div className="space-y-3">
+              <div className="flex items-start gap-2 text-sm text-muted-foreground">
+                <Shield className="h-4 w-4 mt-0.5 text-green-600" />
+                <div>
+                  <p className="font-medium">Secure OAuth Authentication</p>
+                  <p>Connect securely without sharing your credentials. This is the recommended method.</p>
+                </div>
               </div>
-
+              
               <Button 
-                onClick={handleOAuthConnect}
+                onClick={handleOAuthConnect} 
                 disabled={isOAuthLoading}
-                className="w-full bg-[var(--gradient-primary)] hover:scale-[1.02] transition-[var(--transition-smooth)] shadow-[var(--shadow-elegant)]"
+                className="w-full"
                 size="lg"
               >
-                {isOAuthLoading ? "Opening Bexio Login..." : "Login with Bexio"}
+                {isOAuthLoading ? "Connecting..." : "Connect with Bexio OAuth"}
               </Button>
-
-              <Alert>
-                <AlertDescription className="text-sm text-muted-foreground">
-                  You'll be redirected to Bexio's secure login page. Your credentials are never stored by our application.
-                </AlertDescription>
-              </Alert>
             </div>
           </TabsContent>
-
-          <TabsContent value="api" className="space-y-4 mt-6">
+          
+          <TabsContent value="api-key" className="space-y-4">
             <div className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="api-key" className="flex items-center gap-2">
-                  <Key className="h-4 w-4" />
-                  API Key
-                </Label>
+                <Label htmlFor="api-key">API Key</Label>
                 <Input
                   id="api-key"
                   type="password"
                   placeholder="Enter your Bexio API key"
                   value={apiKey}
                   onChange={(e) => setApiKey(e.target.value)}
-                  className="transition-[var(--transition-smooth)]"
                 />
               </div>
               
@@ -287,23 +170,21 @@ export const BexioConnector = ({ onConnect, onOAuthConnect, isConnected }: Bexio
                   placeholder="Enter your Company ID"
                   value={companyId}
                   onChange={(e) => setCompanyId(e.target.value)}
-                  className="transition-[var(--transition-smooth)]"
                 />
               </div>
-
+              
               <Button 
-                onClick={handleConnect}
+                onClick={handleConnect} 
                 disabled={!apiKey || !companyId || isLoading}
-                className="w-full bg-[var(--gradient-primary)] hover:scale-[1.02] transition-[var(--transition-smooth)] shadow-[var(--shadow-elegant)]"
+                className="w-full"
               >
-                {isLoading ? "Connecting..." : "Connect with API Token"}
+                {isLoading ? "Connecting..." : "Connect"}
               </Button>
-
-              <Alert>
-                <AlertDescription className="text-sm text-muted-foreground">
-                  Your API credentials are stored locally in your browser and never shared with third parties.
-                </AlertDescription>
-              </Alert>
+              
+              <div className="text-xs text-muted-foreground space-y-1">
+                <p>• Find your API key in Bexio Settings → Integrations → API</p>
+                <p>• Company ID is shown in your Bexio URL or account settings</p>
+              </div>
             </div>
           </TabsContent>
         </Tabs>

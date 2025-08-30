@@ -10,6 +10,7 @@ import { TimeTrackingList } from "@/components/TimeTrackingList";
 import { useBexioApi } from "@/hooks/useBexioApi";
 import { RefreshCw, Database, LogOut, Users, FolderOpen, BarChart3, CheckCircle2, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useOAuth } from "@/context/OAuthContext";
 
 const Index = () => {
   const {
@@ -42,137 +43,17 @@ const Index = () => {
   const [activeTab, setActiveTab] = useState("analytics");
   const [isTestingConnection, setIsTestingConnection] = useState(false);
   const { toast } = useToast();
+  const { setOAuthConnectHandler } = useOAuth();
 
   useEffect(() => {
     loadStoredCredentials();
   }, [loadStoredCredentials]);
 
+  // Register OAuth handler
   useEffect(() => {
-    console.log('🎧 Setting up OAuth message listeners... isConnected:', isConnected);
-    
-    // Pickup OAuth payload if this window was opened via redirect (popup flows)
-    try {
-      const wname = (window as Window).name;
-      if (wname && typeof wname === 'string' && wname.startsWith('BEXIO_OAUTH:')) {
-        console.log('📦 Found OAuth payload in window.name on app load');
-        const raw = decodeURIComponent(wname.slice('BEXIO_OAUTH:'.length));
-        const data = JSON.parse(raw);
-        localStorage.setItem('bexio_oauth_success', JSON.stringify(data));
-        localStorage.setItem('bexio_oauth_ready', 'true');
-        try { (window as any).name = ''; } catch (_) {}
-        // Immediately connect without waiting for polling
-        const { accessToken, refreshToken, companyId, userEmail } = data.credentials || {};
-        if (accessToken) {
-          console.log('🚀 Connecting immediately using window.name payload');
-          connectWithOAuth(accessToken, refreshToken, companyId, userEmail);
-        }
-      }
-    } catch (e) {
-      console.warn('Failed to read window.name OAuth payload:', e);
-    }
-    
-    // Check if we just returned from OAuth
-    const urlParams = new URLSearchParams(window.location.search);
-    if (urlParams.get('oauth_success') === 'true') {
-      console.log('🔄 Returned from OAuth, checking for credentials...');
-      // Clean up URL
-      window.history.replaceState({}, document.title, window.location.pathname);
-    }
-    
-    const onMessage = (event: MessageEvent) => {
-      try {
-        console.log('📨 Message received in main app:', event.data, 'from origin:', event.origin);
-        // Accept messages from any origin for OAuth (since popup comes from Supabase domain)
-        const data = typeof (event as any).data === 'string' ? JSON.parse((event as any).data) : (event as any).data;
-        if (data?.type === 'BEXIO_OAUTH_SUCCESS' && !isConnected) {
-          console.log('🎉 BEXIO_OAUTH_SUCCESS detected! Processing...');
-          const { accessToken, refreshToken, companyId, userEmail } = data.credentials || {};
-          console.log('📋 Extracted credentials:', { hasAccessToken: !!accessToken, hasRefreshToken: !!refreshToken, companyId, userEmail });
-          console.log('🚀 Calling connectWithOAuth...');
-          connectWithOAuth(accessToken, refreshToken, companyId, userEmail);
-          
-          // Send ACK back to popup to confirm receipt
-          try {
-            const popup = Array.from(window.frames).find(frame => {
-              try {
-                return frame !== window;
-              } catch (e) {
-                return false;
-              }
-            });
-            if (event.source && typeof event.source.postMessage === 'function') {
-              (event.source as Window).postMessage({ type: 'BEXIO_OAUTH_ACK' }, event.origin === 'null' ? '*' : event.origin);
-              console.log('✅ Sent ACK back to popup');
-            }
-          } catch (ackErr) {
-            console.warn('⚠️ Failed to send ACK:', ackErr);
-          }
-        } else {
-          console.log('ℹ️ Message ignored:', { 
-            type: data?.type, 
-            isOAuthSuccess: data?.type === 'BEXIO_OAUTH_SUCCESS',
-            isConnected: isConnected,
-            shouldProcess: data?.type === 'BEXIO_OAUTH_SUCCESS' && !isConnected
-          });
-        }
-      } catch (e) {
-        console.error('❌ Failed to handle OAuth message at app level:', e);
-      }
-    };
+    setOAuthConnectHandler(connectWithOAuth);
+  }, [setOAuthConnectHandler, connectWithOAuth]);
 
-    // Primary method: Check localStorage for OAuth success
-    const checkLocalStorage = () => {
-      try {
-        // Check for ready flag first (faster)
-        const ready = localStorage.getItem('bexio_oauth_ready');
-        if (ready && !isConnected) {
-          const stored = localStorage.getItem('bexio_oauth_success');
-          if (stored) {
-            console.log('🎉 Found OAuth success in localStorage!');
-            const data = JSON.parse(stored);
-            console.log('📋 Parsed OAuth data:', data);
-            const { accessToken, refreshToken, companyId, userEmail } = data.credentials || {};
-            console.log('🚀 Calling connectWithOAuth from localStorage...');
-            connectWithOAuth(accessToken, refreshToken, companyId, userEmail);
-            
-            // Clean up
-            localStorage.removeItem('bexio_oauth_success');
-            localStorage.removeItem('bexio_oauth_ready');
-            console.log('🧹 Cleaned up localStorage');
-            return true;
-          }
-        }
-        return false;
-      } catch (e) {
-        console.error('❌ Failed to check localStorage for OAuth:', e);
-        return false;
-      }
-    };
-
-    window.addEventListener('message', onMessage);
-    console.log('👂 Added message listener (backup method)');
-    
-    // Primary method: Check localStorage immediately and frequently
-    console.log('🔍 Starting localStorage checks...');
-    if (checkLocalStorage()) return; // Exit early if found immediately
-    
-    const interval = setInterval(() => {
-      if (checkLocalStorage()) {
-        clearInterval(interval);
-      }
-    }, 250); // Check every 250ms for faster response
-    
-    setTimeout(() => {
-      clearInterval(interval);
-      console.log('⏰ Stopped localStorage polling after 15 seconds');
-    }, 15000); // Extended timeout
-
-    return () => {
-      window.removeEventListener('message', onMessage);
-      clearInterval(interval);
-      console.log('🧹 Cleaned up OAuth listeners');
-    };
-  }, [isConnected, connectWithOAuth]);
 
   useEffect(() => {
     // Auto-fetch contacts and projects when switching to Time Tracking or Analytics

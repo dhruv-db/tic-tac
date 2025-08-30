@@ -68,70 +68,74 @@ serve(async (req) => {
       });
     }
 
-    // Handle OAuth callback
+    // Handle OAuth callback - redirect to frontend
     if (path.endsWith('/callback') && req.method === 'GET') {
       const code = url.searchParams.get('code');
       const stateParam = url.searchParams.get('state');
-      let originalState = stateParam || '';
-      let codeVerifierFromState: string | null = null;
-      let returnUrlFromState: string = '';
+      const error = url.searchParams.get('error');
+
+      console.log(`OAuth callback - code: ${code ? 'present' : 'missing'}, state: ${stateParam ? 'present' : 'missing'}, error: ${error}`);
+
+      // Extract return URL from state
+      let returnUrlFromState = '';
       try {
         const decoded = JSON.parse(atob(stateParam || ''));
         if (decoded && typeof decoded === 'object') {
-          originalState = decoded.s || originalState;
-          codeVerifierFromState = decoded.cv || null;
           returnUrlFromState = decoded.ru || '';
         }
       } catch (_) {}
-      const error = url.searchParams.get('error');
 
-      console.log(`OAuth callback - code: ${code ? 'present' : 'missing'}, state: ${originalState ? 'present' : 'missing'}, error: ${error}`);
+      // Determine redirect URL
+      const frontendUrl = returnUrlFromState || `https://${url.hostname}`;
+      const callbackUrl = `${frontendUrl}/oauth/callback`;
+      
+      // Build redirect URL with parameters
+      const redirectParams = new URLSearchParams();
+      if (code) redirectParams.set('code', code);
+      if (stateParam) redirectParams.set('state', stateParam);
+      if (error) redirectParams.set('error', error);
+      
+      const redirectUrl = `${callbackUrl}?${redirectParams.toString()}`;
 
-      if (error) {
-        console.error(`OAuth error: ${error}`);
-        return new Response(`
-          <html>
-            <body>
-              <h1>Authentication Failed</h1>
-              <p>Error: ${error}</p>
-              <script>window.close();</script>
-            </body>
-          </html>
-        `, {
-          headers: { ...corsHeaders, 'Content-Type': 'text/html' },
-        });
-      }
+      console.log(`Redirecting to frontend: ${redirectUrl}`);
 
+      return new Response(null, {
+        status: 302,
+        headers: {
+          ...corsHeaders,
+          Location: redirectUrl,
+          'Cache-Control': 'no-store'
+        }
+      });
+    }
+
+    // Handle token exchange (called from frontend)
+    if (path.endsWith('/exchange') && req.method === 'POST') {
+      const { code, state } = await req.json();
+      
       if (!code) {
-        console.error('No authorization code received');
-        return new Response(`
-          <html>
-            <body>
-              <h1>Authentication Failed</h1>
-              <p>No authorization code received</p>
-              <script>window.close();</script>
-            </body>
-          </html>
-        `, {
-          headers: { ...corsHeaders, 'Content-Type': 'text/html' },
+        return new Response(JSON.stringify({ error: 'Authorization code required' }), {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
 
-      // Exchange code for access token
+      // Extract code verifier from state
+      let codeVerifierFromState: string | null = null;
+      try {
+        const decoded = JSON.parse(atob(state || ''));
+        if (decoded && typeof decoded === 'object') {
+          codeVerifierFromState = decoded.cv || null;
+        }
+      } catch (_) {}
+
       const clientId = Deno.env.get('BEXIO_CLIENT_ID');
       const clientSecret = Deno.env.get('BEXIO_CLIENT_SECRET');
+      
       if (!clientId || !clientSecret) {
-        console.error('OAuth credentials not found in environment');
-        return new Response(`
-          <html>
-            <body>
-              <h1>Configuration Error</h1>
-              <p>OAuth credentials not configured</p>
-              <script>window.close();</script>
-            </body>
-          </html>
-        `, {
-          headers: { ...corsHeaders, 'Content-Type': 'text/html' },
+        return new Response(JSON.stringify({ error: 'OAuth not configured' }), {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
 
@@ -170,11 +174,11 @@ serve(async (req) => {
         const tokenData = await tokenResponse.json();
         console.log('Successfully obtained access token');
         
-        // Extract user info from tokens only (no blocking API calls)
+        // Extract user info from tokens
         let companyId = '';
         let userEmail = '';
         
-        // Extract email from ID token (most reliable)
+        // Extract email from ID token
         const idToken = (tokenData as any).id_token || '';
         if (idToken) {
           try {
@@ -195,7 +199,6 @@ serve(async (req) => {
           if (tokenParts.length === 3) {
             const payload = JSON.parse(atob(tokenParts[1]));
             companyId = payload.company_id || payload.user_id?.toString() || '';
-            // Use access token email as fallback
             if (!userEmail) {
               userEmail = payload.email || payload.login_id || '';
             }
@@ -204,101 +207,22 @@ serve(async (req) => {
           console.warn('Failed to parse access token:', jwtError);
         }
 
-          // Minimal HTML to postMessage credentials back to opener and close
-          const creds = {
-            accessToken: (tokenData as any).access_token,
-            refreshToken: (tokenData as any).refresh_token || '',
-            companyId,
-            userEmail,
-            idToken,
-            expiresIn: (tokenData as any).expires_in || 3600,
-          };
-
-          const payload = {
-            type: 'BEXIO_OAUTH_SUCCESS',
-            credentials: creds,
-            timestamp: Date.now()
-          };
-
-          // Prefer redirecting to app-hosted completion page to avoid HTML rendering issues
-          try {
-            const payloadJson = JSON.stringify(payload);
-            const encoded = encodeURIComponent(btoa(payloadJson));
-            const baseUrl = (returnUrlFromState && typeof returnUrlFromState === 'string') ? returnUrlFromState : '';
-            if (baseUrl) {
-              const normalized = baseUrl.endsWith('/') ? baseUrl : baseUrl + '/';
-              const redirectUrl = `${normalized}oauth-complete.html#p=${encoded}`;
-              return new Response(null, {
-                status: 302,
-                headers: {
-                  ...corsHeaders,
-                  Location: redirectUrl,
-                  'Cache-Control': 'no-cache, no-store, must-revalidate'
-                }
-              });
-            }
-          } catch (e) {
-            console.warn('Failed to build redirect URL, falling back to inline HTML:', e);
-          }
-
-          // Fallback: inline HTML that posts message and attempts to close
-          const htmlContent = `<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <title>Authentication Successful</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <style>
-    body { font-family: Arial, sans-serif; text-align: center; padding: 50px; background: #f5f5f5; }
-    .success { color: #222; font-size: 22px; margin-bottom: 14px; }
-    .loading { color: #555; }
-  </style>
-</head>
-<body>
-  <div class="success">Authentication Successful</div>
-  <div class="loading">Connecting to your application...</div>
-  
-  <script>
-    (function() {
-      try {
-        var payload = ${JSON.stringify(payload)};
-        if (window.opener && !window.opener.closed) {
-          window.opener.postMessage(payload, '*');
-          setTimeout(function(){ window.close(); }, 800);
-        } else {
-          setTimeout(function(){ window.close(); }, 1500);
-        }
-      } catch(e) {
-        document.body.innerHTML = '<div class="success">Authentication completed</div><p>Please close this window manually.</p>';
-      }
-    })();
-  </script>
-</body>
-</html>`;
-
-          const blob = new Blob([htmlContent], { type: 'text/html; charset=utf-8' });
-          return new Response(blob, {
-            status: 200,
-            headers: { 
-              ...corsHeaders, 
-              'Content-Type': 'text/html; charset=utf-8',
-              'Cache-Control': 'no-cache, no-store, must-revalidate',
-              'Content-Disposition': 'inline'
-            },
-          });
+        return new Response(JSON.stringify({
+          accessToken: (tokenData as any).access_token,
+          refreshToken: (tokenData as any).refresh_token || '',
+          companyId,
+          userEmail,
+          idToken,
+          expiresIn: (tokenData as any).expires_in || 3600,
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
 
       } catch (error) {
         console.error('Error during token exchange:', error);
-        return new Response(`
-          <html>
-            <body>
-              <h1>Authentication Failed</h1>
-              <p>Error during token exchange: ${error.message}</p>
-              <script>window.close();</script>
-            </body>
-          </html>
-        `, {
-          headers: { ...corsHeaders, 'Content-Type': 'text/html' },
+        return new Response(JSON.stringify({ error: error.message }), {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
     }
