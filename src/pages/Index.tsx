@@ -130,8 +130,6 @@ const Index = () => {
               clipPath: 'polygon(0% 0%, 65% 0%, 45% 100%, 0% 100%)'
             }}
           />
-          {/* Right white section */}
-          <div className="absolute inset-0 bg-white" />
         </div>
 
         <div className="relative z-10 grid lg:grid-cols-2 min-h-screen">
