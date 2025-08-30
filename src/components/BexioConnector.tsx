@@ -88,7 +88,7 @@ export const BexioConnector = ({ onConnect, onOAuthConnect, isConnected }: Bexio
       const clientId = 'ea67faa2-5710-4241-9ebd-9267e5fd5acf'; // This is public, safe to expose
       const redirectUri = 'https://opcjifbdwpyttaxqlqbf.supabase.co/functions/v1/bexio-oauth/callback';
       // Complete scope list: OIDC scopes + API scopes for full functionality
-      const scope = 'openid profile email offline_access project_show';
+      const scope = 'openid profile email offline_access project_show contact_show timesheet_show';
       
       const params = new URLSearchParams({
         client_id: clientId,
