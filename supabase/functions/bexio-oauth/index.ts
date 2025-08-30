@@ -60,6 +60,10 @@ serve(async (req) => {
         state: packedState,
       });
 
+      // Always force the IdP to show login and consent to ensure users can re-grant scopes
+      params.set('prompt', 'login consent');
+      params.set('max_age', '0');
+
       // Add PKCE parameters if provided
       if (codeChallenge && codeChallengeMethod) {
         params.set('code_challenge', codeChallenge);
