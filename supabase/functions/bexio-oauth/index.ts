@@ -220,12 +220,13 @@ serve(async (req) => {
             timestamp: Date.now()
           };
 
-          return new Response(`<!DOCTYPE html>
+          // Create the HTML response with proper escaping
+          const htmlContent = `<!DOCTYPE html>
 <html>
 <head>
-  <meta charset="utf-8" />
+  <meta charset="utf-8">
   <title>Authentication Successful</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <style>
     body { font-family: Arial, sans-serif; text-align: center; padding: 50px; background: #f5f5f5; }
     .success { color: #28a745; font-size: 24px; margin-bottom: 20px; }
@@ -239,54 +240,48 @@ serve(async (req) => {
   <script>
     (function() {
       try {
-        var payload = ${JSON.stringify(payload)};
-        
-        // Store in localStorage as backup
-        try {
-          localStorage.setItem('bexio_oauth_success', JSON.stringify(payload));
-          localStorage.setItem('bexio_oauth_ready', 'true');
-        } catch(_) {}
-        
-        // Store in window.name as cross-origin-safe backup
-        try {
-          window.name = 'BEXIO_OAUTH:' + encodeURIComponent(JSON.stringify(payload));
-        } catch(_) {}
-        
-        // Primary method: PostMessage to opener
+        // Send the credentials via postMessage immediately
         if (window.opener && !window.opener.closed) {
-          console.log('📤 Sending OAuth success to opener window');
-          window.opener.postMessage(payload, '*');
+          console.log('Sending OAuth success to opener window');
+          window.opener.postMessage({
+            type: 'BEXIO_OAUTH_SUCCESS',
+            credentials: {
+              accessToken: "${creds.accessToken}",
+              refreshToken: "${creds.refreshToken}",
+              companyId: "${creds.companyId}",
+              userEmail: "${creds.userEmail}",
+              idToken: "${creds.idToken}",
+              expiresIn: ${creds.expiresIn}
+            },
+            timestamp: ${Date.now()}
+          }, '*');
           
-          // Wait for ACK from parent, then close
-          var ackReceived = false;
-          var closeTimeout = setTimeout(function() {
-            if (!ackReceived) {
-              console.log('⏰ No ACK received, closing popup anyway');
-              window.close();
-            }
-          }, 3000); // Close after 3 seconds if no ACK
-          
-          window.addEventListener('message', function(event) {
-            if (event.data && event.data.type === 'BEXIO_OAUTH_ACK') {
-              console.log('✅ Received ACK from parent, closing popup');
-              ackReceived = true;
-              clearTimeout(closeTimeout);
-              setTimeout(function() { window.close(); }, 500);
-            }
-          });
+          // Close after sending message
+          setTimeout(function() {
+            window.close();
+          }, 1000);
         } else {
-          console.log('⚠️ No opener found, attempting manual close');
-          setTimeout(function() { window.close(); }, 2000);
+          console.log('No opener found, will close automatically');
+          setTimeout(function() {
+            window.close();
+          }, 2000);
         }
       } catch(e) {
-        console.error('❌ OAuth callback error:', e);
-        document.body.innerHTML = '<div class="success">✅ Authentication completed</div><p>Please close this window and return to the application.</p>';
+        console.error('OAuth callback error:', e);
+        document.body.innerHTML = '<div class="success">✅ Authentication completed</div><p>Please close this window manually.</p>';
       }
     })();
   </script>
 </body>
-</html>`, {
-            headers: { ...corsHeaders, 'Content-Type': 'text/html' },
+</html>`;
+
+          return new Response(htmlContent, {
+            status: 200,
+            headers: { 
+              ...corsHeaders, 
+              'Content-Type': 'text/html; charset=utf-8',
+              'Cache-Control': 'no-cache, no-store, must-revalidate'
+            },
           });
 
       } catch (error) {
