@@ -18,7 +18,7 @@ export const BexioConnector = ({ onConnect, onOAuthConnect, isConnected }: Bexio
   const [companyId, setCompanyId] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isOAuthLoading, setIsOAuthLoading] = useState(false);
-  const [extraScope, setExtraScope] = useState<'none' | 'contact_show' | 'contacts:read' | 'timesheet_show' | 'timesheets:read'>('none');
+  const [extraScope, setExtraScope] = useState<'none' | 'contact_show' | 'contacts:read' | 'timesheet_show' | 'timesheets:read' | 'project_show' | 'projects:read'>('none');
   // Listen for OAuth success from popup and finalize connection
   useEffect(() => {
     const onMessage = (event: MessageEvent) => {
@@ -166,6 +166,24 @@ export const BexioConnector = ({ onConnect, onOAuthConnect, isConnected }: Bexio
                   <p className="font-medium">Secure OAuth Authentication</p>
                   <p>Connect securely without sharing your credentials. This is the recommended method.</p>
                 </div>
+              </div>
+              <div className="space-y-2">
+                <Label>Extra API scope (optional)</Label>
+                <Select value={extraScope} onValueChange={(v) => setExtraScope(v as any)}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="None (OIDC only)" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">None (OIDC only)</SelectItem>
+                    <SelectItem value="contact_show">Contacts: contact_show</SelectItem>
+                    <SelectItem value="contacts:read">Contacts: contacts:read</SelectItem>
+                    <SelectItem value="timesheet_show">Timesheets: timesheet_show</SelectItem>
+                    <SelectItem value="timesheets:read">Timesheets: timesheets:read</SelectItem>
+                    <SelectItem value="project_show">Projects: project_show</SelectItem>
+                    <SelectItem value="projects:read">Projects: projects:read</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">If “invalid scope”, pick the other style and re-auth.</p>
               </div>
               
               <Button 
