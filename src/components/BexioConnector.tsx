@@ -161,11 +161,11 @@ export const BexioConnector = ({ onConnect, onOAuthConnect, isConnected }: Bexio
     <div className="space-y-6">
       <Tabs defaultValue="oauth" className="w-full">
         <TabsList className="grid w-full grid-cols-2 bg-white/20 border-white/30 backdrop-blur-sm">
-          <TabsTrigger value="oauth" className="flex items-center gap-2 text-white font-medium data-[state=active]:bg-white data-[state=active]:text-primary">
+          <TabsTrigger value="oauth" className="flex items-center gap-2 text-white font-semibold data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:font-bold">
             <User className="h-4 w-4" />
             OAuth
           </TabsTrigger>
-          <TabsTrigger value="api-key" className="flex items-center gap-2 text-white font-medium data-[state=active]:bg-white data-[state=active]:text-primary">
+          <TabsTrigger value="api-key" className="flex items-center gap-2 text-white font-semibold data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:font-bold">
             <Key className="h-4 w-4" />
             API Key
           </TabsTrigger>
