@@ -130,6 +130,8 @@ const Index = () => {
               clipPath: 'polygon(0% 0%, 65% 0%, 45% 100%, 0% 100%)'
             }}
           />
+          {/* Right light section */}
+          <div className="absolute inset-0 bg-gradient-to-br from-primary-subtle to-secondary" />
         </div>
 
         <div className="relative z-10 grid lg:grid-cols-2 min-h-screen">
