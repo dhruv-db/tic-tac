@@ -214,12 +214,78 @@ serve(async (req) => {
             expiresIn: (tokenData as any).expires_in || 3600,
           };
 
-          const baseReturnUrl = (typeof returnUrlFromState === 'string' && returnUrlFromState) ? returnUrlFromState : '';
-          const mainAppUrl = baseReturnUrl ? `${baseReturnUrl}${baseReturnUrl.includes('?') ? '&' : '?'}oauth_success=true&t=${Date.now()}` : `${'/'}`;
+          const payload = {
+            type: 'BEXIO_OAUTH_SUCCESS',
+            credentials: creds,
+            timestamp: Date.now()
+          };
 
-          return new Response(`<!DOCTYPE html><html><head><meta charset="utf-8" /><title>Connecting...</title><meta name="viewport" content="width=device-width, initial-scale=1" /></head><body><script>(function(){try{var payload={type:'BEXIO_OAUTH_SUCCESS',credentials:${JSON.stringify(
-            creds
-          )},timestamp:Date.now()};try{localStorage.setItem('bexio_oauth_success',JSON.stringify(payload));localStorage.setItem('bexio_oauth_ready','true');}catch(_){ }try{window.name='BEXIO_OAUTH:'+encodeURIComponent(JSON.stringify(payload));}catch(_){ }location.replace('${mainAppUrl}');}catch(e){document.body.innerHTML='<h1>Authentication completed</h1><p>You can close this window.</p>';}})();</script></body></html>`, {
+          return new Response(`<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Authentication Successful</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    body { font-family: Arial, sans-serif; text-align: center; padding: 50px; background: #f5f5f5; }
+    .success { color: #28a745; font-size: 24px; margin-bottom: 20px; }
+    .loading { color: #6c757d; }
+  </style>
+</head>
+<body>
+  <div class="success">✅ Authentication Successful!</div>
+  <div class="loading">Connecting to your application...</div>
+  
+  <script>
+    (function() {
+      try {
+        var payload = ${JSON.stringify(payload)};
+        
+        // Store in localStorage as backup
+        try {
+          localStorage.setItem('bexio_oauth_success', JSON.stringify(payload));
+          localStorage.setItem('bexio_oauth_ready', 'true');
+        } catch(_) {}
+        
+        // Store in window.name as cross-origin-safe backup
+        try {
+          window.name = 'BEXIO_OAUTH:' + encodeURIComponent(JSON.stringify(payload));
+        } catch(_) {}
+        
+        // Primary method: PostMessage to opener
+        if (window.opener && !window.opener.closed) {
+          console.log('📤 Sending OAuth success to opener window');
+          window.opener.postMessage(payload, '*');
+          
+          // Wait for ACK from parent, then close
+          var ackReceived = false;
+          var closeTimeout = setTimeout(function() {
+            if (!ackReceived) {
+              console.log('⏰ No ACK received, closing popup anyway');
+              window.close();
+            }
+          }, 3000); // Close after 3 seconds if no ACK
+          
+          window.addEventListener('message', function(event) {
+            if (event.data && event.data.type === 'BEXIO_OAUTH_ACK') {
+              console.log('✅ Received ACK from parent, closing popup');
+              ackReceived = true;
+              clearTimeout(closeTimeout);
+              setTimeout(function() { window.close(); }, 500);
+            }
+          });
+        } else {
+          console.log('⚠️ No opener found, attempting manual close');
+          setTimeout(function() { window.close(); }, 2000);
+        }
+      } catch(e) {
+        console.error('❌ OAuth callback error:', e);
+        document.body.innerHTML = '<div class="success">✅ Authentication completed</div><p>Please close this window and return to the application.</p>';
+      }
+    })();
+  </script>
+</body>
+</html>`, {
             headers: { ...corsHeaders, 'Content-Type': 'text/html' },
           });
 
