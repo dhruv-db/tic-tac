@@ -112,6 +112,39 @@ export const useBexioApi = () => {
   const [isCreatingTimeEntry, setIsCreatingTimeEntry] = useState(false);
   const { toast } = useToast();
 
+  // Debug helpers: decode JWT to inspect scopes and audience
+  const decodeJwt = (token?: string) => {
+    try {
+      if (!token) return null;
+      const payload = token.split('.')[1];
+      const json = atob(payload.replace(/-/g, '+').replace(/_/g, '/'));
+      return JSON.parse(json);
+    } catch {
+      return null;
+    }
+  };
+  const logTokenClaims = (token?: string) => {
+    const claims: any = decodeJwt(token);
+    if (!claims) return;
+    const scopes = claims.scope || claims.scp || [];
+    const aud = claims.aud;
+    console.group('[Bexio OAuth] Token claims');
+    console.log('scopes:', scopes);
+    console.log('aud:', aud);
+    console.log('exp:', claims.exp);
+    console.groupEnd();
+    const required = ['project_show','contact_show','timesheet_show'];
+    const hasScope = (s: string) => Array.isArray(scopes) ? scopes.includes(s) : (typeof scopes === 'string' ? scopes.split(' ').includes(s) : false);
+    const missing = required.filter((s) => !hasScope(s));
+    if (missing.length) {
+      toast({
+        title: 'Limited permissions',
+        description: `Missing scopes: ${missing.join(', ')}. Please reconnect via OAuth to grant them.`,
+        variant: 'destructive',
+      });
+    }
+  };
+
   const connect = useCallback(async (apiKey: string, companyId: string) => {
     try {
       // Store credentials in localStorage
@@ -155,6 +188,7 @@ export const useBexioApi = () => {
       console.log('🎯 Setting credentials state...');
       setCredentials(creds);
       console.log('✅ Credentials set! App should now be connected. isConnected will be:', !!creds);
+      logTokenClaims(accessToken);
       
       // No toast notification - seamless authentication
     } catch (error) {
@@ -204,6 +238,7 @@ export const useBexioApi = () => {
             
             localStorage.setItem('bexio_credentials', JSON.stringify(updatedCreds));
             setCredentials(updatedCreds);
+            logTokenClaims(accessToken);
             
             return accessToken;
           }
@@ -254,6 +289,13 @@ export const useBexioApi = () => {
       });
 
       if (!response.ok) {
+        if (response.status === 403) {
+          toast({
+            title: 'Access denied',
+            description: 'Missing contact_show scope or wrong company context. Reconnect via OAuth and grant contact_show.',
+            variant: 'destructive',
+          });
+        }
         const errorData = await response.json().catch(() => ({}));
         throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
       }
@@ -356,6 +398,13 @@ export const useBexioApi = () => {
       });
 
       if (!response.ok) {
+        if (response.status === 403) {
+          toast({
+            title: 'Access denied',
+            description: 'Missing timesheet_show scope or wrong company context. Reconnect via OAuth and grant timesheet_show.',
+            variant: 'destructive',
+          });
+        }
         const errorData = await response.json().catch(() => ({}));
         throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
       }
