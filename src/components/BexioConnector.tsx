@@ -67,11 +67,11 @@ export const BexioConnector = ({ onConnect, onOAuthConnect, isConnected }: Bexio
         ru: window.location.origin 
       }));
       
-      // Build OAuth URL with API scopes for data access
+      // Build OAuth URL with comprehensive API scopes for full data access
       const clientId = 'ea67faa2-5710-4241-9ebd-9267e5fd5acf'; // This is public, safe to expose
       const redirectUri = 'https://opcjifbdwpyttaxqlqbf.supabase.co/functions/v1/bexio-oauth/callback';
-      // Include both OIDC scopes and API scopes for full access
-      const scope = 'openid profile email offline_access general contact_show project_show timetracking_show';
+      // Complete scope list: OIDC scopes + API scopes for full functionality
+      const scope = 'openid profile email offline_access project_show project_edit timesheet_show timesheet_edit contact_show contact_edit kb_invoice_show kb_invoice_edit kb_offer_show kb_offer_edit';
       
       const params = new URLSearchParams({
         client_id: clientId,
