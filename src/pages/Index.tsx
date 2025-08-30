@@ -8,7 +8,8 @@ import { ContactList } from "@/components/ContactList";
 import { ProjectList } from "@/components/ProjectList";
 import { TimeTrackingList } from "@/components/TimeTrackingList";
 import { useBexioApi } from "@/hooks/useBexioApi";
-import { RefreshCw, Database, LogOut, Users, FolderOpen, BarChart3 } from "lucide-react";
+import { RefreshCw, Database, LogOut, Users, FolderOpen, BarChart3, CheckCircle2, Loader2 } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 const Index = () => {
   const {
@@ -39,6 +40,8 @@ const Index = () => {
   } = useBexioApi();
 
   const [activeTab, setActiveTab] = useState("analytics");
+  const [isTestingConnection, setIsTestingConnection] = useState(false);
+  const { toast } = useToast();
 
   useEffect(() => {
     loadStoredCredentials();
@@ -192,6 +195,50 @@ const Index = () => {
     }
   };
 
+  const testApiConnection = async () => {
+    if (!credentials) return;
+    
+    setIsTestingConnection(true);
+    try {
+      // Make a simple API call to test the connection and authorization header
+      const response = await fetch('https://opcjifbdwpyttaxqlqbf.supabase.co/functions/v1/bexio-proxy', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          endpoint: '/company_profile',
+          apiKey: credentials.authType === 'oauth' ? credentials.accessToken : credentials.apiKey,
+          companyId: credentials.companyId,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      
+      toast({
+        title: "✅ API Connection Test Successful",
+        description: `Connected to company: ${data.name || 'Unknown'} (ID: ${data.id || 'N/A'})`,
+      });
+      
+      console.log('🎯 API Test Response:', data);
+      
+    } catch (error) {
+      console.error('❌ API Test Error:', error);
+      toast({
+        title: "❌ API Connection Test Failed",
+        description: error instanceof Error ? error.message : "Failed to connect to Bexio API",
+        variant: "destructive",
+      });
+    } finally {
+      setIsTestingConnection(false);
+    }
+  };
+
   const isLoading = isLoadingContacts || isLoadingProjects || isLoadingTimeEntries;
 
   if (!isConnected) {
@@ -267,6 +314,37 @@ const Index = () => {
 
       {/* Main Content */}
       <main className="container mx-auto px-4 py-8">
+        {/* Test Authentication Button */}
+        <div className="mb-8 p-4 bg-primary-subtle/20 rounded-lg border border-primary-subtle">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="font-medium text-title flex items-center gap-2">
+                <CheckCircle2 className="h-5 w-5 text-primary" />
+                Test API Connection
+              </h3>
+              <p className="text-sm text-muted-foreground">Verify your access token is working with a test API call</p>
+            </div>
+            <Button 
+              onClick={testApiConnection}
+              disabled={isTestingConnection}
+              variant="outline"
+              className="border-primary hover:bg-primary hover:text-white transition-colors"
+            >
+              {isTestingConnection ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Testing...
+                </>
+              ) : (
+                <>
+                  <CheckCircle2 className="mr-2 h-4 w-4" />
+                  Test Connection
+                </>
+              )}
+            </Button>
+          </div>
+        </div>
+
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
           <TabsList className="grid w-full max-w-3xl grid-cols-4 mx-auto">
             <TabsTrigger value="analytics" className="gap-2">
