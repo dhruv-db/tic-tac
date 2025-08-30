@@ -179,6 +179,14 @@ const Index = () => {
                 variant="outline"
                 size="sm"
                 onClick={() => {
+                  // Clear all localStorage items that might persist
+                  localStorage.removeItem('bexio_access_token');
+                  localStorage.removeItem('bexio_refresh_token');
+                  localStorage.removeItem('bexio_company_id');
+                  localStorage.removeItem('bexio_user_email');
+                  localStorage.removeItem('bexio_oauth_success');
+                  localStorage.removeItem('bexio_oauth_ready');
+                  
                   disconnect();
                   window.location.reload(); // Force page reload to clear state
                 }}
