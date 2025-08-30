@@ -13,9 +13,9 @@ serve(async (req) => {
   }
 
   try {
-    const { endpoint, apiKey, companyId, method = 'GET', data: requestData } = await req.json();
+    const { endpoint, apiKey, accessToken, companyId, method = 'GET', data: requestData } = await req.json();
     
-    if (!endpoint || !apiKey) {
+    if (!endpoint || !(apiKey || accessToken)) {
       return new Response(JSON.stringify({ error: 'Missing required parameters' }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -23,7 +23,8 @@ serve(async (req) => {
     }
 
     console.log(`Proxying request to Bexio API: ${endpoint}`);
-    console.log(`Using API key: ${apiKey.substring(0, 10)}...`);
+    const token = (accessToken || apiKey || '');
+    console.log(`Using bearer token: ${token ? token.substring(0, 10) + '...' : 'none'}`);
     console.log(`Request method: ${method}`);
     if ((method === 'POST' || method === 'PUT') && requestData) {
       console.log('Request payload:', JSON.stringify(requestData, null, 2));
@@ -38,7 +39,7 @@ serve(async (req) => {
     const requestOptions: RequestInit = {
       method: method,
       headers: {
-        'Authorization': `Bearer ${apiKey}`,
+        'Authorization': `Bearer ${token}`,
         'Accept': 'application/json',
         'Accept-Language': 'en',
         'Content-Type': 'application/json',

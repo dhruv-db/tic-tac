@@ -297,11 +297,11 @@ export const useBexioApi = () => {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          endpoint: '/pr_project',
-          apiKey: authToken,
-          companyId: credentials.companyId,
-        }),
+          body: JSON.stringify({
+            endpoint: '/3.0/projects',
+            apiKey: authToken,
+            companyId: credentials.companyId,
+          }),
       });
 
       if (!response.ok) {
