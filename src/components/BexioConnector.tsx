@@ -71,7 +71,7 @@ export const BexioConnector = ({ onConnect, onOAuthConnect, isConnected }: Bexio
       const clientId = 'ea67faa2-5710-4241-9ebd-9267e5fd5acf'; // This is public, safe to expose
       const redirectUri = 'https://opcjifbdwpyttaxqlqbf.supabase.co/functions/v1/bexio-oauth/callback';
       // Complete scope list: OIDC scopes + API scopes for full functionality
-      const scope = 'openid profile email offline_access project_show project_edit timesheet_show timesheet_edit contact_show contact_edit kb_invoice_show kb_invoice_edit kb_offer_show kb_offer_edit';
+      const scope = 'openid profile email company_profile offline_access project_show timesheet_show contact_show';
       
       const params = new URLSearchParams({
         client_id: clientId,
@@ -83,7 +83,7 @@ export const BexioConnector = ({ onConnect, onOAuthConnect, isConnected }: Bexio
         code_challenge_method: 'S256',
       });
 
-      const authUrl = `https://auth.bexio.com/realms/bexio/protocol/openid-connect/auth?${params.toString()}`;
+      const authUrl = `https://idp.bexio.com/authorize?${params.toString()}`;
       console.log('✅ Generated Bexio OAuth URL:', authUrl);
       
       // Redirect to the OAuth URL - this will come back to /oauth/callback
