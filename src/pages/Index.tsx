@@ -10,7 +10,7 @@ import { TimeTrackingList } from "@/components/TimeTrackingList";
 import { useBexioApi } from "@/hooks/useBexioApi";
 import { RefreshCw, Database, LogOut, Users, FolderOpen, BarChart3, CheckCircle2, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { useOAuth } from "@/context/OAuthContext";
+
 
 const Index = () => {
   const {
@@ -43,16 +43,12 @@ const Index = () => {
   const [activeTab, setActiveTab] = useState("analytics");
   const [isTestingConnection, setIsTestingConnection] = useState(false);
   const { toast } = useToast();
-  const { setOAuthConnectHandler } = useOAuth();
+  
 
   useEffect(() => {
     loadStoredCredentials();
   }, [loadStoredCredentials]);
 
-  // Register OAuth handler
-  useEffect(() => {
-    setOAuthConnectHandler(connectWithOAuth);
-  }, [setOAuthConnectHandler, connectWithOAuth]);
 
 
   useEffect(() => {

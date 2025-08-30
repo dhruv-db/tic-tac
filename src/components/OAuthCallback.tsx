@@ -1,14 +1,12 @@
 import { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
+import { useBexioApi } from '@/hooks/useBexioApi';
 
-interface OAuthCallbackProps {
-  onOAuthConnect: (accessToken: string, refreshToken: string, companyId: string, userEmail: string) => void;
-}
-
-export function OAuthCallback({ onOAuthConnect }: OAuthCallbackProps) {
+export function OAuthCallback() {
   const location = useLocation();
   const navigate = useNavigate();
+  const { connectWithOAuth } = useBexioApi();
   const [status, setStatus] = useState<'processing' | 'success' | 'error'>('processing');
   const [error, setError] = useState<string>('');
 
@@ -17,11 +15,11 @@ export function OAuthCallback({ onOAuthConnect }: OAuthCallbackProps) {
       const params = new URLSearchParams(location.search);
       const code = params.get('code');
       const state = params.get('state');
-      const error = params.get('error');
+      const errParam = params.get('error');
 
-      if (error) {
-        console.error('OAuth error:', error);
-        setError(`Authentication failed: ${error}`);
+      if (errParam) {
+        console.error('OAuth error:', errParam);
+        setError(`Authentication failed: ${errParam}`);
         setStatus('error');
         return;
       }
@@ -49,18 +47,18 @@ export function OAuthCallback({ onOAuthConnect }: OAuthCallbackProps) {
           throw new Error('Invalid response from token exchange');
         }
 
-        console.log('✅ OAuth completed successfully');
+        console.log('✅ OAuth completed successfully, connecting to app state...');
         setStatus('success');
         
-        // Call the OAuth success handler
-        onOAuthConnect(
+        // Persist credentials in app state
+        connectWithOAuth(
           data.accessToken,
           data.refreshToken,
           data.companyId,
           data.userEmail
         );
 
-        // Close popup if this is running in a popup
+        // If opened in a popup, notify and close
         if (window.opener && !window.opener.closed) {
           const payload = {
             type: 'BEXIO_OAUTH_SUCCESS',
@@ -70,14 +68,12 @@ export function OAuthCallback({ onOAuthConnect }: OAuthCallbackProps) {
               companyId: data.companyId,
               userEmail: data.userEmail
             }
-          };
-          window.opener.postMessage(payload, '*');
+          } as const;
+          try { window.opener.postMessage(payload, '*'); } catch {}
           window.close();
         } else {
-          // Navigate back to main app after a brief delay
-          setTimeout(() => {
-            navigate('/');
-          }, 2000);
+          // Navigate back after a brief delay
+          setTimeout(() => navigate('/'), 600);
         }
 
       } catch (err) {
@@ -88,7 +84,7 @@ export function OAuthCallback({ onOAuthConnect }: OAuthCallbackProps) {
     };
 
     handleCallback();
-  }, [location.search, onOAuthConnect, navigate]);
+  }, [location.search, navigate, connectWithOAuth]);
 
   const getStatusContent = () => {
     switch (status) {
@@ -97,19 +93,19 @@ export function OAuthCallback({ onOAuthConnect }: OAuthCallbackProps) {
           title: 'Processing Authentication...',
           message: 'Please wait while we complete your authentication.',
           className: 'text-blue-600'
-        };
+        } as const;
       case 'success':
         return {
           title: 'Authentication Successful!',
           message: 'You have been successfully authenticated with Bexio.',
           className: 'text-green-600'
-        };
+        } as const;
       case 'error':
         return {
           title: 'Authentication Failed',
           message: error || 'An unexpected error occurred.',
           className: 'text-red-600'
-        };
+        } as const;
     }
   };
 

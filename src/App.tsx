@@ -6,30 +6,23 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import { OAuthCallback } from "./components/OAuthCallback";
-import { OAuthProvider, useOAuth } from "./context/OAuthContext";
 
 const queryClient = new QueryClient();
 
-const OAuthCallbackWrapper = () => {
-  const { onOAuthConnect } = useOAuth();
-  return <OAuthCallback onOAuthConnect={onOAuthConnect || (() => {})} />;
-};
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <Toaster />
       <Sonner />
-      <OAuthProvider>
         <BrowserRouter>
           <Routes>
             <Route path="/" element={<Index />} />
-            <Route path="/oauth/callback" element={<OAuthCallbackWrapper />} />
+            <Route path="/oauth/callback" element={<OAuthCallback />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
-      </OAuthProvider>
     </TooltipProvider>
   </QueryClientProvider>
 );
