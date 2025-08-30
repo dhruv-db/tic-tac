@@ -53,9 +53,9 @@ export const BexioConnector = ({ onConnect, onOAuthConnect, isConnected }: Bexio
       // Generate a random state for security
       const state = Math.random().toString(36).substring(2, 15);
       
-      // Generate PKCE parameters that meet RFC 7636 requirements
+      // Generate PKCE parameters (RFC 7636)
       const generatePKCE = () => {
-        const length = 64; // 43-128 allowed; 64 is a safe default
+        const length = 64;
         const charset = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~';
         const random = new Uint8Array(length);
         crypto.getRandomValues(random);
@@ -74,56 +74,52 @@ export const BexioConnector = ({ onConnect, onOAuthConnect, isConnected }: Bexio
         });
       };
       const { codeVerifier, codeChallenge } = await generatePKCE();
-      
-      console.log('🚀 Starting OAuth flow with redirect');
-      
+
       // Pack state with code_verifier and return URL for callback
       const packedState = btoa(JSON.stringify({ 
         s: state, 
         cv: codeVerifier, 
         ru: window.location.origin 
       }));
-      
-      // Build OAuth URL with comprehensive API scopes for full data access
-      const clientId = 'ea67faa2-5710-4241-9ebd-9267e5fd5acf'; // This is public, safe to expose
-      const redirectUri = 'https://opcjifbdwpyttaxqlqbf.supabase.co/functions/v1/bexio-oauth/callback';
-      // Complete scope list: OIDC scopes + API scopes for full functionality
-      const scope = 'openid profile email offline_access contact_show contact_edit timesheet_show timesheet_edit project_show';
-      
-      const params = new URLSearchParams({
-        client_id: clientId,
-        redirect_uri: redirectUri,
-        response_type: 'code',
-        scope: scope,
-        state: packedState,
-        code_challenge: codeChallenge,
-        code_challenge_method: 'S256',
+
+      // Request auth URL from Edge Function using server-configured client and scopes
+      const { data, error } = await (await import('@/integrations/supabase/client')).supabase.functions.invoke('bexio-oauth/auth', {
+        body: {
+          state: state,
+          // Only OIDC scopes here; API scopes are attached via the Bexio app configuration
+          scope: 'openid profile email offline_access',
+          codeChallenge,
+          codeChallengeMethod: 'S256',
+          codeVerifier,
+          returnUrl: window.location.origin,
+        }
       });
 
-      const authUrl = `https://auth.bexio.com/realms/bexio/protocol/openid-connect/auth?${params.toString()}`;
-      console.log('✅ Generated Bexio OAuth URL:', authUrl);
-      
-      // Open in popup to avoid iframe X-Frame-Options issues
+      if (error || !data?.authUrl) {
+        throw new Error(error?.message || 'Failed to start OAuth');
+      }
+
+      const authUrl = data.authUrl as string;
+
+      // Open in popup to avoid iframe issues
       const width = 520, height = 700;
       const left = window.screenX + (window.outerWidth - width) / 2;
       const top = window.screenY + (window.outerHeight - height) / 2;
       const features = `popup=yes,toolbar=no,location=no,status=no,menubar=no,scrollbars=yes,resizable=yes,width=${width},height=${height},left=${left},top=${top}`;
       const popup = window.open(authUrl, 'bexio_oauth', features);
       if (!popup) {
-        // Fallback to top-level navigation
         if (window.top) {
           window.top.location.href = authUrl;
         } else {
           window.location.href = authUrl;
         }
       }
-      
+
     } catch (error) {
       console.error('❌ OAuth initiation failed:', error);
       setIsOAuthLoading(false);
     }
   };
-
   if (isConnected) {
     return (
       <Alert className="border-green-200 bg-green-50">
