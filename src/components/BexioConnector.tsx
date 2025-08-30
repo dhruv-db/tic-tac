@@ -160,12 +160,12 @@ export const BexioConnector = ({ onConnect, onOAuthConnect, isConnected }: Bexio
   return (
     <div className="space-y-6">
       <Tabs defaultValue="oauth" className="w-full">
-        <TabsList className="grid w-full grid-cols-2 bg-white/10 border-white/20">
-          <TabsTrigger value="oauth" className="flex items-center gap-2 text-white data-[state=active]:bg-white data-[state=active]:text-primary">
+        <TabsList className="grid w-full grid-cols-2 bg-white/20 border-white/30 backdrop-blur-sm">
+          <TabsTrigger value="oauth" className="flex items-center gap-2 text-white font-medium data-[state=active]:bg-white data-[state=active]:text-primary">
             <User className="h-4 w-4" />
             OAuth
           </TabsTrigger>
-          <TabsTrigger value="api-key" className="flex items-center gap-2 text-white data-[state=active]:bg-white data-[state=active]:text-primary">
+          <TabsTrigger value="api-key" className="flex items-center gap-2 text-white font-medium data-[state=active]:bg-white data-[state=active]:text-primary">
             <Key className="h-4 w-4" />
             API Key
           </TabsTrigger>
@@ -181,12 +181,12 @@ export const BexioConnector = ({ onConnect, onOAuthConnect, isConnected }: Bexio
               </div>
             </div>
             <div className="space-y-2">
-              <Label className="text-white">Extra API scope (optional)</Label>
+              <Label className="text-white font-medium">Extra API scope (optional)</Label>
               <Select value={extraScope} onValueChange={(v) => setExtraScope(v as any)}>
-                <SelectTrigger className="w-full bg-white/10 border-white/20 text-white">
-                  <SelectValue placeholder="None (OIDC only)" />
+                <SelectTrigger className="w-full bg-white/20 border-white/30 text-white backdrop-blur-sm">
+                  <SelectValue placeholder="None (OIDC only)" className="text-white" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="bg-white border border-gray-200">
                   <SelectItem value="none">None (OIDC only)</SelectItem>
                   <SelectItem value="all_scopes">🎯 All Available Scopes (Recommended)</SelectItem>
                   <SelectItem value="contact_show">Contacts: contact_show</SelectItem>
@@ -207,7 +207,7 @@ export const BexioConnector = ({ onConnect, onOAuthConnect, isConnected }: Bexio
                   <SelectItem value="kb_invoices:read">KB Invoices: kb_invoices:read</SelectItem>
                 </SelectContent>
               </Select>
-              <p className="text-xs text-white/60">If "invalid scope", pick the other style and re-auth.</p>
+              <p className="text-xs text-white/80">If "invalid scope", pick the other style and re-auth.</p>
             </div>
             
             <Button 
@@ -221,7 +221,7 @@ export const BexioConnector = ({ onConnect, onOAuthConnect, isConnected }: Bexio
               </div>
               {isOAuthLoading ? "CONNECTING..." : "REGISTRIEREN MIT BEXIO"}
             </Button>
-            <p className="text-xs text-white/60 text-center">
+            <p className="text-xs text-white/80 text-center">
               (OHNE KREDITKARTE)
             </p>
           </div>
@@ -230,25 +230,25 @@ export const BexioConnector = ({ onConnect, onOAuthConnect, isConnected }: Bexio
         <TabsContent value="api-key" className="space-y-4 mt-6">
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="api-key" className="text-white">API Key</Label>
+              <Label htmlFor="api-key" className="text-white font-medium">API Key</Label>
               <Input
                 id="api-key"
                 type="password"
                 placeholder="Enter your Bexio API key"
                 value={apiKey}
                 onChange={(e) => setApiKey(e.target.value)}
-                className="bg-white/10 border-white/20 text-white placeholder:text-white/50"
+                className="bg-white/20 border-white/30 text-white placeholder:text-white/70 backdrop-blur-sm"
               />
             </div>
             
             <div className="space-y-2">
-              <Label htmlFor="company-id" className="text-white">Company ID</Label>
+              <Label htmlFor="company-id" className="text-white font-medium">Company ID</Label>
               <Input
                 id="company-id"
                 placeholder="Enter your Company ID"
                 value={companyId}
                 onChange={(e) => setCompanyId(e.target.value)}
-                className="bg-white/10 border-white/20 text-white placeholder:text-white/50"
+                className="bg-white/20 border-white/30 text-white placeholder:text-white/70 backdrop-blur-sm"
               />
             </div>
             
@@ -260,7 +260,7 @@ export const BexioConnector = ({ onConnect, onOAuthConnect, isConnected }: Bexio
               {isLoading ? "CONNECTING..." : "CONNECT"}
             </Button>
             
-            <div className="text-xs text-white/60 space-y-1">
+            <div className="text-xs text-white/80 space-y-1">
               <p>• Find your API key in Bexio Settings → Integrations → API</p>
               <p>• Company ID is shown in your Bexio URL or account settings</p>
             </div>
