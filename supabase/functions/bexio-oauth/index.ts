@@ -220,7 +220,28 @@ serve(async (req) => {
             timestamp: Date.now()
           };
 
-          // Create the HTML response with proper escaping
+          // Prefer redirecting to app-hosted completion page to avoid HTML rendering issues
+          try {
+            const payloadJson = JSON.stringify(payload);
+            const encoded = encodeURIComponent(btoa(payloadJson));
+            const baseUrl = (returnUrlFromState && typeof returnUrlFromState === 'string') ? returnUrlFromState : '';
+            if (baseUrl) {
+              const normalized = baseUrl.endsWith('/') ? baseUrl : baseUrl + '/';
+              const redirectUrl = `${normalized}oauth-complete.html#p=${encoded}`;
+              return new Response(null, {
+                status: 302,
+                headers: {
+                  ...corsHeaders,
+                  Location: redirectUrl,
+                  'Cache-Control': 'no-cache, no-store, must-revalidate'
+                }
+              });
+            }
+          } catch (e) {
+            console.warn('Failed to build redirect URL, falling back to inline HTML:', e);
+          }
+
+          // Fallback: inline HTML that posts message and attempts to close
           const htmlContent = `<!DOCTYPE html>
 <html>
 <head>
@@ -229,8 +250,8 @@ serve(async (req) => {
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <style>
     body { font-family: Arial, sans-serif; text-align: center; padding: 50px; background: #f5f5f5; }
-    .success { color: #28a745; font-size: 24px; margin-bottom: 20px; }
-    .loading { color: #6c757d; }
+    .success { color: #222; font-size: 22px; margin-bottom: 14px; }
+    .loading { color: #555; }
   </style>
 </head>
 <body>
@@ -240,34 +261,14 @@ serve(async (req) => {
   <script>
     (function() {
       try {
-        // Send the credentials via postMessage immediately
+        var payload = ${JSON.stringify(payload)};
         if (window.opener && !window.opener.closed) {
-          console.log('Sending OAuth success to opener window');
-          window.opener.postMessage({
-            type: 'BEXIO_OAUTH_SUCCESS',
-            credentials: {
-              accessToken: "${creds.accessToken}",
-              refreshToken: "${creds.refreshToken}",
-              companyId: "${creds.companyId}",
-              userEmail: "${creds.userEmail}",
-              idToken: "${creds.idToken}",
-              expiresIn: ${creds.expiresIn}
-            },
-            timestamp: ${Date.now()}
-          }, '*');
-          
-          // Close after sending message
-          setTimeout(function() {
-            window.close();
-          }, 1000);
+          window.opener.postMessage(payload, '*');
+          setTimeout(function(){ window.close(); }, 800);
         } else {
-          console.log('No opener found, will close automatically');
-          setTimeout(function() {
-            window.close();
-          }, 2000);
+          setTimeout(function(){ window.close(); }, 1500);
         }
       } catch(e) {
-        console.error('OAuth callback error:', e);
         document.body.innerHTML = '<div class="success">Authentication completed</div><p>Please close this window manually.</p>';
       }
     })();
