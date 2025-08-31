@@ -209,7 +209,13 @@ export const BulkTimeEntryDialog = ({
 
       // Submit all entries
       for (const entry of entries) {
-        await onSubmit(entry);
+        await onSubmit({
+          project_id: formData.project_id ? parseInt(formData.project_id) : undefined,
+          date: format(entry.dateRange.from, 'yyyy-MM-dd'),
+          duration: parseDuration(formData.duration),
+          text: formData.description,
+          type: 'work'
+        });
       }
 
       toast({

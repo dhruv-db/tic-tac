@@ -203,7 +203,7 @@ export const TimeTrackingGrid = ({
     setShowBulkDialog(true);
   };
 
-  // Filter projects that have time entries
+  // Filter projects that have time entries or get all if none have entries
   const getProjectsWithEntries = () => {
     const projectsWithTime = new Set<number>();
     
@@ -215,6 +215,11 @@ export const TimeTrackingGrid = ({
         }
       });
     });
+
+    // If no projects have time entries, show all projects for easy entry
+    if (projectsWithTime.size === 0) {
+      return projects.slice(0, 10); // Show up to 10 projects initially
+    }
 
     return projects.filter(project => projectsWithTime.has(project.id));
   };
