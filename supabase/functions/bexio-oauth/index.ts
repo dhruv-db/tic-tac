@@ -73,7 +73,7 @@ serve(async (req) => {
       // Required API scopes for basic functionality - use legacy format for better compatibility
       const requiredApiScopes = [
         'contact_show',
-        'timesheet_show', 
+        'monitoring_show', 
         'project_show'
       ];
 
@@ -90,7 +90,7 @@ serve(async (req) => {
       ];
       const allowedLegacy = [
         'contact_show',
-        'timesheet_show',
+        'monitoring_show',
         'project_show',
         'kb_invoice_show',
         // 'company_profile' // Avoid by default; include only if explicitly requested
@@ -161,7 +161,7 @@ serve(async (req) => {
       const oidcBase = ['openid', 'profile', 'email', 'offline_access', 'company_profile'];
       const allowedApi = [
         'contact_show', 'contact_edit', 'contacts:read', 'contacts:write',
-        'timesheet_show', 'timesheet_edit', 'timesheets:read', 'timesheets:write',
+        'monitoring_show', 'monitoring_edit', 'timesheets:read', 'timesheets:write',
         'project_show', 'project_edit', 'projects:read', 'projects:write'
       ];
       const requestedList = (requestedScope || '')

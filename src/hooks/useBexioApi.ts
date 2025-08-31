@@ -136,7 +136,7 @@ export const useBexioApi = () => {
     console.groupEnd();
     
     // Check for both legacy and new scope formats
-    const required = ['project_show','contact_show','timesheet_show'];
+    const required = ['project_show','contact_show','monitoring_show'];
     const newStyleRequired = ['projects:read', 'contacts:read', 'timesheets:read'];
     const hasScope = (s: string) => Array.isArray(scopes) ? scopes.includes(s) : (typeof scopes === 'string' ? scopes.split(' ').includes(s) : false);
     
@@ -429,7 +429,7 @@ export const useBexioApi = () => {
         if (response.status === 403) {
           toast({
             title: 'Access denied',
-            description: 'Missing timesheet_show scope or wrong company context. Reconnect via OAuth and grant timesheet_show.',
+            description: 'Missing monitoring_show scope or wrong company context. Reconnect via OAuth and grant monitoring_show.',
             variant: 'destructive',
           });
         }

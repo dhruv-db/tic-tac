@@ -18,7 +18,7 @@ export const BexioConnector = ({ onConnect, onOAuthConnect, isConnected }: Bexio
   const [companyId, setCompanyId] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isOAuthLoading, setIsOAuthLoading] = useState(false);
-  const [extraScope, setExtraScope] = useState<'none' | 'all_scopes' | 'contact_show' | 'contacts:read' | 'timesheet_show' | 'timesheets:read' | 'project_show' | 'projects:read' | 'user_show' | 'users:read' | 'article_show' | 'articles:read' | 'invoice_show' | 'invoices:read' | 'order_show' | 'orders:read' | 'kb_invoice_show' | 'kb_invoices:read'>('none');
+  const [extraScope, setExtraScope] = useState<'none' | 'all_scopes' | 'contact_show' | 'contacts:read' | 'monitoring_show' | 'timesheets:read' | 'project_show' | 'projects:read' | 'user_show' | 'users:read' | 'article_show' | 'articles:read' | 'invoice_show' | 'invoices:read' | 'order_show' | 'orders:read' | 'kb_invoice_show' | 'kb_invoices:read'>('none');
   // Listen for OAuth success from popup and finalize connection
   useEffect(() => {
     const onMessage = (event: MessageEvent) => {
@@ -150,7 +150,7 @@ export const BexioConnector = ({ onConnect, onOAuthConnect, isConnected }: Bexio
                   <SelectItem value="all_scopes">🎯 All Available Scopes (Recommended)</SelectItem>
                   <SelectItem value="contact_show">Contacts: contact_show</SelectItem>
                   <SelectItem value="contacts:read">Contacts: contacts:read</SelectItem>
-                  <SelectItem value="timesheet_show">Timesheets: timesheet_show</SelectItem>
+                  <SelectItem value="monitoring_show">Timesheets: monitoring_show</SelectItem>
                   <SelectItem value="timesheets:read">Timesheets: timesheets:read</SelectItem>
                   <SelectItem value="project_show">Projects: project_show</SelectItem>
                   <SelectItem value="projects:read">Projects: projects:read</SelectItem>
