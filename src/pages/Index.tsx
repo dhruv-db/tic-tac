@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TimeTrackingList } from "@/components/TimeTrackingList";
 import { TimeTrackingGrid } from "@/components/TimeTrackingGrid";
+import { SimpleTimeGrid } from "@/components/SimpleTimeGrid";
 import { LoginPage } from "@/components/LoginPage";
 import { useBexioApi } from "@/hooks/useBexioApi";
 import { RefreshCw, Database, LogOut, BarChart3, CheckCircle2, Grid, List } from "lucide-react";
@@ -234,13 +235,10 @@ const Index = () => {
             </div>
 
             {timeTrackingView === 'grid' ? (
-              <TimeTrackingGrid
+              <SimpleTimeGrid
                 timeEntries={timeEntries}
-                contacts={contacts}
                 projects={projects}
-                workPackages={workPackages}
                 onCreateTimeEntry={createTimeEntry}
-                onUpdateTimeEntry={updateTimeEntry}
                 onDeleteTimeEntry={deleteTimeEntry}
                 onDateRangeChange={(range) => fetchTimeEntries(range, { quiet: true })}
                 isLoading={isLoadingTimeEntries}
