@@ -11,7 +11,7 @@ export function OAuthCallback() {
   const [error, setError] = useState<string>('');
 
   useEffect(() => {
-    const handleCallback = async () => {
+  const handleCallback = async () => {
       const params = new URLSearchParams(location.search);
       const code = params.get('code');
       const state = params.get('state');
@@ -51,7 +51,7 @@ export function OAuthCallback() {
         setStatus('success');
         
         // Persist credentials in app state
-        connectWithOAuth(
+        await connectWithOAuth(
           data.accessToken,
           data.refreshToken,
           data.companyId,
@@ -82,8 +82,11 @@ export function OAuthCallback() {
           try { window.opener.postMessage(payload, '*'); } catch {}
           window.close();
         } else {
-          // Navigate back after a brief delay
-          setTimeout(() => navigate('/'), 600);
+          // Wait for state to update, then navigate back
+          setTimeout(() => {
+            console.log('✅ Navigating to main page after OAuth success');
+            navigate('/');
+          }, 100);
         }
 
       } catch (err) {

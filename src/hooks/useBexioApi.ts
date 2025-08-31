@@ -190,7 +190,12 @@ export const useBexioApi = () => {
       console.log('✅ Credentials set! App should now be connected. isConnected will be:', !!creds);
       logTokenClaims(accessToken);
       
-      // No toast notification - seamless authentication
+      // Return a promise that resolves after the state is updated
+      return new Promise(resolve => {
+        setTimeout(() => {
+          resolve(void 0);
+        }, 50);
+      });
     } catch (error) {
       console.error('❌ OAuth connection error:', error);
       toast({
