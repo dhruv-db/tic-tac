@@ -68,18 +68,20 @@ export const SimpleTimeGrid = ({
     return `${h}:${m.toString().padStart(2, '0')}`;
   };
 
-  // Get entries for specific project and date
-  const getProjectDayEntries = (projectId: number, date: Date) => {
+  // Get entries for specific project/date and optional work package
+  const getProjectDayEntries = (projectId: number, date: Date, packageId?: number | string) => {
     const dateStr = format(date, 'yyyy-MM-dd');
-    return timeEntries.filter(entry => {
+    return timeEntries.filter((entry: any) => {
       const entryDate = entry.date?.includes('T') ? entry.date.split('T')[0] : entry.date;
-      return entry.project_id === projectId && entryDate === dateStr;
+      const projMatch = entry.pr_project_id === projectId || entry.project_id === projectId;
+      const pkgMatch = packageId == null ? true : (entry.pr_package_id === packageId || entry.pr_package_id?.toString() === String(packageId));
+      return projMatch && pkgMatch && entryDate === dateStr;
     });
   };
 
-  // Get total hours for project on specific date
-  const getProjectDayHours = (projectId: number, date: Date) => {
-    const entries = getProjectDayEntries(projectId, date);
+  // Get total hours for project on specific date (optionally for a work package)
+  const getProjectDayHours = (projectId: number, date: Date, packageId?: number | string) => {
+    const entries = getProjectDayEntries(projectId, date, packageId);
     return entries.reduce((total, entry) => total + durationToHours(entry.duration), 0);
   };
 
@@ -88,11 +90,12 @@ export const SimpleTimeGrid = ({
     const weekDateStrings = weekDays.map(date => format(date, 'yyyy-MM-dd'));
     const activeProjectIds = new Set<number>();
     
-    timeEntries.forEach(entry => {
-      if (entry.project_id) {
+    timeEntries.forEach((entry: any) => {
+      const projId = entry.pr_project_id ?? entry.project_id;
+      if (projId) {
         const entryDate = entry.date?.includes('T') ? entry.date.split('T')[0] : entry.date;
         if (weekDateStrings.includes(entryDate)) {
-          activeProjectIds.add(entry.project_id);
+          activeProjectIds.add(Number(projId));
         }
       }
     });
@@ -100,6 +103,27 @@ export const SimpleTimeGrid = ({
     // Show projects with entries, or top 5 projects if none
     const projectsWithEntries = projects.filter(p => activeProjectIds.has(p.id));
     return projectsWithEntries.length > 0 ? projectsWithEntries : projects.slice(0, 5);
+  };
+
+  // Get active work packages (line items) for a project within the current week
+  const getActiveWorkPackagesForProject = (projectId: number) => {
+    const pkgMap = new Map<string, number>(); // id -> weekly hours
+    weekDays.forEach((date) => {
+      const dayEntries = timeEntries.filter((entry: any) => {
+        const entryDate = entry.date?.includes('T') ? entry.date.split('T')[0] : entry.date;
+        const projMatch = (entry.pr_project_id ?? entry.project_id) === projectId;
+        return projMatch && entryDate === format(date, 'yyyy-MM-dd') && entry.pr_package_id != null;
+      });
+      dayEntries.forEach((e: any) => {
+        const key = String(e.pr_package_id);
+        const hrs = durationToHours(e.duration);
+        pkgMap.set(key, (pkgMap.get(key) || 0) + hrs);
+      });
+    });
+    // Only include packages that have > 0 hours in the week
+    return Array.from(pkgMap.entries())
+      .filter(([_, hours]) => hours > 0)
+      .map(([id]) => ({ id }));
   };
 
   // Calculate totals
@@ -115,8 +139,8 @@ export const SimpleTimeGrid = ({
   const targetHours = 40;
   const difference = weeklyTotal - targetHours;
 
-  // Handle quick time entry
-  const handleQuickEntry = async (projectId: number, date: Date, timeStr: string) => {
+  // Handle quick time entry (optionally for a work package)
+  const handleQuickEntry = async (projectId: number, date: Date, timeStr: string, packageId?: number | string) => {
     if (!timeStr || timeStr === '0:00') return;
     
     const [hours, minutes] = timeStr.split(':').map(Number);
@@ -129,20 +153,28 @@ export const SimpleTimeGrid = ({
       return;
     }
 
-    const duration = (hours * 3600) + (minutes * 60);
+    const durationSeconds = (hours * 3600) + (minutes * 60);
     const project = projects.find(p => p.id === projectId);
+
+    const formatSecondsToHM = (sec: number) => {
+      const h = Math.floor(sec / 3600);
+      const m = Math.round((sec % 3600) / 60);
+      return `${h}:${m.toString().padStart(2, '0')}`;
+    };
     
     try {
       await onCreateTimeEntry?.({
+        dateRange: { from: date, to: date },
+        useDuration: true,
+        duration: formatSecondsToHM(durationSeconds),
+        text: `Time entry for ${project?.name}${packageId ? ` • WP ${packageId}` : ''}`,
+        allowable_bill: true,
         project_id: projectId,
-        date: format(date, 'yyyy-MM-dd'),
-        duration: duration,
-        text: `Time entry for ${project?.name}`,
-        allowable_bill: true
+        pr_package_id: packageId != null ? String(packageId) : undefined
       });
       
       // Clear input
-      const key = `${projectId}-${format(date, 'yyyy-MM-dd')}`;
+      const key = `${projectId}-${packageId ?? 'p'}-${format(date, 'yyyy-MM-dd')}`;
       setTimeInputs(prev => {
         const newInputs = { ...prev };
         delete newInputs[key];
@@ -151,7 +183,7 @@ export const SimpleTimeGrid = ({
       
       toast({
         title: "Time entry created",
-        description: `${timeStr} logged for ${project?.name}`
+        description: `${timeStr} logged for ${project?.name}${packageId ? ` • WP ${packageId}` : ''}`
       });
     } catch (error) {
       toast({
@@ -163,13 +195,13 @@ export const SimpleTimeGrid = ({
   };
 
   // Handle key navigation
-  const handleKeyPress = (e: React.KeyboardEvent, projectId: number, date: Date) => {
-    const key = `${projectId}-${format(date, 'yyyy-MM-dd')}`;
+  const handleKeyPress = (e: React.KeyboardEvent, projectId: number, date: Date, packageId?: number | string) => {
+    const key = `${projectId}-${packageId ?? 'p'}-${format(date, 'yyyy-MM-dd')}`;
     const value = timeInputs[key] || '';
     
     if (e.key === 'Enter') {
       e.preventDefault();
-      handleQuickEntry(projectId, date, value);
+      handleQuickEntry(projectId, date, value, packageId);
     } else if (e.key === 'Escape') {
       setTimeInputs(prev => {
         const newInputs = { ...prev };
@@ -290,94 +322,116 @@ export const SimpleTimeGrid = ({
                   <p className="text-sm">Click "Add Entry" to start tracking time.</p>
                 </div>
               ) : (
-                activeProjects.map((project) => (
-                  <div key={project.id} className="border-b hover:bg-muted/10 transition-colors group">
-                    <div className="grid grid-cols-8">
-                      {/* Project Column */}
-                      <div className="p-4 flex items-center justify-between">
-                        <div>
-                          <div className="font-semibold text-primary">{project.name}</div>
-                          <div className="text-sm text-muted-foreground">#{project.nr}</div>
-                        </div>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => openDetailDialog(new Date(), project)}
-                          className="opacity-0 group-hover:opacity-100 transition-opacity"
-                        >
-                          <Edit3 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                      
-                      {/* Day Columns */}
-                      {weekDays.map((date) => {
-                        const dayHours = getProjectDayHours(project.id, date);
-                        const dayEntries = getProjectDayEntries(project.id, date);
-                        const key = `${project.id}-${format(date, 'yyyy-MM-dd')}`;
-                        const inputValue = timeInputs[key] || '';
-
-                        return (
-                          <div key={date.toISOString()} className="p-2">
-                            {dayHours > 0 ? (
-                              <div className="text-center group/cell">
-                                <Badge variant="default" className="font-semibold cursor-pointer">
-                                  {formatHours(dayHours)}
-                                </Badge>
-                                <div className="flex justify-center gap-1 mt-1 opacity-0 group-hover/cell:opacity-100 transition-opacity">
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => openDetailDialog(date, project)}
-                                    className="h-6 w-6 p-0 hover:bg-primary/10"
-                                  >
-                                    <Edit3 className="h-3 w-3" />
-                                  </Button>
-                                  {dayEntries.map(entry => (
-                                    <Button
-                                      key={entry.id}
-                                      variant="ghost"
-                                      size="sm"
-                                      onClick={() => onDeleteTimeEntry?.(entry.id)}
-                                      className="h-6 w-6 p-0 hover:bg-destructive/10 text-destructive"
-                                    >
-                                      <Trash2 className="h-3 w-3" />
-                                    </Button>
-                                  ))}
-                                </div>
-                              </div>
-                            ) : (
-                              <TooltipProvider>
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <Input
-                                      type="text"
-                                      placeholder="0:00"
-                                      value={inputValue}
-                                      onChange={(e) => setTimeInputs(prev => ({
-                                        ...prev,
-                                        [key]: e.target.value
-                                      }))}
-                                      onKeyDown={(e) => handleKeyPress(e, project.id, date)}
-                                      onBlur={() => {
-                                        if (inputValue && inputValue !== '0:00') {
-                                          handleQuickEntry(project.id, date, inputValue);
-                                        }
-                                      }}
-                                      className="h-8 text-center text-sm"
-                                    />
-                                  </TooltipTrigger>
-                                  <TooltipContent>
-                                    <p>Enter time (H:MM) • Enter to save • Esc to cancel</p>
-                                  </TooltipContent>
-                                </Tooltip>
-                              </TooltipProvider>
-                            )}
+                activeProjects.map((project) => {
+                  const packageRows = getActiveWorkPackagesForProject(project.id);
+                  return (
+                    <div key={project.id} className="border-b hover:bg-muted/10 transition-colors group">
+                      {/* Project Header Row */}
+                      <div className="grid grid-cols-8">
+                        <div className="p-4 flex items-center justify-between">
+                          <div>
+                            <div className="font-semibold text-primary">{project.name}</div>
+                            <div className="text-sm text-muted-foreground">#{project.nr}</div>
                           </div>
-                        );
-                      })}
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => openDetailDialog(new Date(), project)}
+                            className="opacity-0 group-hover:opacity-100 transition-opacity"
+                          >
+                            <Edit3 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                        {weekDays.map((date) => {
+                          const aggHours = getProjectDayHours(project.id, date);
+                          return (
+                            <div key={date.toISOString()} className="p-4 text-center">
+                              {aggHours > 0 ? (
+                                <span className="font-semibold text-primary">{formatHours(aggHours)}</span>
+                              ) : (
+                                <span className="text-muted-foreground">0:00</span>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+
+                      {/* Work Package Rows */}
+                      {packageRows.map((pkg) => (
+                        <div key={`${project.id}-${pkg.id}`} className="grid grid-cols-8 pl-6 pr-2 py-1">
+                          <div className="p-3 flex items-center">
+                            <div className="font-medium">Work Package {pkg.id}</div>
+                          </div>
+                          {weekDays.map((date) => {
+                            const dayHours = getProjectDayHours(project.id, date, pkg.id);
+                            const dayEntries = getProjectDayEntries(project.id, date, pkg.id);
+                            const key = `${project.id}-${pkg.id}-${format(date, 'yyyy-MM-dd')}`;
+                            const inputValue = timeInputs[key] || '';
+
+                            return (
+                              <div key={`${date.toISOString()}-${pkg.id}`} className="p-2">
+                                {dayHours > 0 ? (
+                                  <div className="text-center group/cell">
+                                    <Badge variant="default" className="font-semibold cursor-pointer">
+                                      {formatHours(dayHours)}
+                                    </Badge>
+                                    <div className="flex justify-center gap-1 mt-1 opacity-0 group-hover/cell:opacity-100 transition-opacity">
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => openDetailDialog(date, project)}
+                                        className="h-6 w-6 p-0 hover:bg-primary/10"
+                                      >
+                                        <Edit3 className="h-3 w-3" />
+                                      </Button>
+                                      {dayEntries.map((entry: any) => (
+                                        <Button
+                                          key={entry.id}
+                                          variant="ghost"
+                                          size="sm"
+                                          onClick={() => onDeleteTimeEntry?.(entry.id)}
+                                          className="h-6 w-6 p-0 hover:bg-destructive/10 text-destructive"
+                                        >
+                                          <Trash2 className="h-3 w-3" />
+                                        </Button>
+                                      ))}
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <TooltipProvider>
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <Input
+                                          type="text"
+                                          placeholder="0:00"
+                                          value={inputValue}
+                                          onChange={(e) => setTimeInputs(prev => ({
+                                            ...prev,
+                                            [key]: e.target.value
+                                          }))}
+                                          onKeyDown={(e) => handleKeyPress(e, project.id, date, pkg.id)}
+                                          onBlur={() => {
+                                            if (inputValue && inputValue !== '0:00') {
+                                              handleQuickEntry(project.id, date, inputValue, pkg.id);
+                                            }
+                                          }}
+                                          className="h-8 text-center text-sm"
+                                        />
+                                      </TooltipTrigger>
+                                      <TooltipContent>
+                                        <p>Enter time (H:MM) • Enter to save • Esc to cancel</p>
+                                      </TooltipContent>
+                                    </Tooltip>
+                                  </TooltipProvider>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      ))}
                     </div>
-                  </div>
-                ))
+                  );
+                })
               )}
 
               {/* Total Row */}
@@ -415,8 +469,23 @@ export const SimpleTimeGrid = ({
         isOpen={showBulkDialog}
         onClose={() => setShowBulkDialog(false)}
         onSubmit={async (data) => {
-          await onCreateTimeEntry?.(data);
-          setShowBulkDialog(false);
+          try {
+            await onCreateTimeEntry?.({
+              dateRange: { from: new Date(data.date), to: new Date(data.date) },
+              useDuration: true,
+              duration: (() => {
+                const s = typeof data.duration === 'number' ? data.duration : 0;
+                const h = Math.floor(s / 3600);
+                const m = Math.round((s % 3600) / 60);
+                return `${h}:${m.toString().padStart(2, '0')}`;
+              })(),
+              text: data.text || 'Bulk entry',
+              allowable_bill: true,
+              project_id: data.project_id,
+              pr_package_id: data.pr_package_id ? String(data.pr_package_id) : undefined
+            });
+            setShowBulkDialog(false);
+          } catch {}
         }}
         isSubmitting={isLoading}
         contacts={[]}
