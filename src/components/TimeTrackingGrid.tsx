@@ -1,15 +1,19 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Calendar, ChevronLeft, ChevronRight, Clock, Plus, MoreHorizontal, Target, TrendingUp, Users } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Calendar, ChevronLeft, ChevronRight, Clock, Plus, MoreHorizontal, Target, TrendingUp, Users, Save, Edit3, Trash2, Timer } from "lucide-react";
 import { format, startOfWeek, endOfWeek, eachDayOfInterval, addWeeks, subWeeks, addMonths, subMonths, startOfMonth, endOfMonth, isSameDay, addDays } from "date-fns";
 import { cn } from "@/lib/utils";
 import { TimeEntry } from "./TimeTrackingList";
+import { useToast } from "@/hooks/use-toast";
 
 interface TimeTrackingGridProps {
   timeEntries: TimeEntry[];
@@ -33,6 +37,12 @@ export const TimeTrackingGrid = ({
   const [selectedEmployee, setSelectedEmployee] = useState('all');
   const [selectedCustomer, setSelectedCustomer] = useState('all');
   const [selectedProject, setSelectedProject] = useState('all');
+  const [timeInputs, setTimeInputs] = useState<Record<string, string>>({});
+  const [editingCell, setEditingCell] = useState<string | null>(null);
+  const [showTimeDialog, setShowTimeDialog] = useState(false);
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+  const [selectedProjectForDialog, setSelectedProjectForDialog] = useState<any>(null);
+  const { toast } = useToast();
 
   // Calculate date ranges
   const weekStart = startOfWeek(currentDate, { weekStartsOn: 1 });
@@ -84,6 +94,105 @@ export const TimeTrackingGrid = ({
     return `${hours}:${minutes.toString().padStart(2, '0')}`;
   };
 
+  // Handle time input changes
+  const handleTimeInputChange = (projectId: number, date: Date, value: string) => {
+    const key = `${projectId}-${format(date, 'yyyy-MM-dd')}`;
+    setTimeInputs(prev => ({
+      ...prev,
+      [key]: value
+    }));
+  };
+
+  // Convert time string to seconds
+  const timeStringToSeconds = (timeStr: string): number => {
+    if (!timeStr || timeStr === '0:00') return 0;
+    const parts = timeStr.split(':');
+    const hours = parseInt(parts[0] || '0');
+    const minutes = parseInt(parts[1] || '0');
+    return (hours * 3600) + (minutes * 60);
+  };
+
+  // Validate time format
+  const isValidTimeFormat = (timeStr: string): boolean => {
+    if (!timeStr) return true;
+    const timeRegex = /^(\d{1,2}):(\d{2})$/;
+    const match = timeStr.match(timeRegex);
+    if (!match) return false;
+    const hours = parseInt(match[1]);
+    const minutes = parseInt(match[2]);
+    return hours >= 0 && hours <= 23 && minutes >= 0 && minutes <= 59;
+  };
+
+  // Save time entry
+  const saveTimeEntry = async (projectId: number, date: Date, timeValue: string) => {
+    if (!timeValue || timeValue === '0:00') return;
+    
+    if (!isValidTimeFormat(timeValue)) {
+      toast({
+        title: "Invalid time format",
+        description: "Please use format HH:MM (e.g., 2:30 for 2 hours 30 minutes)",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    const duration = timeStringToSeconds(timeValue);
+    const project = projects.find(p => p.id === projectId);
+    
+    try {
+      await onCreateTimeEntry?.({
+        project_id: projectId,
+        date: format(date, 'yyyy-MM-dd'),
+        duration: duration,
+        text: `Time tracked for ${project?.name || 'project'}`,
+        type: 'work'
+      });
+      
+      toast({
+        title: "Time entry saved",
+        description: `${timeValue} logged for ${project?.name || 'project'}`
+      });
+      
+      // Clear the input
+      const key = `${projectId}-${format(date, 'yyyy-MM-dd')}`;
+      setTimeInputs(prev => {
+        const newInputs = { ...prev };
+        delete newInputs[key];
+        return newInputs;
+      });
+      
+    } catch (error) {
+      toast({
+        title: "Failed to save time entry",
+        description: "Please try again",
+        variant: "destructive"
+      });
+    }
+  };
+
+  // Handle keyboard shortcuts
+  const handleKeyDown = (e: React.KeyboardEvent, projectId: number, date: Date, value: string) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      saveTimeEntry(projectId, date, value);
+    } else if (e.key === 'Escape') {
+      const key = `${projectId}-${format(date, 'yyyy-MM-dd')}`;
+      setTimeInputs(prev => {
+        const newInputs = { ...prev };
+        delete newInputs[key];
+        return newInputs;
+      });
+      setEditingCell(null);
+    }
+  };
+
+  // Open quick time dialog
+  const openTimeDialog = (date: Date, project: any) => {
+    setSelectedDate(date);
+    setSelectedProjectForDialog(project);
+    setShowTimeDialog(true);
+  };
+
   // Mock data for demonstration
   const targetHours = 40;
   const totalWorkedHours = getTotalHours();
@@ -97,12 +206,16 @@ export const TimeTrackingGrid = ({
           <h1 className="text-3xl font-bold text-title">Time Tracking</h1>
           <p className="text-muted-foreground">Manage your work hours and track productivity</p>
         </div>
-        <div className="flex items-center gap-2">
-          <Button className="gap-2">
-            <Plus className="h-4 w-4" />
-            Track Time
-          </Button>
-        </div>
+          <div className="flex items-center gap-2">
+            <Button className="gap-2 corporate-button" onClick={() => setShowTimeDialog(true)}>
+              <Timer className="h-4 w-4" />
+              Quick Track
+            </Button>
+            <Button variant="outline" className="gap-2">
+              <Plus className="h-4 w-4" />
+              Add Entry
+            </Button>
+          </div>
       </div>
 
       {/* Stats Cards */}
@@ -322,20 +435,51 @@ export const TimeTrackingGrid = ({
 
                     {/* Task Rows */}
                     <div className="ml-8 border-l-2 border-muted">
-                      <div className="grid grid-cols-8 hover:bg-muted/10 transition-colors">
+                      <div className="grid grid-cols-8 hover:bg-muted/10 transition-[var(--transition-smooth)]">
                         <div className="p-4 pl-6">
-                          <div className="text-sm text-muted-foreground">Support</div>
+                          <div className="text-sm text-muted-foreground">General Work</div>
                         </div>
-                        {dateRange.slice(0, 7).map((date) => (
-                          <div key={date.toISOString()} className="p-2">
-                            <Input
-                              type="text"
-                              placeholder="0:00"
-                              className="h-8 text-center text-sm"
-                              onFocus={(e) => e.target.select()}
-                            />
-                          </div>
-                        ))}
+                        {dateRange.slice(0, 7).map((date) => {
+                          const key = `${project.id}-${format(date, 'yyyy-MM-dd')}`;
+                          const inputValue = timeInputs[key] || '';
+                          const isEditing = editingCell === key;
+                          
+                          return (
+                            <div key={date.toISOString()} className="p-2">
+                              <TooltipProvider>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Input
+                                      type="text"
+                                      placeholder="0:00"
+                                      value={inputValue}
+                                      onChange={(e) => handleTimeInputChange(project.id, date, e.target.value)}
+                                      onFocus={(e) => {
+                                        e.target.select();
+                                        setEditingCell(key);
+                                      }}
+                                      onBlur={() => {
+                                        if (inputValue && inputValue !== '0:00') {
+                                          saveTimeEntry(project.id, date, inputValue);
+                                        }
+                                        setEditingCell(null);
+                                      }}
+                                      onKeyDown={(e) => handleKeyDown(e, project.id, date, inputValue)}
+                                      className={cn(
+                                        "h-8 text-center text-sm transition-[var(--transition-smooth)]",
+                                        isEditing && "ring-2 ring-primary border-primary",
+                                        inputValue && "bg-primary-subtle/30 border-primary/30"
+                                      )}
+                                    />
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    <p>Enter time (e.g., 2:30) • Enter to save • Esc to cancel</p>
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                            </div>
+                          );
+                        })}
                       </div>
                     </div>
                   </div>
@@ -365,6 +509,92 @@ export const TimeTrackingGrid = ({
           </div>
         </CardContent>
       </Card>
+
+      {/* Quick Time Entry Dialog */}
+      <Dialog open={showTimeDialog} onOpenChange={setShowTimeDialog}>
+        <DialogContent className="corporate-card max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Timer className="h-5 w-5 text-primary" />
+              Quick Time Entry
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Project</label>
+              <Select 
+                value={selectedProjectForDialog?.id?.toString() || ''} 
+                onValueChange={(value) => {
+                  const project = projects.find(p => p.id.toString() === value);
+                  setSelectedProjectForDialog(project);
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a project" />
+                </SelectTrigger>
+                <SelectContent>
+                  {projects.map((project) => (
+                    <SelectItem key={project.id} value={project.id.toString()}>
+                      {project.name} (#{project.nr})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Date</label>
+              <Input
+                type="date"
+                value={selectedDate ? format(selectedDate, 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd')}
+                onChange={(e) => setSelectedDate(new Date(e.target.value))}
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Time (HH:MM)</label>
+              <Input
+                type="text"
+                placeholder="e.g., 2:30"
+                className="text-center"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && selectedProjectForDialog && selectedDate) {
+                    const input = e.target as HTMLInputElement;
+                    saveTimeEntry(selectedProjectForDialog.id, selectedDate, input.value);
+                    setShowTimeDialog(false);
+                  }
+                }}
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Description (optional)</label>
+              <Textarea
+                placeholder="What did you work on?"
+                className="resize-none"
+                rows={2}
+              />
+            </div>
+            
+            <div className="flex justify-end gap-2 pt-4">
+              <Button variant="outline" onClick={() => setShowTimeDialog(false)}>
+                Cancel
+              </Button>
+              <Button 
+                className="corporate-button gap-2"
+                onClick={() => {
+                  // This would be handled by the onKeyDown above in real usage
+                  setShowTimeDialog(false);
+                }}
+              >
+                <Save className="h-4 w-4" />
+                Save Time
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
