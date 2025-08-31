@@ -262,6 +262,7 @@ const Index = () => {
                 onCreateTimeEntry={createTimeEntry}
                 onUpdateTimeEntry={updateTimeEntry}
                 onDeleteTimeEntry={deleteTimeEntry}
+                onDateRangeChange={(range) => fetchTimeEntries(range)}
                 isLoading={isLoadingTimeEntries}
               />
             ) : (

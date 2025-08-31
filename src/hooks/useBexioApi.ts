@@ -1,6 +1,7 @@
 import { useState, useCallback } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { DateRange } from "react-day-picker";
+import { format } from "date-fns";
 
 interface Contact {
   id: number;
@@ -366,7 +367,7 @@ export const useBexioApi = () => {
     }
   }, [credentials, ensureValidToken, toast]);
 
-  const fetchTimeEntries = useCallback(async () => {
+  const fetchTimeEntries = useCallback(async (dateRange?: { from: Date; to: Date }) => {
     if (!credentials) {
       toast({
         title: "Not connected",
@@ -381,11 +382,19 @@ export const useBexioApi = () => {
 
     setIsLoadingTimeEntries(true);
     try {
+      // Build endpoint with optional date filtering
+      let endpoint = '/timesheet';
+      if (dateRange) {
+        const fromDate = format(dateRange.from, 'yyyy-MM-dd');
+        const toDate = format(dateRange.to, 'yyyy-MM-dd');
+        endpoint += `?date_from=${fromDate}&date_to=${toDate}`;
+      }
+
       const response = await fetch(`https://opcjifbdwpyttaxqlqbf.supabase.co/functions/v1/bexio-proxy`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          endpoint: '/timesheet',
+          endpoint: endpoint,
           apiKey: authToken,
           companyId: credentials.companyId,
         }),

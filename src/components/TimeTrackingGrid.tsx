@@ -31,6 +31,7 @@ interface TimeTrackingGridProps {
   onCreateTimeEntry?: (data: any) => Promise<void>;
   onUpdateTimeEntry?: (id: number, data: any) => Promise<void>;
   onDeleteTimeEntry?: (id: number) => Promise<void>;
+  onDateRangeChange?: (dateRange: { from: Date; to: Date }) => void;
   isLoading: boolean;
 }
 
@@ -42,6 +43,7 @@ export const TimeTrackingGrid = ({
   onCreateTimeEntry,
   onUpdateTimeEntry,
   onDeleteTimeEntry,
+  onDateRangeChange,
   isLoading 
 }: TimeTrackingGridProps) => {
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -68,20 +70,34 @@ export const TimeTrackingGrid = ({
 
   // Navigation functions
   const navigatePrevious = () => {
+    let newDate;
     if (viewType === 'week') {
-      setCurrentDate(subWeeks(currentDate, 1));
+      newDate = subWeeks(currentDate, 1);
     } else {
-      setCurrentDate(subMonths(currentDate, 1));
+      newDate = subMonths(currentDate, 1);
     }
+    setCurrentDate(newDate);
   };
 
   const navigateNext = () => {
+    let newDate;
     if (viewType === 'week') {
-      setCurrentDate(addWeeks(currentDate, 1));
+      newDate = addWeeks(currentDate, 1);
     } else {
-      setCurrentDate(addMonths(currentDate, 1));
+      newDate = addMonths(currentDate, 1);
     }
+    setCurrentDate(newDate);
   };
+
+  // Effect to fetch data when date range changes
+  useEffect(() => {
+    if (onDateRangeChange) {
+      const range = viewType === 'week' 
+        ? { from: weekStart, to: weekEnd }
+        : { from: monthStart, to: monthEnd };
+      onDateRangeChange(range);
+    }
+  }, [currentDate, viewType, weekStart, weekEnd, monthStart, monthEnd, onDateRangeChange]);
 
   // Get entries for a specific date
   const getEntriesForDate = (date: Date) => {
@@ -89,11 +105,13 @@ export const TimeTrackingGrid = ({
     return timeEntries.filter(entry => entry.date === dateString);
   };
 
-  // Calculate total hours for date range
+  // Calculate total hours for current date range only
   const getTotalHours = () => {
-    return timeEntries.reduce((total, entry) => {
-      return total + durationToHours(entry.duration);
-    }, 0);
+    const currentRangeDates = dateRange.slice(0, 7).map(d => format(d, 'yyyy-MM-dd'));
+    return timeEntries.filter(entry => currentRangeDates.includes(entry.date))
+      .reduce((total, entry) => {
+        return total + durationToHours(entry.duration);
+      }, 0);
   };
 
   const formatDuration = (seconds: number | string) => {
@@ -121,16 +139,17 @@ export const TimeTrackingGrid = ({
     return (hours * 3600) + (minutes * 60);
   };
 
-  // Convert duration to hours
+  // Convert duration to hours - fixed to handle Bexio "H:MM" format properly
   const durationToHours = (duration: string | number): number => {
     if (typeof duration === 'string') {
-      // Handle formats like "2:30" or "2.5"
+      // Handle formats like "8:00", "2:30" from Bexio API
       if (duration.includes(':')) {
         const parts = duration.split(':');
         const hours = parseInt(parts[0] || '0');
         const minutes = parseInt(parts[1] || '0');
         return hours + (minutes / 60);
       } else {
+        // Handle decimal format like "2.5"
         return parseFloat(duration) || 0;
       }
     } else {
@@ -220,26 +239,20 @@ export const TimeTrackingGrid = ({
     setShowBulkDialog(true);
   };
 
-  // Filter projects that have time entries or show all projects
+  // Filter projects that have time entries in current date range - only show projects with logged hours
   const getProjectsWithEntries = () => {
     const projectsWithTime = new Set<number>();
+    const currentRangeDates = dateRange.slice(0, 7).map(d => format(d, 'yyyy-MM-dd'));
     
-    // Check all time entries, not just current date range
+    // Check only entries in current date range
     timeEntries.forEach(entry => {
-      if (entry.project_id) {
+      if (entry.project_id && currentRangeDates.includes(entry.date)) {
         projectsWithTime.add(entry.project_id);
       }
     });
 
-    // Show all projects that have time entries, plus any projects without entries
-    // This ensures projects with logged hours are always visible
-    return projects.filter(project => {
-      if (projectsWithTime.has(project.id)) {
-        return true; // Always show projects with logged hours
-      }
-      // For projects without entries, only show a limited number
-      return projects.indexOf(project) < 5;
-    });
+    // Only show projects that have time entries in current date range
+    return projects.filter(project => projectsWithTime.has(project.id));
   };
 
   // Delete time entry

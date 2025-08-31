@@ -83,7 +83,7 @@ export const BulkTimeEntryDialog = ({
     if (selectedProject) {
       setFormData(prev => ({
         ...prev,
-        project_id: selectedProject.id.toString()
+        project_id: selectedProject.id?.toString() || "none"
       }));
     }
   }, [selectedDate, selectedProject]);
