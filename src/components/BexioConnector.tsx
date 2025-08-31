@@ -66,67 +66,9 @@ export const BexioConnector = ({ onConnect, onOAuthConnect, isConnected }: Bexio
   const handleOAuthConnect = async () => {
     setIsOAuthLoading(true);
     try {
-      // Generate a random state for security
-      const state = Math.random().toString(36).substring(2, 15);
+      // Direct redirect to Supabase function login endpoint
+      const authUrl = "https://opcjifbdwpyttaxqlqbf.supabase.co/functions/v1/bexio-oauth/login";
       
-      // Generate PKCE parameters (RFC 7636)
-      const generatePKCE = () => {
-        const length = 64;
-        const charset = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~';
-        const random = new Uint8Array(length);
-        crypto.getRandomValues(random);
-        let codeVerifier = '';
-        for (let i = 0; i < length; i++) {
-          codeVerifier += charset[random[i] % charset.length];
-        }
-
-        const encoder = new TextEncoder();
-        const data = encoder.encode(codeVerifier);
-        return crypto.subtle.digest('SHA-256', data).then(hashBuffer => {
-          const hashBytes = new Uint8Array(hashBuffer);
-          let base64 = btoa(String.fromCharCode(...hashBytes));
-          const codeChallenge = base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-          return { codeVerifier, codeChallenge };
-        });
-      };
-      const { codeVerifier, codeChallenge } = await generatePKCE();
-
-      // Pack state with code_verifier and return URL for callback
-      const packedState = btoa(JSON.stringify({ 
-        s: state, 
-        cv: codeVerifier, 
-        ru: window.location.origin 
-      }));
-
-      // Determine requested scopes per user selection (OIDC base + optional API scope)
-      const baseScope = 'openid profile email offline_access';
-      let requestedScope = baseScope;
-      
-      if (extraScope === 'all_scopes') {
-        // Request specific Bexio API scopes
-        requestedScope = `${baseScope} project_edit contact_edit company_profile`;
-      } else if (extraScope !== 'none') {
-        requestedScope = `${baseScope} ${extraScope}`;
-      }
-
-      // Request auth URL from Edge Function using server-configured client and scopes
-      const { data, error } = await (await import('@/integrations/supabase/client')).supabase.functions.invoke('bexio-oauth/auth', {
-        body: {
-          state: state,
-          scope: requestedScope,
-          codeChallenge,
-          codeChallengeMethod: 'S256',
-          codeVerifier,
-          returnUrl: window.location.origin,
-        }
-      });
-
-      if (error || !data?.authUrl) {
-        throw new Error(error?.message || 'Failed to start OAuth');
-      }
-
-      const authUrl = data.authUrl as string;
-
       // Open in popup to avoid iframe issues
       const width = 520, height = 700;
       const left = window.screenX + (window.outerWidth - width) / 2;
