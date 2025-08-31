@@ -4,6 +4,8 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+  'Access-Control-Expose-Headers': 'Location, Content-Type',
 };
 
 serve(async (req) => {
@@ -27,7 +29,7 @@ serve(async (req) => {
       const maskedId = clientId ? `${clientId.slice(0, 6)}...${clientId.slice(-4)}` : 'none';
       console.log(`Client ID exists: ${!!clientId}, Client Secret exists: ${!!clientSecret}`);
       console.log(`Using Bexio client_id: ${maskedId}`);
-      console.log(`Full client_id for verification: ${clientId}`); // Temporary debug log
+      // Removed full client_id log
       
       if (!clientId || !clientSecret) {
         console.error('BEXIO_CLIENT_ID or BEXIO_CLIENT_SECRET not found in environment');
@@ -135,6 +137,14 @@ serve(async (req) => {
 
       const authUrl = `https://auth.bexio.com/realms/bexio/protocol/openid-connect/auth?${params.toString()}`;
       console.log(`Direct login redirect to: ${authUrl}`);
+
+      // Support JSON response for clients that can't follow redirects (fetch with manual redirect)
+      if (url.searchParams.get('format') === 'json') {
+        return new Response(JSON.stringify({ authUrl }), {
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }
+        });
+      }
 
       return new Response(null, {
         status: 302,

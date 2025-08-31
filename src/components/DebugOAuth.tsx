@@ -47,32 +47,26 @@ export const DebugOAuth = () => {
     setResult(null);
     
     try {
-      // Try to access the login endpoint directly
-      const loginUrl = 'https://opcjifbdwpyttaxqlqbf.supabase.co/functions/v1/bexio-oauth/login';
-      const response = await fetch(loginUrl, {
-        method: 'GET',
-        redirect: 'manual' // Don't follow redirects
-      });
+      // Request JSON authUrl to avoid opaqueredirect/CORS issues
+      const loginUrl = 'https://opcjifbdwpyttaxqlqbf.supabase.co/functions/v1/bexio-oauth/login?format=json&return_url=' + encodeURIComponent(window.location.origin);
+      const response = await fetch(loginUrl, { method: 'GET' });
       
-      console.log('Direct login test response:', response.status, response.statusText);
-      
-      if (response.status === 302) {
-        const location = response.headers.get('Location');
-        console.log('Redirect location:', location);
-        
-        setResult({
-          success: true,
-          data: { redirectUrl: location },
-          message: 'OAuth login endpoint is working and redirecting to Bexio'
-        });
-      } else {
+      if (!response.ok) {
         const text = await response.text();
         setResult({
           success: false,
           error: `Unexpected response: ${response.status} - ${text}`,
           message: 'OAuth login endpoint not working as expected'
         });
+        return;
       }
+
+      const { authUrl } = await response.json();
+      setResult({
+        success: true,
+        data: { redirectUrl: authUrl },
+        message: 'OAuth login endpoint is working and returned the Bexio authorization URL'
+      });
       
     } catch (error) {
       console.error('Direct login test failed:', error);
