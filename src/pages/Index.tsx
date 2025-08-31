@@ -175,24 +175,27 @@ const Index = () => {
       </header>
 
       {/* Main Content */}
-      <main className="container mx-auto px-4 py-8">
-        {/* Connection Status */}
-        <div className="mb-8 p-4 bg-primary-subtle/20 rounded-lg border border-primary-subtle">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-success/10">
-                <CheckCircle2 className="h-5 w-5 text-success" />
-              </div>
-              <div>
-                <h3 className="font-medium text-title">Connected to Bexio</h3>
-                <p className="text-sm text-muted-foreground">
-                  {credentials?.authType === 'oauth' ? 'OAuth Connection' : 'API Key Connection'} • 
-                  Company ID: {credentials?.companyId}
-                </p>
-              </div>
+      {/* Subtle connection status indicator */}
+      <div className="fixed top-4 right-4 z-50">
+        <div className="group relative">
+          <div className="p-2 rounded-full bg-success/10 border border-success/20 hover:bg-success/20 transition-colors">
+            <CheckCircle2 className="h-4 w-4 text-success" />
+          </div>
+          <div className="absolute right-0 top-full mt-2 w-64 p-3 bg-background border border-border rounded-lg shadow-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none group-hover:pointer-events-auto">
+            <div className="text-sm">
+              <p className="font-medium text-title mb-1">Connected to Bexio</p>
+              <p className="text-muted-foreground">
+                {credentials?.authType === 'oauth' ? 'OAuth Connection' : 'API Key Connection'}
+              </p>
+              <p className="text-muted-foreground">
+                Company ID: {credentials?.companyId}
+              </p>
             </div>
           </div>
         </div>
+      </div>
+
+      <main className="container mx-auto px-4 py-8">
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
           <TabsList className="grid w-full max-w-md grid-cols-2 mx-auto">
