@@ -36,7 +36,8 @@ serve(async (req) => {
       // Allow OIDC scopes and API scopes that are configured for the app
       const allowedScopes = [
         'openid', 'profile', 'email', 'offline_access', 'company_profile',
-        'contact_show', 'contact_edit', 'project_show', 'project_edit', 'accounting', 'monitoring_show', 'monitoring_edit'
+        'contact_show', 'contact_edit', 'project_show', 'project_edit', 'accounting', 'monitoring_show', 'monitoring_edit',
+        'timesheet_show', 'timesheet_edit'
       ];
       const requested = (requestedScope || '')
         .split(/\s+/)
