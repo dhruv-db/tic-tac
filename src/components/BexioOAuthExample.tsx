@@ -8,7 +8,7 @@ export const BexioOAuthExample = () => {
   const exampleUrl = `https://auth.bexio.com/realms/bexio/protocol/openid-connect/auth?client_id={CLIENT_ID}&redirect_uri={REDIRECT_URI}&response_type=code&scope=${encodeURIComponent(fullScope)}&state={STATE}&code_challenge={CODE_CHALLENGE}&code_challenge_method=S256`;
 
   const oidcScopes = ["openid", "profile", "email", "company_profile", "offline_access"];
-  const apiScopes = ["accounting", "contact_show", "contact_edit", "project_show", "project_edit", 'monitoring_show', 'monitoring_edit', "invoice_show", "invoice_edit", "kb_offer_show", "kb_invoice_show", "kb_credit_voucher_show", "kb_bill_show"];
+  const apiScopes = ["accounting", "contact_show", "contact_edit", "project_show", "project_edit", "monitoring_show", "monitoring_edit", "invoice_show", "invoice_edit", "kb_offer_show", "kb_invoice_show", "kb_credit_voucher_show", "kb_bill_show"];
 
   return (
     <Card className="w-full max-w-4xl mx-auto">
