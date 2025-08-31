@@ -176,7 +176,7 @@ const Index = () => {
 
       {/* Main Content */}
       {/* Subtle connection status indicator */}
-      <div className="fixed top-4 right-4 z-50">
+      <div className="fixed bottom-4 right-4 z-50">
         <div className="group relative">
           <div className="p-2 rounded-full bg-success/10 border border-success/20 hover:bg-success/20 transition-colors">
             <CheckCircle2 className="h-4 w-4 text-success" />
