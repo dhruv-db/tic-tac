@@ -51,6 +51,7 @@ export const BulkTimeEntryDialog = ({
     customer_id: "all",
     contact_id: "none",
     project_id: selectedProject?.id?.toString() || "none",
+    pr_package_id: "none",
     activity_id: "none",
     status_id: "none",
     duration: "1:00",
@@ -213,6 +214,7 @@ export const BulkTimeEntryDialog = ({
       for (const entry of entries) {
         await onSubmit({
           project_id: toOptionalId(formData.project_id),
+          pr_package_id: formData.pr_package_id !== "none" ? formData.pr_package_id : undefined,
           date: format(entry.dateRange.from, 'yyyy-MM-dd'),
           duration: parseDuration(formData.duration),
           text: formData.description,
@@ -314,7 +316,7 @@ export const BulkTimeEntryDialog = ({
               {/* Project */}
               <div className="space-y-2">
                 <Label>Project</Label>
-                <Select value={formData.project_id} onValueChange={(value) => setFormData(prev => ({ ...prev, project_id: value }))}>
+                <Select value={formData.project_id} onValueChange={(value) => setFormData(prev => ({ ...prev, project_id: value, pr_package_id: "none" }))}>
                   <SelectTrigger>
                     <SelectValue placeholder="Select" />
                   </SelectTrigger>
@@ -325,6 +327,30 @@ export const BulkTimeEntryDialog = ({
                         {project.name} (#{project.nr})
                       </SelectItem>
                     ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Work Package */}
+              <div className="space-y-2">
+                <Label>Work Package (Optional)</Label>
+                <Select 
+                  value={formData.pr_package_id} 
+                  onValueChange={(value) => setFormData(prev => ({ ...prev, pr_package_id: value }))}
+                  disabled={formData.project_id === "none"}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select work package" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-popover z-50">
+                    <SelectItem value="none">No work package</SelectItem>
+                    {workPackages
+                      .filter(wp => !formData.project_id || formData.project_id === "none" || wp.pr_project_id?.toString() === formData.project_id)
+                      .map((wp) => (
+                        <SelectItem key={wp.id} value={wp.id}>
+                          {wp.name} ({wp.id})
+                        </SelectItem>
+                      ))}
                   </SelectContent>
                 </Select>
               </div>

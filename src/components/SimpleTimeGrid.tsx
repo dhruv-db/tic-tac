@@ -105,9 +105,26 @@ export const SimpleTimeGrid = ({
     return projectsWithEntries.length > 0 ? projectsWithEntries : projects.slice(0, 5);
   };
 
-  // Get active work packages (line items) for a project within the current week
+  // Get ALL work packages that appear for a project (with or without hours)
+  const getAllWorkPackagesForProject = (projectId: number) => {
+    const pkgSet = new Set<string>();
+    // Get packages from existing entries
+    timeEntries.forEach((entry: any) => {
+      const projMatch = (entry.pr_project_id ?? entry.project_id) === projectId;
+      if (projMatch && entry.pr_package_id != null) {
+        pkgSet.add(String(entry.pr_package_id));
+      }
+    });
+    // Always include a default work package option for new entries
+    if (pkgSet.size === 0) {
+      pkgSet.add("1"); // Default work package
+    }
+    return Array.from(pkgSet).map(id => ({ id }));
+  };
+
+  // Get active work packages (with hours > 0) for display sorting
   const getActiveWorkPackagesForProject = (projectId: number) => {
-    const pkgMap = new Map<string, number>(); // id -> weekly hours
+    const pkgMap = new Map<string, number>(); 
     weekDays.forEach((date) => {
       const dayEntries = timeEntries.filter((entry: any) => {
         const entryDate = entry.date?.includes('T') ? entry.date.split('T')[0] : entry.date;
@@ -120,7 +137,6 @@ export const SimpleTimeGrid = ({
         pkgMap.set(key, (pkgMap.get(key) || 0) + hrs);
       });
     });
-    // Only include packages that have > 0 hours in the week
     return Array.from(pkgMap.entries())
       .filter(([_, hours]) => hours > 0)
       .map(([id]) => ({ id }));
@@ -323,79 +339,40 @@ export const SimpleTimeGrid = ({
                 </div>
               ) : (
                 activeProjects.map((project) => {
-                  const packageRows = getActiveWorkPackagesForProject(project.id);
+                  const allPackages = getAllWorkPackagesForProject(project.id);
+                  const activePackages = getActiveWorkPackagesForProject(project.id);
+                  
                   return (
                     <div key={project.id} className="border-b hover:bg-muted/10 transition-colors group">
-                      {/* Project Header Row */}
-                      <div className="grid grid-cols-8">
-                        <div className="p-4 flex items-center justify-between">
-                          <div>
-                            <div className="font-semibold text-primary">{project.name}</div>
-                            <div className="text-sm text-muted-foreground">#{project.nr}</div>
-                          </div>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => openDetailDialog(new Date(), project)}
-                            className="opacity-0 group-hover:opacity-100 transition-opacity"
-                          >
-                            <Edit3 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                        {weekDays.map((date) => {
-                          const aggHours = getProjectDayHours(project.id, date);
-                          return (
-                            <div key={date.toISOString()} className="p-4 text-center">
-                              {aggHours > 0 ? (
-                                <span className="font-semibold text-primary">{formatHours(aggHours)}</span>
-                              ) : (
-                                <span className="text-muted-foreground">0:00</span>
-                              )}
+                      {/* Project Header Row - only show if there are NO work packages with entries */}
+                      {activePackages.length === 0 && (
+                        <div className="grid grid-cols-8">
+                          <div className="p-4 flex items-center justify-between">
+                            <div>
+                              <div className="font-semibold text-primary">{project.name}</div>
+                              <div className="text-sm text-muted-foreground">#{project.nr}</div>
                             </div>
-                          );
-                        })}
-                      </div>
-
-                      {/* Work Package Rows */}
-                      {packageRows.map((pkg) => (
-                        <div key={`${project.id}-${pkg.id}`} className="grid grid-cols-8 pl-6 pr-2 py-1">
-                          <div className="p-3 flex items-center">
-                            <div className="font-medium">Work Package {pkg.id}</div>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => openDetailDialog(new Date(), project)}
+                              className="opacity-0 group-hover:opacity-100 transition-opacity"
+                            >
+                              <Edit3 className="h-4 w-4" />
+                            </Button>
                           </div>
                           {weekDays.map((date) => {
-                            const dayHours = getProjectDayHours(project.id, date, pkg.id);
-                            const dayEntries = getProjectDayEntries(project.id, date, pkg.id);
-                            const key = `${project.id}-${pkg.id}-${format(date, 'yyyy-MM-dd')}`;
+                            const dayHours = getProjectDayHours(project.id, date);
+                            const key = `${project.id}-p-${format(date, 'yyyy-MM-dd')}`;
                             const inputValue = timeInputs[key] || '';
 
                             return (
-                              <div key={`${date.toISOString()}-${pkg.id}`} className="p-2">
+                              <div key={date.toISOString()} className="p-2">
                                 {dayHours > 0 ? (
-                                  <div className="text-center group/cell">
-                                    <Badge variant="default" className="font-semibold cursor-pointer">
+                                  <div className="text-center">
+                                    <Badge variant="default" className="font-semibold">
                                       {formatHours(dayHours)}
                                     </Badge>
-                                    <div className="flex justify-center gap-1 mt-1 opacity-0 group-hover/cell:opacity-100 transition-opacity">
-                                      <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        onClick={() => openDetailDialog(date, project)}
-                                        className="h-6 w-6 p-0 hover:bg-primary/10"
-                                      >
-                                        <Edit3 className="h-3 w-3" />
-                                      </Button>
-                                      {dayEntries.map((entry: any) => (
-                                        <Button
-                                          key={entry.id}
-                                          variant="ghost"
-                                          size="sm"
-                                          onClick={() => onDeleteTimeEntry?.(entry.id)}
-                                          className="h-6 w-6 p-0 hover:bg-destructive/10 text-destructive"
-                                        >
-                                          <Trash2 className="h-3 w-3" />
-                                        </Button>
-                                      ))}
-                                    </div>
                                   </div>
                                 ) : (
                                   <TooltipProvider>
@@ -409,10 +386,10 @@ export const SimpleTimeGrid = ({
                                             ...prev,
                                             [key]: e.target.value
                                           }))}
-                                          onKeyDown={(e) => handleKeyPress(e, project.id, date, pkg.id)}
+                                          onKeyDown={(e) => handleKeyPress(e, project.id, date)}
                                           onBlur={() => {
                                             if (inputValue && inputValue !== '0:00') {
-                                              handleQuickEntry(project.id, date, inputValue, pkg.id);
+                                              handleQuickEntry(project.id, date, inputValue);
                                             }
                                           }}
                                           className="h-8 text-center text-sm"
@@ -428,7 +405,120 @@ export const SimpleTimeGrid = ({
                             );
                           })}
                         </div>
-                      ))}
+                      )}
+
+                      {/* Project Header - when there ARE work packages */}
+                      {activePackages.length > 0 && (
+                        <div className="grid grid-cols-8 bg-muted/20">
+                          <div className="p-4 flex items-center justify-between">
+                            <div>
+                              <div className="font-semibold text-primary">{project.name}</div>
+                              <div className="text-sm text-muted-foreground">#{project.nr}</div>
+                            </div>
+                          </div>
+                          {weekDays.map((date) => {
+                            const aggHours = getProjectDayHours(project.id, date);
+                            return (
+                              <div key={date.toISOString()} className="p-4 text-center">
+                                {aggHours > 0 ? (
+                                  <span className="font-semibold text-primary">{formatHours(aggHours)}</span>
+                                ) : (
+                                  <span className="text-muted-foreground">0:00</span>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+
+                      {/* Work Package Rows - ALWAYS show input boxes */}
+                      {allPackages.map((pkg) => {
+                        const hasHours = activePackages.some(ap => ap.id === pkg.id);
+                        return (
+                          <div key={`${project.id}-${pkg.id}`} className="grid grid-cols-8 pl-6 pr-2 py-1 bg-background/50">
+                            <div className="p-3 flex items-center">
+                              <div className="font-medium text-sm">WP {pkg.id}</div>
+                            </div>
+                            {weekDays.map((date) => {
+                              const dayHours = getProjectDayHours(project.id, date, pkg.id);
+                              const dayEntries = getProjectDayEntries(project.id, date, pkg.id);
+                              const key = `${project.id}-${pkg.id}-${format(date, 'yyyy-MM-dd')}`;
+                              const inputValue = timeInputs[key] || '';
+
+                              return (
+                                <div key={`${date.toISOString()}-${pkg.id}`} className="p-2">
+                                  <div className="relative">
+                                    {/* Always show input box */}
+                                    <TooltipProvider>
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <Input
+                                            type="text"
+                                            placeholder="0:00"
+                                            value={dayHours > 0 ? formatHours(dayHours) : inputValue}
+                                            onChange={(e) => {
+                                              if (dayHours === 0) {
+                                                setTimeInputs(prev => ({
+                                                  ...prev,
+                                                  [key]: e.target.value
+                                                }));
+                                              }
+                                            }}
+                                            onKeyDown={(e) => handleKeyPress(e, project.id, date, pkg.id)}
+                                            onBlur={() => {
+                                              if (dayHours === 0 && inputValue && inputValue !== '0:00') {
+                                                handleQuickEntry(project.id, date, inputValue, pkg.id);
+                                              }
+                                            }}
+                                            onFocus={(e) => {
+                                              if (dayHours > 0) {
+                                                e.target.select();
+                                              }
+                                            }}
+                                            className={cn(
+                                              "h-8 text-center text-sm",
+                                              dayHours > 0 && "bg-primary/10 font-semibold text-primary"
+                                            )}
+                                            readOnly={dayHours > 0}
+                                          />
+                                        </TooltipTrigger>
+                                        <TooltipContent>
+                                          <p>{dayHours > 0 ? "Existing entry - click to edit" : "Enter time (H:MM) • Enter to save • Esc to cancel"}</p>
+                                        </TooltipContent>
+                                      </Tooltip>
+                                    </TooltipProvider>
+                                    
+                                    {/* Action buttons for existing entries */}
+                                    {dayHours > 0 && (
+                                      <div className="absolute -top-1 -right-1 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <Button
+                                          variant="ghost"
+                                          size="sm"
+                                          onClick={() => openDetailDialog(date, project)}
+                                          className="h-5 w-5 p-0 hover:bg-primary/10"
+                                        >
+                                          <Edit3 className="h-3 w-3" />
+                                        </Button>
+                                        {dayEntries.map((entry: any) => (
+                                          <Button
+                                            key={entry.id}
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={() => onDeleteTimeEntry?.(entry.id)}
+                                            className="h-5 w-5 p-0 hover:bg-destructive/10 text-destructive"
+                                          >
+                                            <Trash2 className="h-3 w-3" />
+                                          </Button>
+                                        ))}
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        );
+                      })}
                     </div>
                   );
                 })
