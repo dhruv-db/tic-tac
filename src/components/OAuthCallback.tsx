@@ -82,11 +82,12 @@ export function OAuthCallback() {
           try { window.opener.postMessage(payload, '*'); } catch {}
           window.close();
         } else {
-          // Wait for state to update, then navigate back
+          // Wait longer for state to update, then navigate back
           setTimeout(() => {
             console.log('✅ Navigating to main page after OAuth success');
-            navigate('/');
-          }, 100);
+            // Force a reload to ensure clean state
+            window.location.href = '/';
+          }, 500);
         }
 
       } catch (err) {

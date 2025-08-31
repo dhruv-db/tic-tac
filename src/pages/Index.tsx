@@ -118,7 +118,17 @@ const Index = () => {
 
   const isLoading = isLoadingContacts || isLoadingProjects || isLoadingTimeEntries;
 
-  if (!isConnected) {
+  // Check localStorage as fallback during OAuth callback processing
+  const hasStoredCredentials = (() => {
+    try {
+      const stored = localStorage.getItem('bexio_credentials');
+      return stored && JSON.parse(stored);
+    } catch {
+      return false;
+    }
+  })();
+
+  if (!isConnected && !hasStoredCredentials) {
     return (
       <div className="min-h-screen overflow-hidden relative">
         {/* Curved Background Split */}
