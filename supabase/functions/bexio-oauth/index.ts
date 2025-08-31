@@ -4,8 +4,6 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-  'Access-Control-Expose-Headers': 'Location, Content-Type',
 };
 
 serve(async (req) => {
@@ -18,144 +16,8 @@ serve(async (req) => {
   const path = url.pathname;
 
   console.log(`OAuth request path: ${path}`);
-  console.log(`Available env vars: BEXIO_CLIENT_ID=${Deno.env.get('BEXIO_CLIENT_ID') ? 'set' : 'not set'}, BEXIO_CLIENT_SECRET=${Deno.env.get('BEXIO_CLIENT_SECRET') ? 'set' : 'not set'}`);
 
   try {
-    // Handle direct login redirect (GET /login or GET /)
-    if ((path.endsWith('/login') || path === '/bexio-oauth' || path === '/bexio-oauth/') && req.method === 'GET') {
-      const clientId = Deno.env.get('BEXIO_CLIENT_ID');
-      const clientSecret = Deno.env.get('BEXIO_CLIENT_SECRET');
-      
-      const maskedId = clientId ? `${clientId.slice(0, 6)}...${clientId.slice(-4)}` : 'none';
-      console.log(`Client ID exists: ${!!clientId}, Client Secret exists: ${!!clientSecret}`);
-      console.log(`Using Bexio client_id: ${maskedId}`);
-      // Removed full client_id log
-      
-      if (!clientId || !clientSecret) {
-        console.error('BEXIO_CLIENT_ID or BEXIO_CLIENT_SECRET not found in environment');
-        return new Response(JSON.stringify({ 
-          error: 'OAuth not configured', 
-          details: {
-            client_id: !!clientId,
-            client_secret: !!clientSecret,
-            message: 'Please verify your Bexio app credentials in Supabase secrets'
-          }
-        }), { 
-          status: 500,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        });
-      }
-
-      // Generate PKCE parameters
-      const generatePKCE = async () => {
-        const length = 64;
-        const charset = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~';
-        const random = new Uint8Array(length);
-        crypto.getRandomValues(random);
-        let codeVerifier = '';
-        for (let i = 0; i < length; i++) {
-          codeVerifier += charset[random[i] % charset.length];
-        }
-
-        const encoder = new TextEncoder();
-        const data = encoder.encode(codeVerifier);
-        const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-        const hashBytes = new Uint8Array(hashBuffer);
-        let base64 = btoa(String.fromCharCode(...hashBytes));
-        const codeChallenge = base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-        return { codeVerifier, codeChallenge };
-      };
-
-      const { codeVerifier, codeChallenge } = await generatePKCE();
-      const state = Math.random().toString(36).substring(2, 15);
-      const returnUrl = url.searchParams.get('return_url') || `https://${url.hostname}`;
-
-      const redirectUri = `https://${url.hostname}/functions/v1/bexio-oauth/callback`;
-      
-      // Build scopes: include necessary API scopes by default
-      const baseScopes = ['openid', 'profile', 'email', 'offline_access'];
-      const extraScopeParam = (url.searchParams.get('extra_scope') || '').trim();
-
-      // Required API scopes for basic functionality - use legacy format for better compatibility
-      const requiredApiScopes = [
-        'contact_show',
-        'monitoring_show', 
-        'project_show'
-      ];
-
-      // Allowed API scopes (new style) and legacy scopes
-      const allowedNewRead = [
-        'contacts:read',
-        'timesheets:read',
-        'projects:read',
-        'users:read',
-        'articles:read',
-        'invoices:read',
-        'orders:read',
-        'kb_invoices:read',
-      ];
-      const allowedLegacy = [
-        'contact_show',
-        'monitoring_show',
-        'project_show',
-        'kb_invoice_show',
-        // 'company_profile' // Avoid by default; include only if explicitly requested
-      ];
-
-      let apiScopes: string[] = [...requiredApiScopes]; // Start with required scopes
-      if (extraScopeParam) {
-        if (extraScopeParam === 'all_scopes') {
-          apiScopes = [...allowedNewRead];
-        } else if (allowedNewRead.includes(extraScopeParam)) {
-          apiScopes = [...requiredApiScopes, extraScopeParam];
-        } else if (allowedLegacy.includes(extraScopeParam)) {
-          apiScopes = [...requiredApiScopes, extraScopeParam];
-        }
-      }
-
-      const finalScope = [...baseScopes, ...apiScopes].join(' ');
-      console.log('Using OAuth scopes:', finalScope, 'extra_scope param:', extraScopeParam || 'none');
-
-      // Pack state with code_verifier and return URL
-      const packedState = btoa(JSON.stringify({ 
-        s: state, 
-        cv: codeVerifier, 
-        ru: returnUrl 
-      }));
-
-      const params = new URLSearchParams({
-        client_id: clientId,
-        redirect_uri: redirectUri,
-        response_type: 'code',
-        scope: finalScope,
-        state: packedState,
-        prompt: 'login consent',
-        max_age: '0',
-        code_challenge: codeChallenge,
-        code_challenge_method: 'S256'
-      });
-
-      const authUrl = `https://auth.bexio.com/realms/bexio/protocol/openid-connect/auth?${params.toString()}`;
-      console.log(`Direct login redirect to: ${authUrl}`);
-
-      // Support JSON response for clients that can't follow redirects (fetch with manual redirect)
-      if (url.searchParams.get('format') === 'json') {
-        return new Response(JSON.stringify({ authUrl }), {
-          status: 200,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }
-        });
-      }
-
-      return new Response(null, {
-        status: 302,
-        headers: {
-          ...corsHeaders,
-          Location: authUrl,
-          'Cache-Control': 'no-store'
-        }
-      });
-    }
-
     // Handle OAuth initiation
     if (path.endsWith('/auth') && req.method === 'POST') {
       const { state, scope: requestedScope, codeChallenge, codeChallengeMethod, codeVerifier, returnUrl } = await req.json();
@@ -168,23 +30,15 @@ serve(async (req) => {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
-      const maskedId = `${clientId.slice(0, 6)}...${clientId.slice(-4)}`;
-      console.log(`Using Bexio client_id (auth POST): ${maskedId}`);
 
       const redirectUri = `https://${url.hostname}/functions/v1/bexio-oauth/callback`;
       
-      // Allow OIDC base scopes plus a safe whitelist of API scopes for testing
-      const oidcBase = ['openid', 'profile', 'email', 'offline_access', 'company_profile'];
-      const allowedApi = [
-        'contact_show', 'contact_edit', 'contacts:read', 'contacts:write',
-        'monitoring_show', 'monitoring_edit', 'timesheets:read', 'timesheets:write',
-        'project_show', 'project_edit', 'projects:read', 'projects:write'
-      ];
-      const requestedList = (requestedScope || '')
+      // Only allow OIDC scopes (API scopes are configured per app in Bexio)
+      const oidcAllowed = ['openid', 'profile', 'email', 'offline_access'];
+      const requested = (requestedScope || '')
         .split(/\s+/)
-        .filter(Boolean);
-      const apiScopes = requestedList.filter((s) => allowedApi.includes(s));
-      const finalScope = [...oidcBase, ...apiScopes].join(' ');
+        .filter((s) => oidcAllowed.includes(s));
+      const finalScope = (requested.length ? requested : oidcAllowed).join(' ');
 
       // Pack state with code_verifier and return URL for redirect
       let packedState = state;
@@ -199,10 +53,6 @@ serve(async (req) => {
         scope: finalScope,
         state: packedState,
       });
-
-      // Always force the IdP to show login and consent to ensure users can re-grant scopes
-      params.set('prompt', 'login consent');
-      params.set('max_age', '0');
 
       // Add PKCE parameters if provided
       if (codeChallenge && codeChallengeMethod) {
@@ -307,29 +157,22 @@ serve(async (req) => {
           tokenParams.set('code_verifier', codeVerifierFromState);
         }
 
-        console.log(`Token exchange request to Bexio with client_id: ${clientId.slice(0, 6)}...${clientId.slice(-4)}`);
-        console.log(`Token exchange params: ${tokenParams.toString().replace(/client_secret=[^&]+/, 'client_secret=***').replace(/code=[^&]+/, 'code=***')}`);
-        
         const tokenResponse = await fetch('https://auth.bexio.com/realms/bexio/protocol/openid-connect/token', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/x-www-form-urlencoded',
-            'Accept': 'application/json',
           },
           body: tokenParams,
         });
 
-        const responseText = await tokenResponse.text();
-        console.log(`Token exchange response status: ${tokenResponse.status}`);
-        
         if (!tokenResponse.ok) {
-          console.error(`Token exchange failed: ${tokenResponse.status} ${responseText}`);
-          throw new Error(`Token exchange failed: ${tokenResponse.status} - ${responseText}`);
+          const errorText = await tokenResponse.text();
+          console.error(`Token exchange failed: ${tokenResponse.status} ${errorText}`);
+          throw new Error(`Token exchange failed: ${tokenResponse.status}`);
         }
 
-        const tokenData = JSON.parse(responseText);
+        const tokenData = await tokenResponse.json();
         console.log('Successfully obtained access token');
-        console.log(`Token data keys: ${Object.keys(tokenData).join(', ')}`);
         
         // Extract user info from tokens
         let companyId = '';
@@ -444,25 +287,6 @@ serve(async (req) => {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
-    }
-
-    // Handle test endpoint (POST to base path)
-    if ((path === '/bexio-oauth' || path === '/bexio-oauth/') && req.method === 'POST') {
-      const body = await req.json().catch(() => ({}));
-      console.log('Test endpoint called with body:', body);
-      
-      return new Response(JSON.stringify({ 
-        status: 'success', 
-        message: 'Bexio OAuth edge function is working!',
-        timestamp: new Date().toISOString(),
-        body: body,
-        env_check: {
-          client_id: Deno.env.get('BEXIO_CLIENT_ID') ? 'configured' : 'missing',
-          client_secret: Deno.env.get('BEXIO_CLIENT_SECRET') ? 'configured' : 'missing'
-        }
-      }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
     }
 
     return new Response(JSON.stringify({ error: 'Not found' }), {

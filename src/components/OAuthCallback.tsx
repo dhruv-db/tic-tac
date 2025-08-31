@@ -11,7 +11,7 @@ export function OAuthCallback() {
   const [error, setError] = useState<string>('');
 
   useEffect(() => {
-  const handleCallback = async () => {
+    const handleCallback = async () => {
       const params = new URLSearchParams(location.search);
       const code = params.get('code');
       const state = params.get('state');
@@ -51,22 +51,12 @@ export function OAuthCallback() {
         setStatus('success');
         
         // Persist credentials in app state
-        await connectWithOAuth(
+        connectWithOAuth(
           data.accessToken,
           data.refreshToken,
           data.companyId,
           data.userEmail
         );
-
-        // Also persist credentials in localStorage as a fallback for opener listeners
-        try {
-          localStorage.setItem('bexio_oauth_success', JSON.stringify({
-            accessToken: data.accessToken,
-            refreshToken: data.refreshToken,
-            companyId: data.companyId,
-            userEmail: data.userEmail
-          }));
-        } catch {}
 
         // If opened in a popup, notify and close
         if (window.opener && !window.opener.closed) {
@@ -82,12 +72,8 @@ export function OAuthCallback() {
           try { window.opener.postMessage(payload, '*'); } catch {}
           window.close();
         } else {
-          // Wait longer for state to update, then navigate back
-          setTimeout(() => {
-            console.log('✅ Navigating to main page after OAuth success');
-            // Force a reload to ensure clean state
-            window.location.href = '/';
-          }, 500);
+          // Navigate back after a brief delay
+          setTimeout(() => navigate('/'), 600);
         }
 
       } catch (err) {
@@ -111,7 +97,7 @@ export function OAuthCallback() {
       case 'success':
         return {
           title: 'Authentication Successful!',
-          message: 'You have been successfully authenticated with Bexio. You can close this window.',
+          message: 'You have been successfully authenticated with Bexio.',
           className: 'text-green-600'
         } as const;
       case 'error':

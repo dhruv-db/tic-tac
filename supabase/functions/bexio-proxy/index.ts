@@ -36,24 +36,18 @@ serve(async (req) => {
       : (endpoint.startsWith('/2.0')
           ? `https://api.bexio.com${endpoint}`
           : `https://api.bexio.com/2.0${endpoint}`);
-    // Sanitize token in case it already includes a Bearer prefix
-    const cleanToken = token.replace(/^Bearer\s+/i, '').trim();
-
-    // Base request options (avoid sending Content-Type on GET)
     const requestOptions: RequestInit = {
       method: method,
       headers: {
-        'Authorization': `Bearer ${cleanToken}`,
+        'Authorization': `Bearer ${token}`,
         'Accept': 'application/json',
         'Accept-Language': 'en',
+        'Content-Type': 'application/json',
         'User-Agent': 'Lovable-Bexio-Proxy/1.0',
       },
     };
 
-    // Attach body and Content-Type only when needed
-    const hasBody = (method === 'POST' || method === 'PUT' || method === 'PATCH' || (method === 'DELETE' && !!requestData));
-    if (hasBody && requestData) {
-      (requestOptions.headers as Record<string, string>)['Content-Type'] = 'application/json';
+    if ((method === 'POST' || method === 'PUT' || method === 'DELETE') && requestData) {
       requestOptions.body = JSON.stringify(requestData);
     } else if (method === 'DELETE') {
       // DELETE requests typically don't need a body, but we support it for flexibility

@@ -9,39 +9,39 @@ All colors MUST be HSL for consistency. */
 
 @layer base {
   :root {
-    /* TikTak Color Palette */
+    /* Databridge Corporate Color Palette */
     --background: 0 0% 100%;
-    --foreground: 174 44% 15%;
+    --foreground: 221 39% 11%;
     
     /* Card backgrounds */
     --card: 0 0% 100%;
-    --card-foreground: 174 44% 15%;
+    --card-foreground: 221 39% 11%;
     
     /* Popover backgrounds */
     --popover: 0 0% 100%;
-    --popover-foreground: 174 44% 15%;
+    --popover-foreground: 221 39% 11%;
     
-    /* TikTak Primary - Teal/Green */
-    --primary: 174 44% 51%;
+    /* Databridge Primary - Navy Blue */
+    --primary: 221 39% 11%;
     --primary-foreground: 0 0% 100%;
-    --primary-subtle: 174 44% 95%;
-    --primary-glow: 174 44% 35%;
+    --primary-subtle: 221 39% 95%;
+    --primary-glow: 221 39% 25%;
     
     /* Major Titles Color */
-    --title: 174 44% 15%;
+    --title: 210 77% 17%;
     --title-foreground: 0 0% 100%;
     
-    /* TikTak Accent - Bright Green */
-    --accent: 142 71% 45%;
-    --accent-foreground: 0 0% 100%;
+    /* Databridge Accent - Golden Yellow */
+    --accent: 45 93% 58%;
+    --accent-foreground: 221 39% 11%;
     
-    /* Secondary - Light Teal */
-    --secondary: 174 44% 88%;
-    --secondary-foreground: 174 44% 15%;
+    /* Secondary - Light Blue */
+    --secondary: 215 28% 88%;
+    --secondary-foreground: 221 39% 11%;
     
     /* Muted colors for subtle elements */
-    --muted: 174 44% 96%;
-    --muted-foreground: 174 25% 35%;
+    --muted: 215 28% 96%;
+    --muted-foreground: 215 16% 46%;
     
     /* Destructive colors */
     --destructive: 0 84% 60%;
@@ -60,22 +60,22 @@ All colors MUST be HSL for consistency. */
     --info-foreground: 0 0% 100%;
     
     /* Border and input colors */
-    --border: 174 44% 91%;
-    --input: 174 44% 91%;
-    --ring: 142 71% 45%;
+    --border: 215 28% 91%;
+    --input: 215 28% 91%;
+    --ring: 45 93% 58%;
     
-    /* TikTak gradients */
-    --gradient-primary: linear-gradient(135deg, hsl(174 44% 35%), hsl(174 44% 51%));
-    --gradient-secondary: linear-gradient(135deg, hsl(174 44% 95%), hsl(142 71% 45%));
-    --gradient-subtle: linear-gradient(180deg, hsl(0 0% 100%), hsl(174 44% 98%));
-    --gradient-corporate: linear-gradient(135deg, hsl(174 44% 25%), hsl(142 71% 45%));
-    --gradient-hero: linear-gradient(135deg, hsl(174 44% 25%) 0%, hsl(174 44% 35%) 50%, hsl(142 71% 45%) 100%);
+    /* Databridge gradients */
+    --gradient-primary: linear-gradient(135deg, hsl(221 39% 11%), hsl(221 39% 25%));
+    --gradient-secondary: linear-gradient(135deg, hsl(215 28% 88%), hsl(199 89% 48%));
+    --gradient-subtle: linear-gradient(180deg, hsl(0 0% 100%), hsl(215 28% 98%));
+    --gradient-corporate: linear-gradient(135deg, hsl(221 39% 11%), hsl(45 93% 58%));
+    --gradient-hero: linear-gradient(135deg, hsl(221 39% 11%) 0%, hsl(221 39% 25%) 50%, hsl(199 89% 48%) 100%);
     
-    /* TikTak shadows */
-    --shadow-elegant: 0 10px 30px -10px hsl(174 44% 25% / 0.15);
-    --shadow-corporate: 0 4px 20px -4px hsl(174 44% 25% / 0.1);
-    --shadow-subtle: 0 2px 8px -2px hsl(174 44% 25% / 0.08);
-    --shadow-glow: 0 0 40px hsl(142 71% 45% / 0.3);
+    /* Databridge shadows */
+    --shadow-elegant: 0 10px 30px -10px hsl(221 39% 11% / 0.15);
+    --shadow-corporate: 0 4px 20px -4px hsl(221 39% 11% / 0.1);
+    --shadow-subtle: 0 2px 8px -2px hsl(221 39% 11% / 0.08);
+    --shadow-glow: 0 0 40px hsl(45 93% 58% / 0.3);
     
     /* Transitions */
     --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -95,66 +95,65 @@ All colors MUST be HSL for consistency. */
   }
 
   .dark {
-    /* Dark mode TikTak colors */
-    --background: 174 44% 8%;
-    --foreground: 0 0% 95%;
+    /* Dark mode corporate colors */
+    --background: 220 14% 6%;
+    --foreground: 210 40% 98%;
     
-    --card: 174 44% 10%;
-    --card-foreground: 0 0% 95%;
+    --card: 220 14% 8%;
+    --card-foreground: 210 40% 98%;
     
-    --popover: 174 44% 10%;
-    --popover-foreground: 0 0% 95%;
+    --popover: 220 14% 8%;
+    --popover-foreground: 210 40% 98%;
     
-    --primary: 174 44% 51%;
-    --primary-foreground: 0 0% 100%;
-    --primary-subtle: 174 44% 15%;
-    --primary-glow: 174 44% 65%;
+    --primary: 221 83% 65%;
+    --primary-foreground: 220 14% 6%;
+    --primary-subtle: 221 83% 15%;
+    --primary-glow: 221 83% 75%;
     
     /* Major Titles Color - same in dark mode */
-    --title: 174 44% 65%;
+    --title: 210 77% 17%;
     --title-foreground: 0 0% 100%;
     
-    --secondary: 174 25% 25%;
-    --secondary-foreground: 0 0% 95%;
+    --secondary: 215 16% 25%;
+    --secondary-foreground: 210 40% 98%;
     
-    --muted: 174 25% 15%;
-    --muted-foreground: 174 15% 70%;
+    --muted: 215 16% 12%;
+    --muted-foreground: 217 10% 64%;
     
-    --accent: 142 71% 45%;
-    --accent-foreground: 0 0% 100%;
+    --accent: 215 16% 12%;
+    --accent-foreground: 210 40% 98%;
     
     --destructive: 0 84% 60%;
-    --destructive-foreground: 0 0% 100%;
+    --destructive-foreground: 210 40% 98%;
     
     --success: 142 71% 45%;
-    --success-foreground: 0 0% 100%;
+    --success-foreground: 220 14% 6%;
     
     --warning: 38 92% 50%;
-    --warning-foreground: 174 44% 8%;
+    --warning-foreground: 220 14% 6%;
     
     --info: 199 89% 48%;
-    --info-foreground: 0 0% 100%;
+    --info-foreground: 220 14% 6%;
     
-    --border: 174 25% 25%;
-    --input: 174 25% 25%;
-    --ring: 142 71% 45%;
+    --border: 215 16% 18%;
+    --input: 215 16% 18%;
+    --ring: 221 83% 65%;
     
     /* Dark mode gradients */
-    --gradient-primary: linear-gradient(135deg, hsl(174 44% 35%), hsl(174 44% 51%));
-    --gradient-secondary: linear-gradient(135deg, hsl(174 25% 25%), hsl(142 71% 45%));
-    --gradient-subtle: linear-gradient(180deg, hsl(174 44% 8%), hsl(174 44% 10%));
-    --gradient-corporate: linear-gradient(135deg, hsl(174 44% 35%), hsl(142 71% 45%));
-    --gradient-hero: linear-gradient(135deg, hsl(174 44% 25%) 0%, hsl(174 44% 35%) 50%, hsl(142 71% 45%) 100%);
+    --gradient-primary: linear-gradient(135deg, hsl(221 83% 65%), hsl(221 83% 55%));
+    --gradient-secondary: linear-gradient(135deg, hsl(215 16% 25%), hsl(215 16% 35%));
+    --gradient-subtle: linear-gradient(180deg, hsl(220 14% 6%), hsl(220 14% 8%));
+    --gradient-corporate: linear-gradient(135deg, hsl(221 83% 65%), hsl(215 16% 25%));
 
     /* Dark sidebar colors */
-    --sidebar-background: 174 44% 10%;
-    --sidebar-foreground: 0 0% 95%;
-    --sidebar-primary: 174 44% 51%;
+    --sidebar-background: 240 5.9% 10%;
+    --sidebar-foreground: 240 4.8% 95.9%;
+    --sidebar-primary: 224.3 76.3% 48%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 174 25% 15%;
-    --sidebar-accent-foreground: 0 0% 95%;
-    --sidebar-border: 174 25% 25%;
-    --sidebar-ring: 142 71% 45%;
+    --sidebar-accent: 240 3.7% 15.9%;
+    --sidebar-accent-foreground: 240 4.8% 95.9%;
+    --sidebar-border: 240 3.7% 15.9%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
   }
 }
 

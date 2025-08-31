@@ -112,47 +112,6 @@ export const useBexioApi = () => {
   const [isCreatingTimeEntry, setIsCreatingTimeEntry] = useState(false);
   const { toast } = useToast();
 
-  // Debug helpers: decode JWT to inspect scopes and audience
-  const decodeJwt = (token?: string) => {
-    try {
-      if (!token) return null;
-      const payload = token.split('.')[1];
-      const json = atob(payload.replace(/-/g, '+').replace(/_/g, '/'));
-      return JSON.parse(json);
-    } catch {
-      return null;
-    }
-  };
-  const logTokenClaims = (token?: string) => {
-    const claims: any = decodeJwt(token);
-    if (!claims) return;
-    const scopes = claims.scope || claims.scp || [];
-    const aud = claims.aud;
-    console.group('[Bexio OAuth] Token claims');
-    console.log('scopes:', scopes);
-    console.log('aud:', aud);
-    console.log('exp:', claims.exp);
-    console.log('company_id:', claims.company_id);
-    console.groupEnd();
-    
-    // Check for both legacy and new scope formats
-    const required = ['project_show','contact_show','monitoring_show'];
-    const newStyleRequired = ['projects:read', 'contacts:read', 'timesheets:read'];
-    const hasScope = (s: string) => Array.isArray(scopes) ? scopes.includes(s) : (typeof scopes === 'string' ? scopes.split(' ').includes(s) : false);
-    
-    const missingLegacy = required.filter((s) => !hasScope(s));
-    const missingNew = newStyleRequired.filter((s) => !hasScope(s));
-    
-    // Show warning only if both legacy and new style scopes are missing
-    if (missingLegacy.length === required.length && missingNew.length === newStyleRequired.length) {
-      toast({
-        title: 'Limited permissions',
-        description: `Missing required API scopes. Please reconnect via OAuth to grant API access.`,
-        variant: 'destructive',
-      });
-    }
-  };
-
   const connect = useCallback(async (apiKey: string, companyId: string) => {
     try {
       // Store credentials in localStorage
@@ -196,14 +155,8 @@ export const useBexioApi = () => {
       console.log('🎯 Setting credentials state...');
       setCredentials(creds);
       console.log('✅ Credentials set! App should now be connected. isConnected will be:', !!creds);
-      logTokenClaims(accessToken);
       
-      // Return a promise that resolves after the state is updated
-      return new Promise(resolve => {
-        setTimeout(() => {
-          resolve(void 0);
-        }, 50);
-      });
+      // No toast notification - seamless authentication
     } catch (error) {
       console.error('❌ OAuth connection error:', error);
       toast({
@@ -251,7 +204,6 @@ export const useBexioApi = () => {
             
             localStorage.setItem('bexio_credentials', JSON.stringify(updatedCreds));
             setCredentials(updatedCreds);
-            logTokenClaims(accessToken);
             
             return accessToken;
           }
@@ -289,31 +241,19 @@ export const useBexioApi = () => {
 
     setIsLoadingContacts(true);
     try {
-      const requestBody = {
-        endpoint: '/2.0/contact',
-        companyId: credentials.companyId,
-        ...(credentials.authType === 'oauth' 
-          ? { accessToken: authToken } 
-          : { apiKey: authToken }
-        )
-      };
-
       const response = await fetch(`https://opcjifbdwpyttaxqlqbf.supabase.co/functions/v1/bexio-proxy`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(requestBody),
+        body: JSON.stringify({
+          endpoint: '/contact',
+          apiKey: authToken,
+          companyId: credentials.companyId,
+        }),
       });
 
       if (!response.ok) {
-        if (response.status === 403) {
-          toast({
-            title: 'Access denied',
-            description: 'Missing contact_show scope or wrong company context. Reconnect via OAuth and grant contact_show.',
-            variant: 'destructive',
-          });
-        }
         const errorData = await response.json().catch(() => ({}));
         throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
       }
@@ -352,21 +292,16 @@ export const useBexioApi = () => {
 
     setIsLoadingProjects(true);
     try {
-      const requestBody = {
-        endpoint: '/3.0/projects',
-        companyId: credentials.companyId,
-        ...(credentials.authType === 'oauth' 
-          ? { accessToken: authToken } 
-          : { apiKey: authToken }
-        )
-      };
-
       const response = await fetch(`https://opcjifbdwpyttaxqlqbf.supabase.co/functions/v1/bexio-proxy`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(requestBody),
+          body: JSON.stringify({
+            endpoint: '/3.0/projects',
+            apiKey: authToken,
+            companyId: credentials.companyId,
+          }),
       });
 
       if (!response.ok) {
@@ -408,31 +343,19 @@ export const useBexioApi = () => {
 
     setIsLoadingTimeEntries(true);
     try {
-      const requestBody = {
-        endpoint: '/2.0/timesheet',
-        companyId: credentials.companyId,
-        ...(credentials.authType === 'oauth' 
-          ? { accessToken: authToken } 
-          : { apiKey: authToken }
-        )
-      };
-
       const response = await fetch(`https://opcjifbdwpyttaxqlqbf.supabase.co/functions/v1/bexio-proxy`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(requestBody),
+        body: JSON.stringify({
+          endpoint: '/timesheet',
+          apiKey: authToken,
+          companyId: credentials.companyId,
+        }),
       });
 
       if (!response.ok) {
-        if (response.status === 403) {
-          toast({
-            title: 'Access denied',
-            description: 'Missing monitoring_show scope or wrong company context. Reconnect via OAuth and grant monitoring_show.',
-            variant: 'destructive',
-          });
-        }
         const errorData = await response.json().catch(() => ({}));
         throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
       }
@@ -492,21 +415,16 @@ export const useBexioApi = () => {
     console.log(`🔍 Fetching work packages for project ID: ${projectId}`);
     
     try {
-      const requestBody = {
-        endpoint: `/3.0/projects/${projectId}/packages`,
-        companyId: credentials.companyId,
-        ...(credentials.authType === 'oauth' 
-          ? { accessToken: authToken } 
-          : { apiKey: authToken }
-        )
-      };
-
       const response = await fetch(`https://opcjifbdwpyttaxqlqbf.supabase.co/functions/v1/bexio-proxy`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(requestBody),
+        body: JSON.stringify({
+          endpoint: `/3.0/projects/${projectId}/packages`,
+          apiKey: authToken,
+          companyId: credentials.companyId,
+        }),
       });
 
       console.log(`📊 Response status for project ${projectId}:`, response.status);
@@ -689,21 +607,16 @@ export const useBexioApi = () => {
         const maxRetries = 3;
         for (let attempt = 1; attempt <= maxRetries; attempt++) {
           try {
-            const requestBody = {
-              endpoint: '/timesheet',
-              method: 'POST',
-              companyId: credentials.companyId,
-              data: bexioData,
-              ...(credentials.authType === 'oauth' 
-                ? { accessToken: authToken } 
-                : { apiKey: authToken }
-              )
-            };
-
             const response = await fetch(`https://opcjifbdwpyttaxqlqbf.supabase.co/functions/v1/bexio-proxy`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(requestBody),
+              body: JSON.stringify({
+                endpoint: '/timesheet',
+                method: 'POST',
+                apiKey: authToken,
+                companyId: credentials.companyId,
+                data: bexioData,
+              }),
             });
 
             if (!response.ok) {
@@ -799,21 +712,16 @@ export const useBexioApi = () => {
     console.log('🔍 Fetching timesheet statuses from Bexio');
     
     try {
-      const requestBody = {
-        endpoint: '/timesheet_status',
-        companyId: credentials.companyId,
-        ...(credentials.authType === 'oauth' 
-          ? { accessToken: authToken } 
-          : { apiKey: authToken }
-        )
-      };
-
       const response = await fetch(`https://opcjifbdwpyttaxqlqbf.supabase.co/functions/v1/bexio-proxy`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(requestBody),
+        body: JSON.stringify({
+          endpoint: '/timesheet_status',
+          apiKey: authToken,
+          companyId: credentials.companyId,
+        }),
       });
 
       console.log('📊 Timesheet statuses response status:', response.status);
@@ -879,19 +787,14 @@ export const useBexioApi = () => {
     console.log('🔍 Fetching business activities from Bexio');
 
     try {
-      const requestBody = {
-        endpoint: '/client_service',
-        companyId: credentials.companyId,
-        ...(credentials.authType === 'oauth' 
-          ? { accessToken: authToken } 
-          : { apiKey: authToken }
-        )
-      };
-
       const response = await fetch(`https://opcjifbdwpyttaxqlqbf.supabase.co/functions/v1/bexio-proxy`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(requestBody),
+        body: JSON.stringify({
+          endpoint: '/client_service',
+          apiKey: authToken,
+          companyId: credentials.companyId,
+        }),
       });
 
       console.log('📊 Business activities response status:', response.status);
@@ -969,22 +872,17 @@ export const useBexioApi = () => {
       // we'll use a delete-and-recreate approach as a workaround
       
       // Step 1: Delete the existing entry
-      const deleteRequestBody = {
-        endpoint: `/timesheet/${id}`,
-        method: 'DELETE',
-        companyId: credentials.companyId,
-        ...(credentials.authType === 'oauth' 
-          ? { accessToken: authToken } 
-          : { apiKey: authToken }
-        )
-      };
-
       const deleteResponse = await fetch(`https://opcjifbdwpyttaxqlqbf.supabase.co/functions/v1/bexio-proxy`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(deleteRequestBody),
+        body: JSON.stringify({
+          endpoint: `/timesheet/${id}`,
+          method: 'DELETE',
+          apiKey: authToken,
+          companyId: credentials.companyId,
+        }),
       });
 
       if (!deleteResponse.ok) {
@@ -1041,23 +939,18 @@ export const useBexioApi = () => {
         formData: timeEntryData
       });
 
-      const createRequestBody = {
-        endpoint: '/timesheet',
-        method: 'POST',
-        companyId: credentials.companyId,
-        data: bexioData,
-        ...(credentials.authType === 'oauth' 
-          ? { accessToken: authToken } 
-          : { apiKey: authToken }
-        )
-      };
-
       const createResponse = await fetch(`https://opcjifbdwpyttaxqlqbf.supabase.co/functions/v1/bexio-proxy`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(createRequestBody),
+        body: JSON.stringify({
+          endpoint: '/timesheet',
+          method: 'POST',
+          apiKey: authToken,
+          companyId: credentials.companyId,
+          data: bexioData,
+        }),
       });
 
       if (!createResponse.ok) {
@@ -1098,22 +991,17 @@ export const useBexioApi = () => {
     if (!authToken) return;
 
     try {
-      const requestBody = {
-        endpoint: `/timesheet/${id}`,
-        method: 'DELETE',
-        companyId: credentials.companyId,
-        ...(credentials.authType === 'oauth' 
-          ? { accessToken: authToken } 
-          : { apiKey: authToken }
-        )
-      };
-
       const response = await fetch(`https://opcjifbdwpyttaxqlqbf.supabase.co/functions/v1/bexio-proxy`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(requestBody),
+        body: JSON.stringify({
+          endpoint: `/timesheet/${id}`,
+          method: 'DELETE',
+          apiKey: authToken,
+          companyId: credentials.companyId,
+        }),
       });
 
       if (!response.ok) {
