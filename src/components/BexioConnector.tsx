@@ -11,9 +11,10 @@ interface BexioConnectorProps {
   onConnect: (apiKey: string, companyId: string) => void;
   onOAuthConnect: (accessToken: string, refreshToken: string, companyId: string, userEmail: string) => void;
   isConnected: boolean;
+  className?: string;
 }
 
-export const BexioConnector = ({ onConnect, onOAuthConnect, isConnected }: BexioConnectorProps) => {
+export const BexioConnector = ({ onConnect, onOAuthConnect, isConnected, className }: BexioConnectorProps) => {
   const [apiKey, setApiKey] = useState("");
   const [companyId, setCompanyId] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -141,7 +142,7 @@ export const BexioConnector = ({ onConnect, onOAuthConnect, isConnected }: Bexio
   }
 
   return (
-    <Card>
+    <Card className={className}>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Settings className="h-5 w-5" />
