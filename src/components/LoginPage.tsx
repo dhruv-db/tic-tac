@@ -19,7 +19,7 @@ export const LoginPage = ({
 }: LoginPageProps) => {
   const TikTakLogo = ({ className = "" }) => (
     <div className={`flex flex-col items-center space-y-2 ${className}`}>
-     <svg alt="tik-tak" 
+     <svg aria-label="tik-tak" 
         className="h-10 w-auto md:h-12"
        width="404" height="173" 
        viewBox="0 0 404 173" 
