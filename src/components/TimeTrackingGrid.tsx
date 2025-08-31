@@ -8,7 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { Calendar, ChevronLeft, ChevronRight, Clock, Plus, MoreHorizontal, Target, TrendingUp, Users, Save, Edit3, Trash2, Timer } from "lucide-react";
+import { Calendar, ChevronLeft, ChevronRight, Clock, Plus, MoreHorizontal, Target, TrendingUp, Users, Save, Edit3, Trash2, Timer, ChevronDown, ChevronRight as ChevronRightIcon, FolderOpen, Folder } from "lucide-react";
 import { format, startOfWeek, endOfWeek, eachDayOfInterval, addWeeks, subWeeks, addMonths, subMonths, startOfMonth, endOfMonth, isSameDay, addDays } from "date-fns";
 import { cn } from "@/lib/utils";
 import { TimeEntry } from "./TimeTrackingList";
@@ -56,6 +56,8 @@ export const TimeTrackingGrid = ({
   const [showBulkDialog, setShowBulkDialog] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [selectedProjectForDialog, setSelectedProjectForDialog] = useState<any>(null);
+  const [expandedProjects, setExpandedProjects] = useState<Set<number>>(new Set());
+  const [expandedWorkPackages, setExpandedWorkPackages] = useState<Set<string>>(new Set());
   const fetchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const { toast } = useToast();
 
@@ -271,6 +273,81 @@ export const TimeTrackingGrid = ({
 
     // Only show projects that have time entries in current date range
     return projects.filter(project => projectsWithTime.has(project.id));
+  };
+
+  // Toggle project expansion
+  const toggleProject = (projectId: number) => {
+    setExpandedProjects(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(projectId)) {
+        newSet.delete(projectId);
+      } else {
+        newSet.add(projectId);
+      }
+      return newSet;
+    });
+  };
+
+  // Toggle work package expansion
+  const toggleWorkPackage = (workPackageKey: string) => {
+    setExpandedWorkPackages(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(workPackageKey)) {
+        newSet.delete(workPackageKey);
+      } else {
+        newSet.add(workPackageKey);
+      }
+      return newSet;
+    });
+  };
+
+  // Group time entries by project, work package, and activity
+  const getGroupedEntries = () => {
+    const currentRangeDates = dateRange.slice(0, 7).map(d => format(d, 'yyyy-MM-dd'));
+    const relevantEntries = timeEntries.filter(entry => currentRangeDates.includes(entry.date));
+    
+    const grouped: Record<number, {
+      project: any;
+      workPackages: Record<string, {
+        workPackage: WorkPackage | null;
+        activities: Record<string, TimeEntry[]>;
+      }>;
+    }> = {};
+
+    relevantEntries.forEach(entry => {
+      if (!entry.project_id) return;
+      
+      const project = projects.find(p => p.id === entry.project_id);
+      if (!project) return;
+
+      if (!grouped[entry.project_id]) {
+        grouped[entry.project_id] = {
+          project,
+          workPackages: {}
+        };
+      }
+
+      const workPackageKey = entry.pr_package_id ? `wp_${entry.pr_package_id}` : 'general';
+      const workPackage = entry.pr_package_id 
+        ? workPackages.find(wp => wp.id === entry.pr_package_id.toString()) 
+        : null;
+
+      if (!grouped[entry.project_id].workPackages[workPackageKey]) {
+        grouped[entry.project_id].workPackages[workPackageKey] = {
+          workPackage,
+          activities: {}
+        };
+      }
+
+      const activityKey = entry.text || 'General Work';
+      if (!grouped[entry.project_id].workPackages[workPackageKey].activities[activityKey]) {
+        grouped[entry.project_id].workPackages[workPackageKey].activities[activityKey] = [];
+      }
+
+      grouped[entry.project_id].workPackages[workPackageKey].activities[activityKey].push(entry);
+    });
+
+    return grouped;
   };
 
   // Delete time entry
@@ -506,241 +583,219 @@ export const TimeTrackingGrid = ({
                 ))}
               </div>
 
-              {/* Project Rows */}
+              {/* Hierarchical Project Rows */}
               {(() => {
-                const projectsWithEntries = getProjectsWithEntries();
+                const groupedEntries = getGroupedEntries();
+                const projectIds = Object.keys(groupedEntries).map(Number);
                 
-                if (projectsWithEntries.length === 0) {
+                if (projectIds.length === 0) {
                   return (
                     <div className="p-8 text-center text-muted-foreground">
                       <Clock className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                      <p>No time entries found for this period. Click "New Entry" to add time.</p>
+                      <p className="text-lg font-medium mb-2">You don't have any records in this date range</p>
+                      <p className="text-sm">... start tracking time with a click on the button below.</p>
+                      <div className="mt-4">
+                        <Button onClick={() => openBulkDialog(new Date())} className="gap-2">
+                          <Plus className="h-4 w-4" />
+                          TRACK TIME
+                        </Button>
+                      </div>
                     </div>
                   );
                 }
                 
-                return projectsWithEntries.map((project) => {
-                  // Get work packages for this project
-                  const projectWorkPackages = workPackages.filter(wp => wp.pr_project_id === project.id);
+                return projectIds.map((projectId) => {
+                  const { project, workPackages: projectWorkPackages } = groupedEntries[projectId];
+                  const isProjectExpanded = expandedProjects.has(projectId);
                   
+                  // Calculate project totals for each day
+                  const projectTotals = dateRange.slice(0, 7).map(date => {
+                    const entries = getEntriesForDate(date).filter(e => e.project_id === projectId);
+                    return entries.reduce((sum, entry) => sum + durationToHours(entry.duration), 0);
+                  });
+                  
+                  const projectWeekTotal = projectTotals.reduce((sum, hours) => sum + hours, 0);
+
                   return (
-                    <div key={project.id} className="border-b group">
-                      {/* Project Header */}
-                      <div className="grid grid-cols-8 bg-muted/10 hover:bg-muted/20 transition-colors">
-                        <div className="p-4 flex items-center justify-between">
-                          <div>
-                            <div className="font-semibold text-primary">{project.name}</div>
-                            <div className="text-sm text-muted-foreground">#{project.nr}</div>
+                    <div key={projectId} className="border-b">
+                      {/* Project Header Row */}
+                      <div className="grid grid-cols-8 hover:bg-muted/10 transition-colors group">
+                        <div className="p-3 flex items-center">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => toggleProject(projectId)}
+                            className="h-6 w-6 p-0 mr-2 hover:bg-primary/10"
+                          >
+                            {isProjectExpanded ? (
+                              <ChevronDown className="h-4 w-4" />
+                            ) : (
+                              <ChevronRightIcon className="h-4 w-4" />
+                            )}
+                          </Button>
+                          <div className="flex items-center gap-2">
+                            <div className="w-2 h-8 bg-primary rounded-sm"></div>
+                            <div>
+                              <div className="font-semibold text-foreground">{project.name}</div>
+                              <div className="text-xs text-muted-foreground">#{project.nr}</div>
+                            </div>
                           </div>
-                          <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <div className="ml-auto flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                             <Button
                               variant="ghost"
                               size="sm"
                               onClick={() => openBulkDialog(new Date(), project)}
-                              className="h-8 w-8 p-0"
+                              className="h-7 w-7 p-0 hover:bg-primary/10"
                             >
                               <Edit3 className="h-3 w-3" />
                             </Button>
                             <Button
                               variant="ghost"
                               size="sm"
-                              onClick={() => deleteProjectEntriesInRange(project.id)}
-                              className="h-8 w-8 p-0 text-destructive hover:bg-destructive/10"
-                              aria-label="Delete project entries in range"
+                              onClick={() => deleteProjectEntriesInRange(projectId)}
+                              className="h-7 w-7 p-0 hover:bg-destructive/10 text-destructive"
                             >
                               <Trash2 className="h-3 w-3" />
                             </Button>
                           </div>
                         </div>
-                        {dateRange.slice(0, 7).map((date) => {
-                          const entries = getEntriesForDate(date).filter(e => e.project_id === project.id);
-                          const totalHours = entries.reduce((sum, entry) => {
-                            return sum + durationToHours(entry.duration);
-                          }, 0);
-
-                          return (
-                            <div key={date.toISOString()} className="p-2">
-                              {totalHours > 0 ? (
-                                <div className="text-center group/hours">
-                                  <Badge variant="default" className="text-xs bg-primary cursor-pointer group-hover/hours:bg-primary/80">
-                                    {totalHours.toFixed(1)}h
-                                  </Badge>
-                                  <div className="flex gap-1 mt-1 opacity-0 group-hover/hours:opacity-100 transition-opacity">
-                                    {entries.map(entry => (
-                                      <div key={entry.id} className="flex gap-1">
-                                        <Button
-                                          variant="ghost"
-                                          size="sm"
-                                          className="h-6 w-6 p-0 hover:bg-primary/10"
-                                          onClick={() => openBulkDialog(date, project)}
-                                        >
-                                          <Edit3 className="h-3 w-3" />
-                                        </Button>
-                                        <Button
-                                          variant="ghost"
-                                          size="sm"
-                                          className="h-6 w-6 p-0 hover:bg-destructive/10 text-destructive"
-                                          onClick={() => deleteTimeEntry(entry.id)}
-                                        >
-                                          <Trash2 className="h-3 w-3" />
-                                        </Button>
-                                      </div>
-                                    ))}
-                                  </div>
-                                </div>
-                              ) : (
-                                <div className="flex justify-center">
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    className="h-8 w-8 p-0 hover:bg-primary/10"
-                                    onClick={() => openBulkDialog(date, project)}
-                                  >
-                                    <Plus className="h-3 w-3" />
-                                  </Button>
-                                </div>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
-
-                      {/* Work Package Rows */}
-                      <div className="ml-4 border-l-2 border-muted">
-                        {projectWorkPackages.length > 0 ? (
-                          projectWorkPackages.map((workPackage) => (
-                            <div key={workPackage.id} className="grid grid-cols-8 hover:bg-muted/10 transition-[var(--transition-smooth)] border-b border-muted/30">
-                              <div className="p-4 pl-6">
-                                <div className="flex items-center gap-2">
-                                  {workPackage.color && (
-                                    <div 
-                                      className="w-3 h-3 rounded-full flex-shrink-0" 
-                                      style={{ backgroundColor: workPackage.color }}
-                                    />
-                                  )}
-                                  <div>
-                                    <div className="text-sm font-medium">{workPackage.name}</div>
-                                    {workPackage.description && (
-                                      <div className="text-xs text-muted-foreground">{workPackage.description}</div>
-                                    )}
-                                  </div>
-                                </div>
-                              </div>
-                              {dateRange.slice(0, 7).map((date) => {
-                                const key = `${project.id}-${workPackage.id}-${format(date, 'yyyy-MM-dd')}`;
-                                const inputValue = timeInputs[key] || '';
-                                const isEditing = editingCell === key;
-                                
-                                // Get entries for this specific work package
-                                const workPackageEntries = getEntriesForDate(date).filter(e => 
-                                  e.project_id === project.id && e.pr_package_id === workPackage.id
-                                );
-                                const workPackageHours = workPackageEntries.reduce((sum, entry) => {
-                                  return sum + durationToHours(entry.duration);
-                                }, 0);
-                                
-                                return (
-                                  <div key={date.toISOString()} className="p-2">
-                                    {workPackageHours > 0 ? (
-                                      <div className="text-center">
-                                        <Badge variant="secondary" className="text-xs">
-                                          {workPackageHours.toFixed(1)}h
-                                        </Badge>
-                                      </div>
-                                    ) : (
-                                      <TooltipProvider>
-                                        <Tooltip>
-                                          <TooltipTrigger asChild>
-                                            <Input
-                                              type="text"
-                                              placeholder="0:00"
-                                              value={inputValue}
-                                              onChange={(e) => setTimeInputs(prev => ({
-                                                ...prev,
-                                                [key]: e.target.value
-                                              }))}
-                                              onFocus={(e) => {
-                                                e.target.select();
-                                                setEditingCell(key);
-                                              }}
-                                              onBlur={() => {
-                                                if (inputValue && inputValue !== '0:00') {
-                                                  saveTimeEntry(project.id, date, inputValue);
-                                                }
-                                                setEditingCell(null);
-                                              }}
-                                              onKeyDown={(e) => handleKeyDown(e, project.id, date, inputValue)}
-                                              className={cn(
-                                                "h-8 text-center text-sm transition-[var(--transition-smooth)]",
-                                                isEditing && "ring-2 ring-primary border-primary",
-                                                inputValue && "bg-primary-subtle/30 border-primary/30"
-                                              )}
-                                            />
-                                          </TooltipTrigger>
-                                          <TooltipContent>
-                                            <p>Enter time (e.g., 2:30) • Enter to save • Esc to cancel</p>
-                                          </TooltipContent>
-                                        </Tooltip>
-                                      </TooltipProvider>
-                                    )}
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          ))
-                        ) : (
-                          // Default "General Work" row if no work packages
-                          <div className="grid grid-cols-8 hover:bg-muted/10 transition-[var(--transition-smooth)]">
-                            <div className="p-4 pl-6">
-                              <div className="text-sm text-muted-foreground">General Work</div>
-                            </div>
-                            {dateRange.slice(0, 7).map((date) => {
-                              const key = `${project.id}-general-${format(date, 'yyyy-MM-dd')}`;
-                              const inputValue = timeInputs[key] || '';
-                              const isEditing = editingCell === key;
-                              
-                              return (
-                                <div key={date.toISOString()} className="p-2">
-                                  <TooltipProvider>
-                                    <Tooltip>
-                                      <TooltipTrigger asChild>
-                                        <Input
-                                          type="text"
-                                          placeholder="0:00"
-                                          value={inputValue}
-                                          onChange={(e) => setTimeInputs(prev => ({
-                                            ...prev,
-                                            [key]: e.target.value
-                                          }))}
-                                          onFocus={(e) => {
-                                            e.target.select();
-                                            setEditingCell(key);
-                                          }}
-                                          onBlur={() => {
-                                            if (inputValue && inputValue !== '0:00') {
-                                              saveTimeEntry(project.id, date, inputValue);
-                                            }
-                                            setEditingCell(null);
-                                          }}
-                                          onKeyDown={(e) => handleKeyDown(e, project.id, date, inputValue)}
-                                          className={cn(
-                                            "h-8 text-center text-sm transition-[var(--transition-smooth)]",
-                                            isEditing && "ring-2 ring-primary border-primary",
-                                            inputValue && "bg-primary-subtle/30 border-primary/30"
-                                          )}
-                                        />
-                                      </TooltipTrigger>
-                                      <TooltipContent>
-                                        <p>Enter time (e.g., 2:30) • Enter to save • Esc to cancel</p>
-                                      </TooltipContent>
-                                    </Tooltip>
-                                  </TooltipProvider>
-                                </div>
-                              );
-                            })}
+                        {dateRange.slice(0, 7).map((date, index) => (
+                          <div key={date.toISOString()} className="p-3 text-center">
+                            {projectTotals[index] > 0 ? (
+                              <Badge variant="default" className="text-xs font-semibold bg-primary hover:bg-primary/80">
+                                {projectTotals[index].toFixed(1)}
+                              </Badge>
+                            ) : (
+                              <span className="text-muted-foreground text-xs">0:00</span>
+                            )}
                           </div>
-                        )}
+                        ))}
                       </div>
+
+                      {/* Work Package and Activity Rows */}
+                      {isProjectExpanded && (
+                        <div className="bg-muted/5">
+                          {Object.entries(projectWorkPackages).map(([wpKey, { workPackage, activities }]) => {
+                            const workPackageKey = `${projectId}-${wpKey}`;
+                            const isWpExpanded = expandedWorkPackages.has(workPackageKey);
+                            
+                            // Calculate work package totals
+                            const wpTotals = dateRange.slice(0, 7).map(date => {
+                              const entries = Object.values(activities).flat().filter(e => 
+                                e.date === format(date, 'yyyy-MM-dd')
+                              );
+                              return entries.reduce((sum, entry) => sum + durationToHours(entry.duration), 0);
+                            });
+
+                            return (
+                              <div key={wpKey}>
+                                {/* Work Package Header */}
+                                <div className="grid grid-cols-8 hover:bg-muted/10 transition-colors group/wp border-l-4 border-muted ml-4">
+                                  <div className="p-3 flex items-center pl-6">
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => toggleWorkPackage(workPackageKey)}
+                                      className="h-5 w-5 p-0 mr-2 hover:bg-primary/10"
+                                    >
+                                      {isWpExpanded ? (
+                                        <ChevronDown className="h-3 w-3" />
+                                      ) : (
+                                        <ChevronRightIcon className="h-3 w-3" />
+                                      )}
+                                    </Button>
+                                    <div className="flex items-center gap-2">
+                                      {workPackage?.color && (
+                                        <div 
+                                          className="w-3 h-3 rounded-full" 
+                                          style={{ backgroundColor: workPackage.color }}
+                                        />
+                                      )}
+                                      <div>
+                                        <div className="text-sm font-medium">
+                                          {workPackage?.name || 'General Work'}
+                                        </div>
+                                        {workPackage?.description && (
+                                          <div className="text-xs text-muted-foreground">
+                                            {workPackage.description}
+                                          </div>
+                                        )}
+                                      </div>
+                                    </div>
+                                  </div>
+                                  {dateRange.slice(0, 7).map((date, index) => (
+                                    <div key={date.toISOString()} className="p-3 text-center">
+                                      {wpTotals[index] > 0 ? (
+                                        <Badge variant="secondary" className="text-xs">
+                                          {wpTotals[index].toFixed(1)}
+                                        </Badge>
+                                      ) : (
+                                        <span className="text-muted-foreground text-xs">0:00</span>
+                                      )}
+                                    </div>
+                                  ))}
+                                </div>
+
+                                {/* Activity Rows */}
+                                {isWpExpanded && Object.entries(activities).map(([activityName, activityEntries]) => (
+                                  <div key={activityName} className="grid grid-cols-8 hover:bg-muted/5 transition-colors border-l-4 border-muted/50 ml-8">
+                                    <div className="p-3 pl-8">
+                                      <div className="flex items-center gap-2">
+                                        <div className="w-2 h-2 rounded-full bg-success"></div>
+                                        <div className="text-sm text-foreground">{activityName}</div>
+                                      </div>
+                                    </div>
+                                    {dateRange.slice(0, 7).map((date) => {
+                                      const dayEntries = activityEntries.filter(e => 
+                                        e.date === format(date, 'yyyy-MM-dd')
+                                      );
+                                      const dayTotal = dayEntries.reduce((sum, entry) => 
+                                        sum + durationToHours(entry.duration), 0
+                                      );
+
+                                      return (
+                                        <div key={date.toISOString()} className="p-3 text-center group/activity">
+                                          {dayTotal > 0 ? (
+                                            <div className="flex items-center justify-center gap-1">
+                                              <span className="text-sm font-medium text-success">
+                                                {formatDuration(dayTotal * 3600)}
+                                              </span>
+                                              <div className="flex gap-1 opacity-0 group-hover/activity:opacity-100 transition-opacity">
+                                                {dayEntries.map(entry => (
+                                                  <div key={entry.id} className="flex gap-1">
+                                                    <Button
+                                                      variant="ghost"
+                                                      size="sm"
+                                                      className="h-5 w-5 p-0 hover:bg-primary/10"
+                                                      onClick={() => openBulkDialog(date, project)}
+                                                    >
+                                                      <Edit3 className="h-2 w-2" />
+                                                    </Button>
+                                                    <Button
+                                                      variant="ghost"
+                                                      size="sm" 
+                                                      className="h-5 w-5 p-0 hover:bg-destructive/10 text-destructive"
+                                                      onClick={() => deleteTimeEntry(entry.id)}
+                                                    >
+                                                      <Trash2 className="h-2 w-2" />
+                                                    </Button>
+                                                  </div>
+                                                ))}
+                                              </div>
+                                            </div>
+                                          ) : (
+                                            <span className="text-xs text-muted-foreground">0:00</span>
+                                          )}
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                ))}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
                     </div>
                   );
                 });
