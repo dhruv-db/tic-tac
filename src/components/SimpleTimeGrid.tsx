@@ -18,6 +18,9 @@ interface SimpleTimeGridProps {
   onDeleteTimeEntry?: (id: number) => Promise<void>;
   onDateRangeChange?: (dateRange: { from: Date; to: Date }) => void;
   isLoading: boolean;
+  workPackages?: any[];
+  isLoadingWorkPackages?: boolean;
+  onFetchWorkPackages?: (projectId: number) => Promise<void>;
 }
 
 export const SimpleTimeGrid = ({ 
@@ -26,7 +29,10 @@ export const SimpleTimeGrid = ({
   onCreateTimeEntry,
   onDeleteTimeEntry,
   onDateRangeChange,
-  isLoading 
+  isLoading,
+  workPackages,
+  isLoadingWorkPackages,
+  onFetchWorkPackages,
 }: SimpleTimeGridProps) => {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [timeInputs, setTimeInputs] = useState<Record<string, string>>({});
@@ -85,24 +91,9 @@ export const SimpleTimeGrid = ({
     return entries.reduce((total, entry) => total + durationToHours(entry.duration), 0);
   };
 
-  // Get projects that have entries in current week
+  // Get projects to display in grid (show all to allow quick entry everywhere)
   const getActiveProjects = () => {
-    const weekDateStrings = weekDays.map(date => format(date, 'yyyy-MM-dd'));
-    const activeProjectIds = new Set<number>();
-    
-    timeEntries.forEach((entry: any) => {
-      const projId = entry.pr_project_id ?? entry.project_id;
-      if (projId) {
-        const entryDate = entry.date?.includes('T') ? entry.date.split('T')[0] : entry.date;
-        if (weekDateStrings.includes(entryDate)) {
-          activeProjectIds.add(Number(projId));
-        }
-      }
-    });
-
-    // Show projects with entries, or top 5 projects if none
-    const projectsWithEntries = projects.filter(p => activeProjectIds.has(p.id));
-    return projectsWithEntries.length > 0 ? projectsWithEntries : projects.slice(0, 5);
+    return projects;
   };
 
   // Get ALL work packages that appear for a project (with or without hours)
@@ -189,13 +180,8 @@ export const SimpleTimeGrid = ({
         pr_package_id: packageId != null ? String(packageId) : undefined
       });
       
-      // Clear input
-      const key = `${projectId}-${packageId ?? 'p'}-${format(date, 'yyyy-MM-dd')}`;
-      setTimeInputs(prev => {
-        const newInputs = { ...prev };
-        delete newInputs[key];
-        return newInputs;
-      });
+      // Keep input value until data refresh updates the cell
+      // This provides instant visual feedback
       
       toast({
         title: "Time entry created",
@@ -231,6 +217,9 @@ export const SimpleTimeGrid = ({
   const openDetailDialog = (date: Date, project?: any) => {
     setSelectedDate(date);
     setSelectedProject(project);
+    if (project?.id && onFetchWorkPackages) {
+      onFetchWorkPackages(project.id);
+    }
     setShowBulkDialog(true);
   };
 
@@ -339,7 +328,6 @@ export const SimpleTimeGrid = ({
                 </div>
               ) : (
                 activeProjects.map((project) => {
-                  const allPackages = getAllWorkPackagesForProject(project.id);
                   const activePackages = getActiveWorkPackagesForProject(project.id);
                   
                   return (
@@ -432,8 +420,7 @@ export const SimpleTimeGrid = ({
                       )}
 
                       {/* Work Package Rows - ALWAYS show input boxes */}
-                      {allPackages.map((pkg) => {
-                        const hasHours = activePackages.some(ap => ap.id === pkg.id);
+                      {activePackages.map((pkg) => {
                         return (
                           <div key={`${project.id}-${pkg.id}`} className="grid grid-cols-8 pl-6 pr-2 py-1 bg-background/50">
                             <div className="p-3 flex items-center">
@@ -580,7 +567,7 @@ export const SimpleTimeGrid = ({
         isSubmitting={isLoading}
         contacts={[]}
         projects={projects}
-        workPackages={[]}
+        workPackages={workPackages || []}
         selectedDate={selectedDate}
         selectedProject={selectedProject}
       />

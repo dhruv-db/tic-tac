@@ -242,6 +242,9 @@ const Index = () => {
                 onDeleteTimeEntry={deleteTimeEntry}
                 onDateRangeChange={(range) => fetchTimeEntries(range, { quiet: true })}
                 isLoading={isLoadingTimeEntries}
+                workPackages={workPackages}
+                isLoadingWorkPackages={isLoadingWorkPackages}
+                onFetchWorkPackages={fetchWorkPackages}
               />
             ) : (
               <TimeTrackingList 

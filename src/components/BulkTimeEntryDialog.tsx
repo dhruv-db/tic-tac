@@ -344,13 +344,11 @@ export const BulkTimeEntryDialog = ({
                   </SelectTrigger>
                   <SelectContent className="bg-popover z-50">
                     <SelectItem value="none">No work package</SelectItem>
-                    {workPackages
-                      .filter(wp => !formData.project_id || formData.project_id === "none" || wp.pr_project_id?.toString() === formData.project_id)
-                      .map((wp) => (
-                        <SelectItem key={wp.id} value={wp.id}>
-                          {wp.name} ({wp.id})
-                        </SelectItem>
-                      ))}
+                    {workPackages.map((wp) => (
+                      <SelectItem key={wp.id} value={wp.id}>
+                        {wp.name} ({wp.id})
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
