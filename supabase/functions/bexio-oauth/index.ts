@@ -18,6 +18,75 @@ serve(async (req) => {
   console.log(`OAuth request path: ${path}`);
 
   try {
+    // Handle direct login redirect (GET /login)
+    if (path.endsWith('/login') && req.method === 'GET') {
+      const clientId = Deno.env.get('BEXIO_CLIENT_ID');
+      if (!clientId) {
+        console.error('BEXIO_CLIENT_ID not found in environment');
+        return new Response('OAuth not configured', { status: 500 });
+      }
+
+      // Generate PKCE parameters
+      const generatePKCE = async () => {
+        const length = 64;
+        const charset = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~';
+        const random = new Uint8Array(length);
+        crypto.getRandomValues(random);
+        let codeVerifier = '';
+        for (let i = 0; i < length; i++) {
+          codeVerifier += charset[random[i] % charset.length];
+        }
+
+        const encoder = new TextEncoder();
+        const data = encoder.encode(codeVerifier);
+        const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+        const hashBytes = new Uint8Array(hashBuffer);
+        let base64 = btoa(String.fromCharCode(...hashBytes));
+        const codeChallenge = base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+        return { codeVerifier, codeChallenge };
+      };
+
+      const { codeVerifier, codeChallenge } = await generatePKCE();
+      const state = Math.random().toString(36).substring(2, 15);
+      const returnUrl = url.searchParams.get('return_url') || `https://${url.hostname}`;
+
+      const redirectUri = `https://${url.hostname}/functions/v1/bexio-oauth/callback`;
+      
+      // Standard scopes for Bexio OAuth
+      const scope = 'openid profile email offline_access company_profile project_show timesheet_show contact_show';
+
+      // Pack state with code_verifier and return URL
+      const packedState = btoa(JSON.stringify({ 
+        s: state, 
+        cv: codeVerifier, 
+        ru: returnUrl 
+      }));
+
+      const params = new URLSearchParams({
+        client_id: clientId,
+        redirect_uri: redirectUri,
+        response_type: 'code',
+        scope: scope,
+        state: packedState,
+        prompt: 'login consent',
+        max_age: '0',
+        code_challenge: codeChallenge,
+        code_challenge_method: 'S256'
+      });
+
+      const authUrl = `https://auth.bexio.com/realms/bexio/protocol/openid-connect/auth?${params.toString()}`;
+      console.log(`Direct login redirect to: ${authUrl}`);
+
+      return new Response(null, {
+        status: 302,
+        headers: {
+          ...corsHeaders,
+          Location: authUrl,
+          'Cache-Control': 'no-store'
+        }
+      });
+    }
+
     // Handle OAuth initiation
     if (path.endsWith('/auth') && req.method === 'POST') {
       const { state, scope: requestedScope, codeChallenge, codeChallengeMethod, codeVerifier, returnUrl } = await req.json();

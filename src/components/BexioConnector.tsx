@@ -66,21 +66,34 @@ export const BexioConnector = ({ onConnect, onOAuthConnect, isConnected }: Bexio
   const handleOAuthConnect = async () => {
     setIsOAuthLoading(true);
     try {
-      // Direct redirect to Supabase function login endpoint
-      const authUrl = "https://opcjifbdwpyttaxqlqbf.supabase.co/functions/v1/bexio-oauth/login";
+      // Build the login URL with return URL parameter
+      const returnUrl = window.location.origin;
+      const loginUrl = new URL("https://opcjifbdwpyttaxqlqbf.supabase.co/functions/v1/bexio-oauth/login");
+      loginUrl.searchParams.set('return_url', returnUrl);
       
       // Open in popup to avoid iframe issues
       const width = 520, height = 700;
       const left = window.screenX + (window.outerWidth - width) / 2;
       const top = window.screenY + (window.outerHeight - height) / 2;
       const features = `popup=yes,toolbar=no,location=no,status=no,menubar=no,scrollbars=yes,resizable=yes,width=${width},height=${height},left=${left},top=${top}`;
-      const popup = window.open(authUrl, 'bexio_oauth', features);
+      
+      const popup = window.open(loginUrl.toString(), 'bexio_oauth', features);
+      
       if (!popup) {
+        // Fallback: direct redirect if popup blocked
         if (window.top) {
-          window.top.location.href = authUrl;
+          window.top.location.href = loginUrl.toString();
         } else {
-          window.location.href = authUrl;
+          window.location.href = loginUrl.toString();
         }
+      } else {
+        // Monitor popup for closure without success
+        const pollTimer = setInterval(() => {
+          if (popup.closed) {
+            clearInterval(pollTimer);
+            setIsOAuthLoading(false);
+          }
+        }, 1000);
       }
 
     } catch (error) {
