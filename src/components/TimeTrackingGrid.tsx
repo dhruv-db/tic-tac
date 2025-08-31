@@ -755,9 +755,43 @@ export const TimeTrackingGrid = ({
                     return sum + durationToHours(entry.duration);
                   }, 0);
 
+                  // Group entries by project for breakdown
+                  const projectBreakdown = entries.reduce((acc, entry) => {
+                    if (entry.project_id) {
+                      const project = projects.find(p => p.id === entry.project_id);
+                      const projectName = project?.name || `Project ${entry.project_id}`;
+                      const hours = durationToHours(entry.duration);
+                      acc[projectName] = (acc[projectName] || 0) + hours;
+                    }
+                    return acc;
+                  }, {} as Record<string, number>);
+
                   return (
                     <div key={date.toISOString()} className="p-4 text-center">
-                      {totalHours > 0 ? `${totalHours.toFixed(1)}h` : '-'}
+                      {totalHours > 0 ? (
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <span className="cursor-help font-semibold text-primary">
+                                {totalHours.toFixed(1)}h
+                              </span>
+                            </TooltipTrigger>
+                            <TooltipContent side="bottom" className="max-w-xs">
+                              <div className="space-y-1">
+                                <p className="font-semibold text-xs">Project Breakdown:</p>
+                                {Object.entries(projectBreakdown).map(([projectName, hours]) => (
+                                  <div key={projectName} className="flex justify-between text-xs">
+                                    <span className="truncate pr-2">{projectName}:</span>
+                                    <span className="font-mono">{hours.toFixed(1)}h</span>
+                                  </div>
+                                ))}
+                              </div>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      ) : (
+                        '-'
+                      )}
                     </div>
                   );
                 })}

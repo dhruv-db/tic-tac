@@ -3,14 +3,11 @@ import { Analytics } from "@/components/Analytics";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Separator } from "@/components/ui/separator";
-import { ContactList } from "@/components/ContactList";
-import { ProjectList } from "@/components/ProjectList";
 import { TimeTrackingList } from "@/components/TimeTrackingList";
 import { TimeTrackingGrid } from "@/components/TimeTrackingGrid";
 import { LoginPage } from "@/components/LoginPage";
 import { useBexioApi } from "@/hooks/useBexioApi";
-import { RefreshCw, Database, LogOut, Users, FolderOpen, BarChart3, CheckCircle2, Loader2, Grid, List } from "lucide-react";
+import { RefreshCw, Database, LogOut, BarChart3, CheckCircle2, Grid, List } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 const Index = () => {
@@ -68,11 +65,7 @@ const Index = () => {
   }, [activeTab, hasInitiallyLoaded, isLoadingContacts, isLoadingProjects, isLoadingTimeEntries, fetchContacts, fetchProjects, fetchTimeEntries]);
 
   const handleRefresh = () => {
-    if (activeTab === "contacts") {
-      fetchContacts();
-    } else if (activeTab === "projects") {
-      fetchProjects();
-    } else if (activeTab === "analytics" || activeTab === "timetracking") {
+    if (activeTab === "analytics" || activeTab === "timetracking") {
       fetchTimeEntries(undefined, { quiet: false });
       fetchContacts();
       fetchProjects();
@@ -182,39 +175,26 @@ const Index = () => {
 
       {/* Main Content */}
       <main className="container mx-auto px-4 py-8">
-        {/* Test Authentication Button */}
+        {/* Connection Status */}
         <div className="mb-8 p-4 bg-primary-subtle/20 rounded-lg border border-primary-subtle">
           <div className="flex items-center justify-between">
-            <div>
-              <h3 className="font-medium text-title flex items-center gap-2">
-                <CheckCircle2 className="h-5 w-5 text-primary" />
-                Test API Connection
-              </h3>
-              <p className="text-sm text-muted-foreground">Verify your access token is working with a test API call</p>
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-success/10">
+                <CheckCircle2 className="h-5 w-5 text-success" />
+              </div>
+              <div>
+                <h3 className="font-medium text-title">Connected to Bexio</h3>
+                <p className="text-sm text-muted-foreground">
+                  {credentials?.authType === 'oauth' ? 'OAuth Connection' : 'API Key Connection'} • 
+                  Company ID: {credentials?.companyId}
+                </p>
+              </div>
             </div>
-            <Button 
-              onClick={testApiConnection}
-              disabled={isTestingConnection}
-              variant="outline"
-              className="border-primary hover:bg-primary hover:text-white transition-colors"
-            >
-              {isTestingConnection ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Testing...
-                </>
-              ) : (
-                <>
-                  <CheckCircle2 className="mr-2 h-4 w-4" />
-                  Test Connection
-                </>
-              )}
-            </Button>
           </div>
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full max-w-3xl grid-cols-4 mx-auto">
+          <TabsList className="grid w-full max-w-md grid-cols-2 mx-auto">
             <TabsTrigger value="timetracking" className="gap-2">
               <RefreshCw className="h-4 w-4" />
               Time Tracking
@@ -222,14 +202,6 @@ const Index = () => {
             <TabsTrigger value="analytics" className="gap-2">
               <BarChart3 className="h-4 w-4" />
               Analytics
-            </TabsTrigger>
-            <TabsTrigger value="contacts" className="gap-2">
-              <Users className="h-4 w-4" />
-              Contacts
-            </TabsTrigger>
-            <TabsTrigger value="projects" className="gap-2">
-              <FolderOpen className="h-4 w-4" />
-              Projects
             </TabsTrigger>
           </TabsList>
 
@@ -299,32 +271,6 @@ const Index = () => {
               projects={projects}
               isLoading={isLoadingTimeEntries}
             />
-          </TabsContent>
-
-          <TabsContent value="contacts" className="space-y-6">
-            {contacts.length === 0 && !isLoadingContacts ? (
-              <div className="text-center py-12">
-                <Button onClick={fetchContacts} className="gap-2">
-                  <Users className="h-4 w-4" />
-                  Load Contacts
-                </Button>
-              </div>
-            ) : (
-              <ContactList contacts={contacts} isLoading={isLoadingContacts} />
-            )}
-          </TabsContent>
-
-          <TabsContent value="projects" className="space-y-6">
-            {projects.length === 0 && !isLoadingProjects ? (
-              <div className="text-center py-12">
-                <Button onClick={fetchProjects} className="gap-2">
-                  <FolderOpen className="h-4 w-4" />
-                  Load Projects
-                </Button>
-              </div>
-            ) : (
-              <ProjectList projects={projects} isLoading={isLoadingProjects} />
-            )}
           </TabsContent>
         </Tabs>
       </main>
