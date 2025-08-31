@@ -150,6 +150,24 @@ const Index = () => {
             </div>
             
             <div className="flex items-center gap-2">
+              {/* Connection status indicator */}
+              <div className="group relative">
+                <div className="p-2 rounded-full bg-success/10 border border-success/20 hover:bg-success/20 transition-colors">
+                  <CheckCircle2 className="h-4 w-4 text-success" />
+                </div>
+                <div className="absolute right-0 bottom-full mb-2 w-64 p-3 bg-background border border-border rounded-lg shadow-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none group-hover:pointer-events-auto">
+                  <div className="text-sm">
+                    <p className="font-medium text-title mb-1">Connected to Bexio</p>
+                    <p className="text-muted-foreground">
+                      {credentials?.authType === 'oauth' ? 'OAuth Connection' : 'API Key Connection'}
+                    </p>
+                    <p className="text-muted-foreground">
+                      Company ID: {credentials?.companyId}
+                    </p>
+                  </div>
+                </div>
+              </div>
+              
               <Button
                 variant="outline"
                 size="sm"
@@ -173,27 +191,6 @@ const Index = () => {
           </div>
         </div>
       </header>
-
-      {/* Main Content */}
-      {/* Subtle connection status indicator */}
-      <div className="fixed bottom-4 right-4 z-50">
-        <div className="group relative">
-          <div className="p-2 rounded-full bg-success/10 border border-success/20 hover:bg-success/20 transition-colors">
-            <CheckCircle2 className="h-4 w-4 text-success" />
-          </div>
-          <div className="absolute right-0 top-full mt-2 w-64 p-3 bg-background border border-border rounded-lg shadow-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none group-hover:pointer-events-auto">
-            <div className="text-sm">
-              <p className="font-medium text-title mb-1">Connected to Bexio</p>
-              <p className="text-muted-foreground">
-                {credentials?.authType === 'oauth' ? 'OAuth Connection' : 'API Key Connection'}
-              </p>
-              <p className="text-muted-foreground">
-                Company ID: {credentials?.companyId}
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
 
       <main className="container mx-auto px-4 py-8">
 
