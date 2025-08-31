@@ -280,7 +280,7 @@ export const useBexioApi = () => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          endpoint: '/3.0/contacts',
+          endpoint: '/3.0/contacts?limit=200',
           apiKey: authToken,
           companyId: credentials.companyId,
         }),
@@ -292,11 +292,16 @@ export const useBexioApi = () => {
       }
 
       const data = await response.json();
-      setContacts(Array.isArray(data) ? data : []);
+      const items = Array.isArray(data)
+        ? data
+        : (Array.isArray((data as any)?.data)
+            ? (data as any).data
+            : (data && typeof data === 'object' ? [data as any] : []));
+      setContacts(items);
 
       toast({
         title: "Contacts loaded",
-        description: `Fetched ${Array.isArray(data) ? data.length : 0} contacts.`,
+        description: `Fetched ${items.length} contacts.`,
       });
     } catch (error) {
       console.error('Error fetching contacts:', error);
