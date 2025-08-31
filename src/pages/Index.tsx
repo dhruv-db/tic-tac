@@ -1,16 +1,17 @@
+
 import { Analytics } from "@/components/Analytics";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
-import { BexioConnector } from "@/components/BexioConnector";
 import { ContactList } from "@/components/ContactList";
 import { ProjectList } from "@/components/ProjectList";
 import { TimeTrackingList } from "@/components/TimeTrackingList";
+import { TimeTrackingGrid } from "@/components/TimeTrackingGrid";
+import { LoginPage } from "@/components/LoginPage";
 import { useBexioApi } from "@/hooks/useBexioApi";
-import { RefreshCw, Database, LogOut, Users, FolderOpen, BarChart3, CheckCircle2, Loader2 } from "lucide-react";
+import { RefreshCw, Database, LogOut, Users, FolderOpen, BarChart3, CheckCircle2, Loader2, Grid, List } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-
 
 const Index = () => {
   const {
@@ -40,16 +41,14 @@ const Index = () => {
     disconnect,
   } = useBexioApi();
 
-  const [activeTab, setActiveTab] = useState("analytics");
+  const [activeTab, setActiveTab] = useState("timetracking");
+  const [timeTrackingView, setTimeTrackingView] = useState<'grid' | 'list'>('grid');
   const [isTestingConnection, setIsTestingConnection] = useState(false);
   const { toast } = useToast();
-  
 
   useEffect(() => {
     loadStoredCredentials();
   }, [loadStoredCredentials]);
-
-
 
   useEffect(() => {
     // Auto-fetch contacts and projects when switching to Time Tracking or Analytics
@@ -77,7 +76,6 @@ const Index = () => {
     
     setIsTestingConnection(true);
     try {
-      // Make a simple API call to test the connection and authorization header
       const response = await fetch('https://opcjifbdwpyttaxqlqbf.supabase.co/functions/v1/bexio-proxy', {
         method: 'POST',
         headers: {
@@ -120,26 +118,11 @@ const Index = () => {
 
   if (!isConnected) {
     return (
-      <div className="min-h-screen bg-[var(--gradient-subtle)] flex items-center justify-center p-4">
-        <div className="w-full max-w-2xl">
-          <div className="text-center mb-8">
-            <div className="mx-auto mb-6 p-4 rounded-full bg-primary-subtle w-fit">
-              <Database className="h-8 w-8 text-primary" />
-            </div>
-            <h1 className="text-4xl font-bold mb-4 bg-[var(--gradient-primary)] bg-clip-text text-transparent">
-              Databridge Analytics
-            </h1>
-            <p className="text-xl text-muted-foreground max-w-md mx-auto">
-              Connect to your Bexio account to access business intelligence and time tracking analytics
-            </p>
-          </div>
-          <BexioConnector 
-            onConnect={connect} 
-            onOAuthConnect={connectWithOAuth}
-            isConnected={isConnected} 
-          />
-        </div>
-      </div>
+      <LoginPage 
+        onConnect={connect}
+        onOAuthConnect={connectWithOAuth}
+        isConnected={isConnected}
+      />
     );
   }
 
@@ -224,6 +207,10 @@ const Index = () => {
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
           <TabsList className="grid w-full max-w-3xl grid-cols-4 mx-auto">
+            <TabsTrigger value="timetracking" className="gap-2">
+              <RefreshCw className="h-4 w-4" />
+              Time Tracking
+            </TabsTrigger>
             <TabsTrigger value="analytics" className="gap-2">
               <BarChart3 className="h-4 w-4" />
               Analytics
@@ -236,11 +223,63 @@ const Index = () => {
               <FolderOpen className="h-4 w-4" />
               Projects
             </TabsTrigger>
-            <TabsTrigger value="timetracking" className="gap-2">
-              <RefreshCw className="h-4 w-4" />
-              Time Tracking
-            </TabsTrigger>
           </TabsList>
+
+          <TabsContent value="timetracking" className="space-y-6">
+            {/* View Toggle */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <h2 className="text-2xl font-semibold">Time Tracking</h2>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant={timeTrackingView === 'grid' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setTimeTrackingView('grid')}
+                    className="gap-2"
+                  >
+                    <Grid className="h-4 w-4" />
+                    Grid View
+                  </Button>
+                  <Button
+                    variant={timeTrackingView === 'list' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setTimeTrackingView('list')}
+                    className="gap-2"
+                  >
+                    <List className="h-4 w-4" />
+                    List View
+                  </Button>
+                </div>
+              </div>
+            </div>
+
+            {timeTrackingView === 'grid' ? (
+              <TimeTrackingGrid
+                timeEntries={timeEntries}
+                contacts={contacts}
+                projects={projects}
+                onCreateTimeEntry={createTimeEntry}
+                onUpdateTimeEntry={updateTimeEntry}
+                isLoading={isLoadingTimeEntries}
+              />
+            ) : (
+              <TimeTrackingList 
+                timeEntries={timeEntries} 
+                isLoading={isLoadingTimeEntries}
+                onCreateTimeEntry={createTimeEntry}
+                onUpdateTimeEntry={updateTimeEntry}
+                onDeleteTimeEntry={deleteTimeEntry}
+                onBulkUpdateTimeEntries={bulkUpdateTimeEntries}
+                onBulkDeleteTimeEntries={bulkDeleteTimeEntries}
+                isCreatingTimeEntry={isCreatingTimeEntry}
+                contacts={contacts}
+                projects={projects}
+                workPackages={workPackages}
+                isLoadingWorkPackages={isLoadingWorkPackages}
+                onFetchWorkPackages={fetchWorkPackages}
+              />
+            )}
+          </TabsContent>
 
           <TabsContent value="analytics" className="space-y-6">
             <Analytics 
@@ -275,24 +314,6 @@ const Index = () => {
             ) : (
               <ProjectList projects={projects} isLoading={isLoadingProjects} />
             )}
-          </TabsContent>
-
-          <TabsContent value="timetracking" className="space-y-6">
-            <TimeTrackingList 
-              timeEntries={timeEntries} 
-              isLoading={isLoadingTimeEntries}
-              onCreateTimeEntry={createTimeEntry}
-              onUpdateTimeEntry={updateTimeEntry}
-              onDeleteTimeEntry={deleteTimeEntry}
-              onBulkUpdateTimeEntries={bulkUpdateTimeEntries}
-              onBulkDeleteTimeEntries={bulkDeleteTimeEntries}
-              isCreatingTimeEntry={isCreatingTimeEntry}
-              contacts={contacts}
-              projects={projects}
-              workPackages={workPackages}
-              isLoadingWorkPackages={isLoadingWorkPackages}
-              onFetchWorkPackages={fetchWorkPackages}
-            />
           </TabsContent>
         </Tabs>
       </main>
