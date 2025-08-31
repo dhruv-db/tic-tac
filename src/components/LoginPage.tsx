@@ -10,8 +10,8 @@ import { Clock, Database, Shield, Zap, Users, BarChart3, CheckCircle2 } from "lu
 import { BexioConnector } from "./BexioConnector";
 
 interface LoginPageProps {
-  onConnect: (credentials: any) => Promise<void>;
-  onOAuthConnect: () => Promise<void>;
+  onConnect: (apiKey: string, companyId: string) => Promise<void>;
+  onOAuthConnect: (accessToken: string, refreshToken: string, companyId: string, userEmail: string) => Promise<void>;
   isConnected: boolean;
 }
 
