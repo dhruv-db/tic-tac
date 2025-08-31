@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -15,10 +14,19 @@ import { cn } from "@/lib/utils";
 import { TimeEntry } from "./TimeTrackingList";
 import { useToast } from "@/hooks/use-toast";
 
+interface WorkPackage {
+  id: string;
+  name: string;
+  description?: string;
+  color?: string;
+  pr_project_id?: number;
+}
+
 interface TimeTrackingGridProps {
   timeEntries: TimeEntry[];
   contacts: any[];
   projects: any[];
+  workPackages: WorkPackage[];
   onCreateTimeEntry?: (data: any) => Promise<void>;
   onUpdateTimeEntry?: (id: number, data: any) => Promise<void>;
   isLoading: boolean;
@@ -28,6 +36,7 @@ export const TimeTrackingGrid = ({
   timeEntries, 
   contacts, 
   projects, 
+  workPackages,
   onCreateTimeEntry,
   onUpdateTimeEntry,
   isLoading 
@@ -388,102 +397,194 @@ export const TimeTrackingGrid = ({
                   <p>No projects available. Connect to Bexio to load your projects.</p>
                 </div>
               ) : (
-                projects.map((project) => (
-                  <div key={project.id} className="border-b">
-                    {/* Project Header */}
-                    <div className="grid grid-cols-8 bg-card hover:bg-muted/20 transition-colors">
-                      <div className="p-4">
-                        <div className="font-medium">{project.name}</div>
-                        <div className="text-sm text-muted-foreground">#{project.nr}</div>
-                      </div>
-                      {dateRange.slice(0, 7).map((date) => {
-                        const entries = getEntriesForDate(date).filter(e => e.project_id === project.id);
-                        const totalHours = entries.reduce((sum, entry) => {
-                          const duration = typeof entry.duration === 'string' 
-                            ? parseFloat(entry.duration.replace(':', '.')) 
-                            : entry.duration / 3600;
-                          return sum + duration;
-                        }, 0);
-
-                        return (
-                          <div key={date.toISOString()} className="p-2">
-                            {totalHours > 0 ? (
-                              <div className="text-center">
-                                <Badge variant="secondary" className="text-xs">
-                                  {totalHours.toFixed(1)}h
-                                </Badge>
-                              </div>
-                            ) : (
-                              <div className="flex justify-center">
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="h-8 w-8 p-0 hover:bg-primary/10"
-                                  onClick={() => {
-                                    // Handle add time entry
-                                    console.log('Add time entry for', date, project);
-                                  }}
-                                >
-                                  <Plus className="h-3 w-3" />
-                                </Button>
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-
-                    {/* Task Rows */}
-                    <div className="ml-8 border-l-2 border-muted">
-                      <div className="grid grid-cols-8 hover:bg-muted/10 transition-[var(--transition-smooth)]">
-                        <div className="p-4 pl-6">
-                          <div className="text-sm text-muted-foreground">General Work</div>
+                projects.map((project) => {
+                  // Get work packages for this project
+                  const projectWorkPackages = workPackages.filter(wp => wp.pr_project_id === project.id);
+                  
+                  return (
+                    <div key={project.id} className="border-b">
+                      {/* Project Header */}
+                      <div className="grid grid-cols-8 bg-muted/10 hover:bg-muted/20 transition-colors">
+                        <div className="p-4">
+                          <div className="font-semibold text-primary">{project.name}</div>
+                          <div className="text-sm text-muted-foreground">#{project.nr}</div>
                         </div>
                         {dateRange.slice(0, 7).map((date) => {
-                          const key = `${project.id}-${format(date, 'yyyy-MM-dd')}`;
-                          const inputValue = timeInputs[key] || '';
-                          const isEditing = editingCell === key;
-                          
+                          const entries = getEntriesForDate(date).filter(e => e.project_id === project.id);
+                          const totalHours = entries.reduce((sum, entry) => {
+                            const duration = typeof entry.duration === 'string' 
+                              ? parseFloat(entry.duration.replace(':', '.')) 
+                              : entry.duration / 3600;
+                            return sum + duration;
+                          }, 0);
+
                           return (
                             <div key={date.toISOString()} className="p-2">
-                              <TooltipProvider>
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <Input
-                                      type="text"
-                                      placeholder="0:00"
-                                      value={inputValue}
-                                      onChange={(e) => handleTimeInputChange(project.id, date, e.target.value)}
-                                      onFocus={(e) => {
-                                        e.target.select();
-                                        setEditingCell(key);
-                                      }}
-                                      onBlur={() => {
-                                        if (inputValue && inputValue !== '0:00') {
-                                          saveTimeEntry(project.id, date, inputValue);
-                                        }
-                                        setEditingCell(null);
-                                      }}
-                                      onKeyDown={(e) => handleKeyDown(e, project.id, date, inputValue)}
-                                      className={cn(
-                                        "h-8 text-center text-sm transition-[var(--transition-smooth)]",
-                                        isEditing && "ring-2 ring-primary border-primary",
-                                        inputValue && "bg-primary-subtle/30 border-primary/30"
-                                      )}
-                                    />
-                                  </TooltipTrigger>
-                                  <TooltipContent>
-                                    <p>Enter time (e.g., 2:30) • Enter to save • Esc to cancel</p>
-                                  </TooltipContent>
-                                </Tooltip>
-                              </TooltipProvider>
+                              {totalHours > 0 ? (
+                                <div className="text-center">
+                                  <Badge variant="default" className="text-xs bg-primary">
+                                    {totalHours.toFixed(1)}h
+                                  </Badge>
+                                </div>
+                              ) : (
+                                <div className="flex justify-center">
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-8 w-8 p-0 hover:bg-primary/10"
+                                    onClick={() => openTimeDialog(date, project)}
+                                  >
+                                    <Plus className="h-3 w-3" />
+                                  </Button>
+                                </div>
+                              )}
                             </div>
                           );
                         })}
                       </div>
+
+                      {/* Work Package Rows */}
+                      <div className="ml-4 border-l-2 border-muted">
+                        {projectWorkPackages.length > 0 ? (
+                          projectWorkPackages.map((workPackage) => (
+                            <div key={workPackage.id} className="grid grid-cols-8 hover:bg-muted/10 transition-[var(--transition-smooth)] border-b border-muted/30">
+                              <div className="p-4 pl-6">
+                                <div className="flex items-center gap-2">
+                                  {workPackage.color && (
+                                    <div 
+                                      className="w-3 h-3 rounded-full flex-shrink-0" 
+                                      style={{ backgroundColor: workPackage.color }}
+                                    />
+                                  )}
+                                  <div>
+                                    <div className="text-sm font-medium">{workPackage.name}</div>
+                                    {workPackage.description && (
+                                      <div className="text-xs text-muted-foreground">{workPackage.description}</div>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                              {dateRange.slice(0, 7).map((date) => {
+                                const key = `${project.id}-${workPackage.id}-${format(date, 'yyyy-MM-dd')}`;
+                                const inputValue = timeInputs[key] || '';
+                                const isEditing = editingCell === key;
+                                
+                                // Get entries for this specific work package
+                                const workPackageEntries = getEntriesForDate(date).filter(e => 
+                                  e.project_id === project.id && e.pr_package_id === workPackage.id
+                                );
+                                const workPackageHours = workPackageEntries.reduce((sum, entry) => {
+                                  const duration = typeof entry.duration === 'string' 
+                                    ? parseFloat(entry.duration.replace(':', '.')) 
+                                    : entry.duration / 3600;
+                                  return sum + duration;
+                                }, 0);
+                                
+                                return (
+                                  <div key={date.toISOString()} className="p-2">
+                                    {workPackageHours > 0 ? (
+                                      <div className="text-center">
+                                        <Badge variant="secondary" className="text-xs">
+                                          {workPackageHours.toFixed(1)}h
+                                        </Badge>
+                                      </div>
+                                    ) : (
+                                      <TooltipProvider>
+                                        <Tooltip>
+                                          <TooltipTrigger asChild>
+                                            <Input
+                                              type="text"
+                                              placeholder="0:00"
+                                              value={inputValue}
+                                              onChange={(e) => setTimeInputs(prev => ({
+                                                ...prev,
+                                                [key]: e.target.value
+                                              }))}
+                                              onFocus={(e) => {
+                                                e.target.select();
+                                                setEditingCell(key);
+                                              }}
+                                              onBlur={() => {
+                                                if (inputValue && inputValue !== '0:00') {
+                                                  saveTimeEntry(project.id, date, inputValue);
+                                                }
+                                                setEditingCell(null);
+                                              }}
+                                              onKeyDown={(e) => handleKeyDown(e, project.id, date, inputValue)}
+                                              className={cn(
+                                                "h-8 text-center text-sm transition-[var(--transition-smooth)]",
+                                                isEditing && "ring-2 ring-primary border-primary",
+                                                inputValue && "bg-primary-subtle/30 border-primary/30"
+                                              )}
+                                            />
+                                          </TooltipTrigger>
+                                          <TooltipContent>
+                                            <p>Enter time (e.g., 2:30) • Enter to save • Esc to cancel</p>
+                                          </TooltipContent>
+                                        </Tooltip>
+                                      </TooltipProvider>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          ))
+                        ) : (
+                          // Default "General Work" row if no work packages
+                          <div className="grid grid-cols-8 hover:bg-muted/10 transition-[var(--transition-smooth)]">
+                            <div className="p-4 pl-6">
+                              <div className="text-sm text-muted-foreground">General Work</div>
+                            </div>
+                            {dateRange.slice(0, 7).map((date) => {
+                              const key = `${project.id}-general-${format(date, 'yyyy-MM-dd')}`;
+                              const inputValue = timeInputs[key] || '';
+                              const isEditing = editingCell === key;
+                              
+                              return (
+                                <div key={date.toISOString()} className="p-2">
+                                  <TooltipProvider>
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <Input
+                                          type="text"
+                                          placeholder="0:00"
+                                          value={inputValue}
+                                          onChange={(e) => setTimeInputs(prev => ({
+                                            ...prev,
+                                            [key]: e.target.value
+                                          }))}
+                                          onFocus={(e) => {
+                                            e.target.select();
+                                            setEditingCell(key);
+                                          }}
+                                          onBlur={() => {
+                                            if (inputValue && inputValue !== '0:00') {
+                                              saveTimeEntry(project.id, date, inputValue);
+                                            }
+                                            setEditingCell(null);
+                                          }}
+                                          onKeyDown={(e) => handleKeyDown(e, project.id, date, inputValue)}
+                                          className={cn(
+                                            "h-8 text-center text-sm transition-[var(--transition-smooth)]",
+                                            isEditing && "ring-2 ring-primary border-primary",
+                                            inputValue && "bg-primary-subtle/30 border-primary/30"
+                                          )}
+                                        />
+                                      </TooltipTrigger>
+                                      <TooltipContent>
+                                        <p>Enter time (e.g., 2:30) • Enter to save • Esc to cancel</p>
+                                      </TooltipContent>
+                                    </Tooltip>
+                                  </TooltipProvider>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                ))
+                  );
+                })
               )}
 
               {/* Total Row */}

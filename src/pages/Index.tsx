@@ -258,6 +258,7 @@ const Index = () => {
                 timeEntries={timeEntries}
                 contacts={contacts}
                 projects={projects}
+                workPackages={workPackages}
                 onCreateTimeEntry={createTimeEntry}
                 onUpdateTimeEntry={updateTimeEntry}
                 isLoading={isLoadingTimeEntries}

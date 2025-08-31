@@ -443,23 +443,23 @@ export const TimeTrackingList = ({
                            </p>
                          )}
 
-                          <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                            {entry.contact_id && (
-                              <span>Contact: {entry.contact_id}</span>
-                            )}
-                            {entry.project_id && (
-                              <span>Project: {entry.project_id}</span>
-                            )}
-                            {entry.status_id && (
-                              <span>Status: {entry.status_id}</span>
-                            )}
-                            {entry.pr_package_id && (
-                              <span>Package: {entry.pr_package_id}</span>
-                            )}
-                            {entry.user_id && (
-                              <span>User: {entry.user_id}</span>
-                            )}
-                          </div>
+                           <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                             {entry.contact_id && (
+                               <span>Contact: {contacts.find(c => c.id === entry.contact_id)?.name_1 || `#${entry.contact_id}`}</span>
+                             )}
+                             {entry.project_id && (
+                               <span>Project: {projects.find(p => p.id === entry.project_id)?.name || `#${entry.project_id}`}</span>
+                             )}
+                             {entry.status_id && (
+                               <span>Status: {entry.status_id}</span>
+                             )}
+                             {entry.pr_package_id && (
+                               <span>Work Package: {workPackages.find(wp => wp.id === entry.pr_package_id)?.name || `#${entry.pr_package_id}`}</span>
+                             )}
+                             {entry.user_id && (
+                               <span>User: {entry.user_id}</span>
+                             )}
+                           </div>
                        </div>
                      </div>
 
