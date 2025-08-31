@@ -132,14 +132,22 @@ export const useBexioApi = () => {
     console.log('scopes:', scopes);
     console.log('aud:', aud);
     console.log('exp:', claims.exp);
+    console.log('company_id:', claims.company_id);
     console.groupEnd();
+    
+    // Check for both legacy and new scope formats
     const required = ['project_show','contact_show','timesheet_show'];
+    const newStyleRequired = ['projects:read', 'contacts:read', 'timesheets:read'];
     const hasScope = (s: string) => Array.isArray(scopes) ? scopes.includes(s) : (typeof scopes === 'string' ? scopes.split(' ').includes(s) : false);
-    const missing = required.filter((s) => !hasScope(s));
-    if (missing.length) {
+    
+    const missingLegacy = required.filter((s) => !hasScope(s));
+    const missingNew = newStyleRequired.filter((s) => !hasScope(s));
+    
+    // Show warning only if both legacy and new style scopes are missing
+    if (missingLegacy.length === required.length && missingNew.length === newStyleRequired.length) {
       toast({
         title: 'Limited permissions',
-        description: `Missing scopes: ${missing.join(', ')}. Please reconnect via OAuth to grant them.`,
+        description: `Missing required API scopes. Please reconnect via OAuth to grant API access.`,
         variant: 'destructive',
       });
     }

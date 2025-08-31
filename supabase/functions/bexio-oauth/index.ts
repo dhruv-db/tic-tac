@@ -66,9 +66,16 @@ serve(async (req) => {
 
       const redirectUri = `https://${url.hostname}/functions/v1/bexio-oauth/callback`;
       
-      // Build scopes: default to OIDC-only to avoid invalid_scope
+      // Build scopes: include necessary API scopes by default
       const baseScopes = ['openid', 'profile', 'email', 'offline_access'];
       const extraScopeParam = (url.searchParams.get('extra_scope') || '').trim();
+
+      // Required API scopes for basic functionality - use legacy format for better compatibility
+      const requiredApiScopes = [
+        'contact_show',
+        'timesheet_show', 
+        'project_show'
+      ];
 
       // Allowed API scopes (new style) and legacy scopes
       const allowedNewRead = [
@@ -89,14 +96,14 @@ serve(async (req) => {
         // 'company_profile' // Avoid by default; include only if explicitly requested
       ];
 
-      let apiScopes: string[] = [];
+      let apiScopes: string[] = [...requiredApiScopes]; // Start with required scopes
       if (extraScopeParam) {
         if (extraScopeParam === 'all_scopes') {
           apiScopes = [...allowedNewRead];
         } else if (allowedNewRead.includes(extraScopeParam)) {
-          apiScopes = [extraScopeParam];
+          apiScopes = [...requiredApiScopes, extraScopeParam];
         } else if (allowedLegacy.includes(extraScopeParam)) {
-          apiScopes = [extraScopeParam];
+          apiScopes = [...requiredApiScopes, extraScopeParam];
         }
       }
 
