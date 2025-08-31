@@ -62,7 +62,7 @@ const Index = () => {
         fetchProjects();
       }
       if (timeEntries.length === 0 && !isLoadingTimeEntries && !hasInitiallyLoaded.timeEntries) {
-        fetchTimeEntries();
+        fetchTimeEntries(undefined, { quiet: true });
       }
     }
   }, [activeTab, hasInitiallyLoaded, isLoadingContacts, isLoadingProjects, isLoadingTimeEntries, fetchContacts, fetchProjects, fetchTimeEntries]);
@@ -73,7 +73,7 @@ const Index = () => {
     } else if (activeTab === "projects") {
       fetchProjects();
     } else if (activeTab === "analytics" || activeTab === "timetracking") {
-      fetchTimeEntries();
+      fetchTimeEntries(undefined, { quiet: false });
       fetchContacts();
       fetchProjects();
     }
@@ -270,7 +270,7 @@ const Index = () => {
                 onCreateTimeEntry={createTimeEntry}
                 onUpdateTimeEntry={updateTimeEntry}
                 onDeleteTimeEntry={deleteTimeEntry}
-                onDateRangeChange={(range) => fetchTimeEntries(range)}
+                onDateRangeChange={(range) => fetchTimeEntries(range, { quiet: true })}
                 isLoading={isLoadingTimeEntries}
               />
             ) : (

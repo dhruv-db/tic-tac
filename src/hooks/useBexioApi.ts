@@ -361,8 +361,28 @@ export const useBexioApi = () => {
     }
   }, [credentials, ensureValidToken, toast, isLoadingProjects]);
 
-  const fetchTimeEntries = useCallback(async (dateRange?: { from: Date; to: Date }) => {
+  const lastFetchRef = useRef<{ key: string; ts: number } | null>(null);
+
+  const fetchTimeEntries = useCallback(async (
+    dateRange?: { from: Date; to: Date },
+    options?: { quiet?: boolean }
+  ) => {
     if (!credentials || isLoadingTimeEntries) return;
+
+    // Build endpoint with optional date filtering
+    let endpoint = '/timesheet';
+    if (dateRange) {
+      const fromDate = format(dateRange.from, 'yyyy-MM-dd');
+      const toDate = format(dateRange.to, 'yyyy-MM-dd');
+      endpoint += `?date_from=${fromDate}&date_to=${toDate}`;
+    }
+
+    // Skip duplicate fetch within 1500ms
+    const now = Date.now();
+    if (lastFetchRef.current && lastFetchRef.current.key === endpoint && now - lastFetchRef.current.ts < 1500) {
+      return;
+    }
+    lastFetchRef.current = { key: endpoint, ts: now };
 
     // Clear any pending fetch timeout
     if (fetchTimeoutRef.current) {
@@ -375,14 +395,6 @@ export const useBexioApi = () => {
 
     setIsLoadingTimeEntries(true);
     try {
-      // Build endpoint with optional date filtering
-      let endpoint = '/timesheet';
-      if (dateRange) {
-        const fromDate = format(dateRange.from, 'yyyy-MM-dd');
-        const toDate = format(dateRange.to, 'yyyy-MM-dd');
-        endpoint += `?date_from=${fromDate}&date_to=${toDate}`;
-      }
-
       const response = await fetch(`https://opcjifbdwpyttaxqlqbf.supabase.co/functions/v1/bexio-proxy`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -395,16 +407,14 @@ export const useBexioApi = () => {
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        
         // Handle 429 rate limiting with retry
         if (response.status === 429) {
-          console.warn('Rate limited, scheduling retry in 2 seconds...');
+          console.warn('Rate limited, scheduling retry in 2000ms for', endpoint);
           fetchTimeoutRef.current = setTimeout(() => {
-            fetchTimeEntries(dateRange);
+            fetchTimeEntries(dateRange, options);
           }, 2000);
           return;
         }
-        
         throw new Error(errorData.error || `Bexio API error: ${response.status}`);
       }
 
@@ -412,10 +422,13 @@ export const useBexioApi = () => {
       setTimeEntries(Array.isArray(data) ? data : []);
       setHasInitiallyLoaded(prev => ({ ...prev, timeEntries: true }));
 
-      toast({
-        title: "Time entries loaded",
-        description: `Fetched ${Array.isArray(data) ? data.length : 0} time entries.`,
-      });
+      const quiet = options?.quiet !== false; // default quiet
+      if (!quiet) {
+        toast({
+          title: "Time entries loaded",
+          description: `Fetched ${Array.isArray(data) ? data.length : 0} time entries.`,
+        });
+      }
     } catch (error) {
       console.error('Error fetching time entries:', error);
       toast({
