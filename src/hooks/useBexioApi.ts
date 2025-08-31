@@ -290,7 +290,7 @@ export const useBexioApi = () => {
     setIsLoadingContacts(true);
     try {
       const requestBody = {
-        endpoint: '/contact',
+        endpoint: '/2.0/contact',
         companyId: credentials.companyId,
         ...(credentials.authType === 'oauth' 
           ? { accessToken: authToken } 
@@ -409,7 +409,7 @@ export const useBexioApi = () => {
     setIsLoadingTimeEntries(true);
     try {
       const requestBody = {
-        endpoint: '/timesheet',
+        endpoint: '/2.0/timesheet',
         companyId: credentials.companyId,
         ...(credentials.authType === 'oauth' 
           ? { accessToken: authToken } 
