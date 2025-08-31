@@ -24,7 +24,9 @@ serve(async (req) => {
       const clientId = Deno.env.get('BEXIO_CLIENT_ID');
       const clientSecret = Deno.env.get('BEXIO_CLIENT_SECRET');
       
+      const maskedId = clientId ? `${clientId.slice(0, 6)}...${clientId.slice(-4)}` : 'none';
       console.log(`Client ID exists: ${!!clientId}, Client Secret exists: ${!!clientSecret}`);
+      console.log(`Using Bexio client_id: ${maskedId}`);
       
       if (!clientId || !clientSecret) {
         console.error('BEXIO_CLIENT_ID or BEXIO_CLIENT_SECRET not found in environment');
@@ -154,6 +156,8 @@ serve(async (req) => {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
+      const maskedId = `${clientId.slice(0, 6)}...${clientId.slice(-4)}`;
+      console.log(`Using Bexio client_id (auth POST): ${maskedId}`);
 
       const redirectUri = `https://${url.hostname}/functions/v1/bexio-oauth/callback`;
       
