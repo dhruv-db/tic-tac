@@ -66,6 +66,20 @@ export const BexioConnector = ({ onConnect, onOAuthConnect, isConnected }: Bexio
   const handleOAuthConnect = async () => {
     setIsOAuthLoading(true);
     try {
+      // First test if the edge function is properly configured
+      const testResponse = await fetch("https://opcjifbdwpyttaxqlqbf.supabase.co/functions/v1/bexio-oauth/login", {
+        method: 'GET',
+      });
+      
+      if (!testResponse.ok) {
+        const errorText = await testResponse.text();
+        if (errorText.includes('OAuth not configured')) {
+          alert('OAuth is not properly configured. Please contact support to set up BEXIO_CLIENT_ID and BEXIO_CLIENT_SECRET.');
+          setIsOAuthLoading(false);
+          return;
+        }
+      }
+
       // Build the login URL with return URL parameter
       const returnUrl = window.location.origin;
       const loginUrl = new URL("https://opcjifbdwpyttaxqlqbf.supabase.co/functions/v1/bexio-oauth/login");
@@ -98,6 +112,7 @@ export const BexioConnector = ({ onConnect, onOAuthConnect, isConnected }: Bexio
 
     } catch (error) {
       console.error('❌ OAuth initiation failed:', error);
+      alert('Failed to initiate OAuth. Please try again.');
       setIsOAuthLoading(false);
     }
   };

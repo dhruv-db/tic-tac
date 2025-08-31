@@ -16,14 +16,28 @@ serve(async (req) => {
   const path = url.pathname;
 
   console.log(`OAuth request path: ${path}`);
+  console.log(`Available env vars: BEXIO_CLIENT_ID=${Deno.env.get('BEXIO_CLIENT_ID') ? 'set' : 'not set'}, BEXIO_CLIENT_SECRET=${Deno.env.get('BEXIO_CLIENT_SECRET') ? 'set' : 'not set'}`);
 
   try {
-    // Handle direct login redirect (GET /login)
-    if (path.endsWith('/login') && req.method === 'GET') {
+    // Handle direct login redirect (GET /login or GET /)
+    if ((path.endsWith('/login') || path === '/bexio-oauth' || path === '/bexio-oauth/') && req.method === 'GET') {
       const clientId = Deno.env.get('BEXIO_CLIENT_ID');
-      if (!clientId) {
-        console.error('BEXIO_CLIENT_ID not found in environment');
-        return new Response('OAuth not configured', { status: 500 });
+      const clientSecret = Deno.env.get('BEXIO_CLIENT_SECRET');
+      
+      console.log(`Client ID exists: ${!!clientId}, Client Secret exists: ${!!clientSecret}`);
+      
+      if (!clientId || !clientSecret) {
+        console.error('BEXIO_CLIENT_ID or BEXIO_CLIENT_SECRET not found in environment');
+        return new Response(JSON.stringify({ 
+          error: 'OAuth not configured', 
+          details: {
+            client_id: !!clientId,
+            client_secret: !!clientSecret
+          }
+        }), { 
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
       }
 
       // Generate PKCE parameters
@@ -366,6 +380,25 @@ serve(async (req) => {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
+    }
+
+    // Handle test endpoint (POST to base path)
+    if ((path === '/bexio-oauth' || path === '/bexio-oauth/') && req.method === 'POST') {
+      const body = await req.json().catch(() => ({}));
+      console.log('Test endpoint called with body:', body);
+      
+      return new Response(JSON.stringify({ 
+        status: 'success', 
+        message: 'Bexio OAuth edge function is working!',
+        timestamp: new Date().toISOString(),
+        body: body,
+        env_check: {
+          client_id: Deno.env.get('BEXIO_CLIENT_ID') ? 'configured' : 'missing',
+          client_secret: Deno.env.get('BEXIO_CLIENT_SECRET') ? 'configured' : 'missing'
+        }
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
     return new Response(JSON.stringify({ error: 'Not found' }), {
