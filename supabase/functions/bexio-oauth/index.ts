@@ -66,8 +66,42 @@ serve(async (req) => {
 
       const redirectUri = `https://${url.hostname}/functions/v1/bexio-oauth/callback`;
       
-      // Standard scopes for Bexio OAuth
-      const scope = 'openid profile email offline_access company_profile project_show timesheet_show contact_show';
+      // Build scopes: default to OIDC-only to avoid invalid_scope
+      const baseScopes = ['openid', 'profile', 'email', 'offline_access'];
+      const extraScopeParam = (url.searchParams.get('extra_scope') || '').trim();
+
+      // Allowed API scopes (new style) and legacy scopes
+      const allowedNewRead = [
+        'contacts:read',
+        'timesheets:read',
+        'projects:read',
+        'users:read',
+        'articles:read',
+        'invoices:read',
+        'orders:read',
+        'kb_invoices:read',
+      ];
+      const allowedLegacy = [
+        'contact_show',
+        'timesheet_show',
+        'project_show',
+        'kb_invoice_show',
+        // 'company_profile' // Avoid by default; include only if explicitly requested
+      ];
+
+      let apiScopes: string[] = [];
+      if (extraScopeParam) {
+        if (extraScopeParam === 'all_scopes') {
+          apiScopes = [...allowedNewRead];
+        } else if (allowedNewRead.includes(extraScopeParam)) {
+          apiScopes = [extraScopeParam];
+        } else if (allowedLegacy.includes(extraScopeParam)) {
+          apiScopes = [extraScopeParam];
+        }
+      }
+
+      const finalScope = [...baseScopes, ...apiScopes].join(' ');
+      console.log('Using OAuth scopes:', finalScope, 'extra_scope param:', extraScopeParam || 'none');
 
       // Pack state with code_verifier and return URL
       const packedState = btoa(JSON.stringify({ 
@@ -80,7 +114,7 @@ serve(async (req) => {
         client_id: clientId,
         redirect_uri: redirectUri,
         response_type: 'code',
-        scope: scope,
+        scope: finalScope,
         state: packedState,
         prompt: 'login consent',
         max_age: '0',

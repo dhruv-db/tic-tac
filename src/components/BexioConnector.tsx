@@ -70,6 +70,9 @@ export const BexioConnector = ({ onConnect, onOAuthConnect, isConnected }: Bexio
       const returnUrl = window.location.origin;
       const loginUrl = new URL("https://opcjifbdwpyttaxqlqbf.supabase.co/functions/v1/bexio-oauth/login");
       loginUrl.searchParams.set('return_url', returnUrl);
+      if (extraScope && extraScope !== 'none') {
+        loginUrl.searchParams.set('extra_scope', extraScope);
+      }
       
       // Open in popup to avoid iframe issues
       const width = 520, height = 700;
