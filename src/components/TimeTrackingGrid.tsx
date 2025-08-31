@@ -13,6 +13,7 @@ import { format, startOfWeek, endOfWeek, eachDayOfInterval, addWeeks, subWeeks, 
 import { cn } from "@/lib/utils";
 import { TimeEntry } from "./TimeTrackingList";
 import { useToast } from "@/hooks/use-toast";
+import { BulkTimeEntryDialog } from "./BulkTimeEntryDialog";
 
 interface WorkPackage {
   id: string;
@@ -48,7 +49,7 @@ export const TimeTrackingGrid = ({
   const [selectedProject, setSelectedProject] = useState('all');
   const [timeInputs, setTimeInputs] = useState<Record<string, string>>({});
   const [editingCell, setEditingCell] = useState<string | null>(null);
-  const [showTimeDialog, setShowTimeDialog] = useState(false);
+  const [showBulkDialog, setShowBulkDialog] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [selectedProjectForDialog, setSelectedProjectForDialog] = useState<any>(null);
   const { toast } = useToast();
@@ -195,11 +196,27 @@ export const TimeTrackingGrid = ({
     }
   };
 
-  // Open quick time dialog
-  const openTimeDialog = (date: Date, project: any) => {
+  // Open bulk time dialog
+  const openBulkDialog = (date: Date, project?: any) => {
     setSelectedDate(date);
     setSelectedProjectForDialog(project);
-    setShowTimeDialog(true);
+    setShowBulkDialog(true);
+  };
+
+  // Filter projects that have time entries
+  const getProjectsWithEntries = () => {
+    const projectsWithTime = new Set<number>();
+    
+    dateRange.slice(0, 7).forEach(date => {
+      const entries = getEntriesForDate(date);
+      entries.forEach(entry => {
+        if (entry.project_id) {
+          projectsWithTime.add(entry.project_id);
+        }
+      });
+    });
+
+    return projects.filter(project => projectsWithTime.has(project.id));
   };
 
   // Mock data for demonstration
@@ -216,13 +233,9 @@ export const TimeTrackingGrid = ({
           <p className="text-muted-foreground">Manage your work hours and track productivity</p>
         </div>
           <div className="flex items-center gap-2">
-            <Button className="gap-2 corporate-button" onClick={() => setShowTimeDialog(true)}>
-              <Timer className="h-4 w-4" />
-              Quick Track
-            </Button>
-            <Button variant="outline" className="gap-2">
+            <Button className="gap-2 corporate-button" onClick={() => openBulkDialog(new Date())}>
               <Plus className="h-4 w-4" />
-              Add Entry
+              New Entry
             </Button>
           </div>
       </div>
@@ -391,23 +404,41 @@ export const TimeTrackingGrid = ({
               </div>
 
               {/* Project Rows */}
-              {projects.length === 0 ? (
-                <div className="p-8 text-center text-muted-foreground">
-                  <Clock className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                  <p>No projects available. Connect to Bexio to load your projects.</p>
-                </div>
-              ) : (
-                projects.map((project) => {
+              {(() => {
+                const projectsWithEntries = getProjectsWithEntries();
+                
+                if (projectsWithEntries.length === 0) {
+                  return (
+                    <div className="p-8 text-center text-muted-foreground">
+                      <Clock className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                      <p>No time entries found for this period. Click "New Entry" to add time.</p>
+                    </div>
+                  );
+                }
+                
+                return projectsWithEntries.map((project) => {
                   // Get work packages for this project
                   const projectWorkPackages = workPackages.filter(wp => wp.pr_project_id === project.id);
                   
                   return (
-                    <div key={project.id} className="border-b">
+                    <div key={project.id} className="border-b group">
                       {/* Project Header */}
                       <div className="grid grid-cols-8 bg-muted/10 hover:bg-muted/20 transition-colors">
-                        <div className="p-4">
-                          <div className="font-semibold text-primary">{project.name}</div>
-                          <div className="text-sm text-muted-foreground">#{project.nr}</div>
+                        <div className="p-4 flex items-center justify-between">
+                          <div>
+                            <div className="font-semibold text-primary">{project.name}</div>
+                            <div className="text-sm text-muted-foreground">#{project.nr}</div>
+                          </div>
+                          <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => openBulkDialog(new Date(), project)}
+                              className="h-8 w-8 p-0"
+                            >
+                              <Edit3 className="h-3 w-3" />
+                            </Button>
+                          </div>
                         </div>
                         {dateRange.slice(0, 7).map((date) => {
                           const entries = getEntriesForDate(date).filter(e => e.project_id === project.id);
@@ -432,7 +463,7 @@ export const TimeTrackingGrid = ({
                                     variant="ghost"
                                     size="sm"
                                     className="h-8 w-8 p-0 hover:bg-primary/10"
-                                    onClick={() => openTimeDialog(date, project)}
+                                    onClick={() => openBulkDialog(date, project)}
                                   >
                                     <Plus className="h-3 w-3" />
                                   </Button>
@@ -584,8 +615,8 @@ export const TimeTrackingGrid = ({
                       </div>
                     </div>
                   );
-                })
-              )}
+                });
+              })()}
 
               {/* Total Row */}
               <div className="grid grid-cols-8 bg-muted/50 font-medium">
@@ -611,91 +642,18 @@ export const TimeTrackingGrid = ({
         </CardContent>
       </Card>
 
-      {/* Quick Time Entry Dialog */}
-      <Dialog open={showTimeDialog} onOpenChange={setShowTimeDialog}>
-        <DialogContent className="corporate-card max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Timer className="h-5 w-5 text-primary" />
-              Quick Time Entry
-            </DialogTitle>
-          </DialogHeader>
-          
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Project</label>
-              <Select 
-                value={selectedProjectForDialog?.id?.toString() || ''} 
-                onValueChange={(value) => {
-                  const project = projects.find(p => p.id.toString() === value);
-                  setSelectedProjectForDialog(project);
-                }}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select a project" />
-                </SelectTrigger>
-                <SelectContent>
-                  {projects.map((project) => (
-                    <SelectItem key={project.id} value={project.id.toString()}>
-                      {project.name} (#{project.nr})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Date</label>
-              <Input
-                type="date"
-                value={selectedDate ? format(selectedDate, 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd')}
-                onChange={(e) => setSelectedDate(new Date(e.target.value))}
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Time (HH:MM)</label>
-              <Input
-                type="text"
-                placeholder="e.g., 2:30"
-                className="text-center"
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && selectedProjectForDialog && selectedDate) {
-                    const input = e.target as HTMLInputElement;
-                    saveTimeEntry(selectedProjectForDialog.id, selectedDate, input.value);
-                    setShowTimeDialog(false);
-                  }
-                }}
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Description (optional)</label>
-              <Textarea
-                placeholder="What did you work on?"
-                className="resize-none"
-                rows={2}
-              />
-            </div>
-            
-            <div className="flex justify-end gap-2 pt-4">
-              <Button variant="outline" onClick={() => setShowTimeDialog(false)}>
-                Cancel
-              </Button>
-              <Button 
-                className="corporate-button gap-2"
-                onClick={() => {
-                  // This would be handled by the onKeyDown above in real usage
-                  setShowTimeDialog(false);
-                }}
-              >
-                <Save className="h-4 w-4" />
-                Save Time
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
+      {/* Bulk Time Entry Dialog */}
+      <BulkTimeEntryDialog
+        isOpen={showBulkDialog}
+        onClose={() => setShowBulkDialog(false)}
+        onSubmit={onCreateTimeEntry || (async () => {})}
+        isSubmitting={false}
+        contacts={contacts}
+        projects={projects}
+        workPackages={workPackages}
+        selectedDate={selectedDate || undefined}
+        selectedProject={selectedProjectForDialog}
+      />
     </div>
   );
 };
