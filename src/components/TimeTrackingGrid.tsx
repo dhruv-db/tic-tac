@@ -30,6 +30,7 @@ interface TimeTrackingGridProps {
   workPackages: WorkPackage[];
   onCreateTimeEntry?: (data: any) => Promise<void>;
   onUpdateTimeEntry?: (id: number, data: any) => Promise<void>;
+  onDeleteTimeEntry?: (id: number) => Promise<void>;
   isLoading: boolean;
 }
 
@@ -40,6 +41,7 @@ export const TimeTrackingGrid = ({
   workPackages,
   onCreateTimeEntry,
   onUpdateTimeEntry,
+  onDeleteTimeEntry,
   isLoading 
 }: TimeTrackingGridProps) => {
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -90,10 +92,7 @@ export const TimeTrackingGrid = ({
   // Calculate total hours for date range
   const getTotalHours = () => {
     return timeEntries.reduce((total, entry) => {
-      const duration = typeof entry.duration === 'string' 
-        ? parseFloat(entry.duration.replace(':', '.')) 
-        : entry.duration / 3600;
-      return total + duration;
+      return total + durationToHours(entry.duration);
     }, 0);
   };
 
@@ -120,6 +119,24 @@ export const TimeTrackingGrid = ({
     const hours = parseInt(parts[0] || '0');
     const minutes = parseInt(parts[1] || '0');
     return (hours * 3600) + (minutes * 60);
+  };
+
+  // Convert duration to hours
+  const durationToHours = (duration: string | number): number => {
+    if (typeof duration === 'string') {
+      // Handle formats like "2:30" or "2.5"
+      if (duration.includes(':')) {
+        const parts = duration.split(':');
+        const hours = parseInt(parts[0] || '0');
+        const minutes = parseInt(parts[1] || '0');
+        return hours + (minutes / 60);
+      } else {
+        return parseFloat(duration) || 0;
+      }
+    } else {
+      // Duration in seconds, convert to hours
+      return duration / 3600;
+    }
   };
 
   // Validate time format
@@ -203,25 +220,51 @@ export const TimeTrackingGrid = ({
     setShowBulkDialog(true);
   };
 
-  // Filter projects that have time entries or get all if none have entries
+  // Filter projects that have time entries or show all projects
   const getProjectsWithEntries = () => {
     const projectsWithTime = new Set<number>();
     
-    dateRange.slice(0, 7).forEach(date => {
-      const entries = getEntriesForDate(date);
-      entries.forEach(entry => {
-        if (entry.project_id) {
-          projectsWithTime.add(entry.project_id);
-        }
-      });
+    // Check all time entries, not just current date range
+    timeEntries.forEach(entry => {
+      if (entry.project_id) {
+        projectsWithTime.add(entry.project_id);
+      }
     });
 
-    // If no projects have time entries, show all projects for easy entry
-    if (projectsWithTime.size === 0) {
-      return projects.slice(0, 10); // Show up to 10 projects initially
-    }
+    // Show all projects that have time entries, plus any projects without entries
+    // This ensures projects with logged hours are always visible
+    return projects.filter(project => {
+      if (projectsWithTime.has(project.id)) {
+        return true; // Always show projects with logged hours
+      }
+      // For projects without entries, only show a limited number
+      return projects.indexOf(project) < 5;
+    });
+  };
 
-    return projects.filter(project => projectsWithTime.has(project.id));
+  // Delete time entry
+  const deleteTimeEntry = async (entryId: number) => {
+    try {
+      if (onDeleteTimeEntry) {
+        await onDeleteTimeEntry(entryId);
+        toast({
+          title: "Time entry deleted",
+          description: "Time entry has been successfully deleted"
+        });
+      } else {
+        toast({
+          title: "Delete functionality not available",
+          description: "Delete time entry feature is not configured",
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Failed to delete time entry",
+        description: "Please try again",
+        variant: "destructive"
+      });
+    }
   };
 
   // Mock data for demonstration
@@ -448,19 +491,38 @@ export const TimeTrackingGrid = ({
                         {dateRange.slice(0, 7).map((date) => {
                           const entries = getEntriesForDate(date).filter(e => e.project_id === project.id);
                           const totalHours = entries.reduce((sum, entry) => {
-                            const duration = typeof entry.duration === 'string' 
-                              ? parseFloat(entry.duration.replace(':', '.')) 
-                              : entry.duration / 3600;
-                            return sum + duration;
+                            return sum + durationToHours(entry.duration);
                           }, 0);
 
                           return (
                             <div key={date.toISOString()} className="p-2">
                               {totalHours > 0 ? (
-                                <div className="text-center">
-                                  <Badge variant="default" className="text-xs bg-primary">
+                                <div className="text-center group/hours">
+                                  <Badge variant="default" className="text-xs bg-primary cursor-pointer group-hover/hours:bg-primary/80">
                                     {totalHours.toFixed(1)}h
                                   </Badge>
+                                  <div className="flex gap-1 mt-1 opacity-0 group-hover/hours:opacity-100 transition-opacity">
+                                    {entries.map(entry => (
+                                      <div key={entry.id} className="flex gap-1">
+                                        <Button
+                                          variant="ghost"
+                                          size="sm"
+                                          className="h-6 w-6 p-0 hover:bg-primary/10"
+                                          onClick={() => openBulkDialog(date, project)}
+                                        >
+                                          <Edit3 className="h-3 w-3" />
+                                        </Button>
+                                        <Button
+                                          variant="ghost"
+                                          size="sm"
+                                          className="h-6 w-6 p-0 hover:bg-destructive/10 text-destructive"
+                                          onClick={() => deleteTimeEntry(entry.id)}
+                                        >
+                                          <Trash2 className="h-3 w-3" />
+                                        </Button>
+                                      </div>
+                                    ))}
+                                  </div>
                                 </div>
                               ) : (
                                 <div className="flex justify-center">
@@ -510,10 +572,7 @@ export const TimeTrackingGrid = ({
                                   e.project_id === project.id && e.pr_package_id === workPackage.id
                                 );
                                 const workPackageHours = workPackageEntries.reduce((sum, entry) => {
-                                  const duration = typeof entry.duration === 'string' 
-                                    ? parseFloat(entry.duration.replace(':', '.')) 
-                                    : entry.duration / 3600;
-                                  return sum + duration;
+                                  return sum + durationToHours(entry.duration);
                                 }, 0);
                                 
                                 return (
@@ -629,10 +688,7 @@ export const TimeTrackingGrid = ({
                 {dateRange.slice(0, 7).map((date) => {
                   const entries = getEntriesForDate(date);
                   const totalHours = entries.reduce((sum, entry) => {
-                    const duration = typeof entry.duration === 'string' 
-                      ? parseFloat(entry.duration.replace(':', '.')) 
-                      : entry.duration / 3600;
-                    return sum + duration;
+                    return sum + durationToHours(entry.duration);
                   }, 0);
 
                   return (

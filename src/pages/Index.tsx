@@ -261,6 +261,7 @@ const Index = () => {
                 workPackages={workPackages}
                 onCreateTimeEntry={createTimeEntry}
                 onUpdateTimeEntry={updateTimeEntry}
+                onDeleteTimeEntry={deleteTimeEntry}
                 isLoading={isLoadingTimeEntries}
               />
             ) : (
