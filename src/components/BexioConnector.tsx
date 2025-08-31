@@ -84,24 +84,29 @@ export const BexioConnector = ({ onConnect, onOAuthConnect, isConnected }: Bexio
         ru: window.location.origin 
       }));
       
-      // Build OAuth URL with comprehensive API scopes for full data access
-      const clientId = 'ea67faa2-5710-4241-9ebd-9267e5fd5acf'; // This is public, safe to expose
-      const redirectUri = 'https://opcjifbdwpyttaxqlqbf.supabase.co/functions/v1/bexio-oauth/callback';
-      // Complete scope list: OIDC scopes + API scopes for full functionality
-      const scope = 'openid profile email offline_access project_show';
+      // Use the edge function to initiate OAuth with proper scope including contact_show
+      const scope = 'openid profile email offline_access contact_show contact_edit project_show project_edit timesheet_show timesheet_edit';
       
-      const params = new URLSearchParams({
-        client_id: clientId,
-        redirect_uri: redirectUri,
-        response_type: 'code',
-        scope: scope,
-        state: packedState,
-        code_challenge: codeChallenge,
-        code_challenge_method: 'S256',
+      const response = await fetch('https://opcjifbdwpyttaxqlqbf.supabase.co/functions/v1/bexio-oauth/auth', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          state: packedState,
+          scope: scope,
+          codeChallenge: codeChallenge,
+          codeChallengeMethod: 'S256',
+          codeVerifier: codeVerifier,
+          returnUrl: window.location.origin
+        })
       });
-
-      const authUrl = `https://auth.bexio.com/realms/bexio/protocol/openid-connect/auth?${params.toString()}`;
-      console.log('✅ Generated Bexio OAuth URL:', authUrl);
+      
+      if (!response.ok) {
+        throw new Error(`OAuth initiation failed: ${response.status}`);
+      }
+      
+      const { authUrl } = await response.json();
       
       // Open in popup to avoid iframe X-Frame-Options issues
       const width = 520, height = 700;
