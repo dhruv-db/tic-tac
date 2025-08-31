@@ -122,16 +122,22 @@ export const TimeTrackingGrid = ({
   // Get entries for a specific date
   const getEntriesForDate = (date: Date) => {
     const dateString = format(date, 'yyyy-MM-dd');
-    return timeEntries.filter(entry => entry.date === dateString);
+    return timeEntries.filter(entry => {
+      // Handle different date formats from Bexio API
+      const entryDate = entry.date?.includes('T') ? entry.date.split('T')[0] : entry.date;
+      return entryDate === dateString;
+    });
   };
 
   // Calculate total hours for current date range only
   const getTotalHours = () => {
     const currentRangeDates = dateRange.slice(0, 7).map(d => format(d, 'yyyy-MM-dd'));
-    return timeEntries.filter(entry => currentRangeDates.includes(entry.date))
-      .reduce((total, entry) => {
-        return total + durationToHours(entry.duration);
-      }, 0);
+    return timeEntries.filter(entry => {
+      const entryDate = entry.date?.includes('T') ? entry.date.split('T')[0] : entry.date;
+      return currentRangeDates.includes(entryDate);
+    }).reduce((total, entry) => {
+      return total + durationToHours(entry.duration);
+    }, 0);
   };
 
   const formatDuration = (seconds: number | string) => {
@@ -304,7 +310,10 @@ export const TimeTrackingGrid = ({
   // Group time entries by project, work package, and activity
   const getGroupedEntries = () => {
     const currentRangeDates = dateRange.slice(0, 7).map(d => format(d, 'yyyy-MM-dd'));
-    const relevantEntries = timeEntries.filter(entry => currentRangeDates.includes(entry.date));
+    const relevantEntries = timeEntries.filter(entry => {
+      const entryDate = entry.date?.includes('T') ? entry.date.split('T')[0] : entry.date;
+      return currentRangeDates.includes(entryDate);
+    });
     
     const grouped: Record<number, {
       project: any;
@@ -329,7 +338,7 @@ export const TimeTrackingGrid = ({
 
       const workPackageKey = entry.pr_package_id ? `wp_${entry.pr_package_id}` : 'general';
       const workPackage = entry.pr_package_id 
-        ? workPackages.find(wp => wp.id === entry.pr_package_id.toString()) 
+        ? workPackages.find(wp => wp.id === entry.pr_package_id) 
         : null;
 
       if (!grouped[entry.project_id].workPackages[workPackageKey]) {
@@ -348,6 +357,26 @@ export const TimeTrackingGrid = ({
     });
 
     return grouped;
+  };
+
+  // Show all projects that have entries OR allow creating new entries for all projects
+  const getAllRelevantProjects = () => {
+    // Get projects with entries in current range
+    const projectsWithEntries = new Set<number>();
+    const currentRangeDates = dateRange.slice(0, 7).map(d => format(d, 'yyyy-MM-dd'));
+    
+    timeEntries.forEach(entry => {
+      if (entry.project_id) {
+        const entryDate = entry.date?.includes('T') ? entry.date.split('T')[0] : entry.date;
+        if (currentRangeDates.includes(entryDate)) {
+          projectsWithEntries.add(entry.project_id);
+        }
+      }
+    });
+
+    // Return projects with entries, or all projects if none have entries
+    const projectsWithData = projects.filter(project => projectsWithEntries.has(project.id));
+    return projectsWithData.length > 0 ? projectsWithData : projects.slice(0, 10); // Limit to first 10 if showing all
   };
 
   // Delete time entry
@@ -585,10 +614,10 @@ export const TimeTrackingGrid = ({
 
               {/* Hierarchical Project Rows */}
               {(() => {
+                const relevantProjects = getAllRelevantProjects();
                 const groupedEntries = getGroupedEntries();
-                const projectIds = Object.keys(groupedEntries).map(Number);
                 
-                if (projectIds.length === 0) {
+                if (relevantProjects.length === 0) {
                   return (
                     <div className="p-8 text-center text-muted-foreground">
                       <Clock className="h-12 w-12 mx-auto mb-4 opacity-50" />
@@ -604,27 +633,29 @@ export const TimeTrackingGrid = ({
                   );
                 }
                 
-                return projectIds.map((projectId) => {
-                  const { project, workPackages: projectWorkPackages } = groupedEntries[projectId];
-                  const isProjectExpanded = expandedProjects.has(projectId);
+                return relevantProjects.map((project) => {
+                  const projectData = groupedEntries[project.id];
+                  const projectWorkPackages = projectData?.workPackages || {};
+                  const isProjectExpanded = expandedProjects.has(project.id);
                   
                   // Calculate project totals for each day
                   const projectTotals = dateRange.slice(0, 7).map(date => {
-                    const entries = getEntriesForDate(date).filter(e => e.project_id === projectId);
+                    const entries = getEntriesForDate(date).filter(e => e.project_id === project.id);
                     return entries.reduce((sum, entry) => sum + durationToHours(entry.duration), 0);
                   });
                   
                   const projectWeekTotal = projectTotals.reduce((sum, hours) => sum + hours, 0);
+                  const hasEntries = projectWeekTotal > 0;
 
                   return (
-                    <div key={projectId} className="border-b">
+                    <div key={project.id} className="border-b">
                       {/* Project Header Row */}
                       <div className="grid grid-cols-8 hover:bg-muted/10 transition-colors group">
                         <div className="p-3 flex items-center">
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => toggleProject(projectId)}
+                            onClick={() => toggleProject(project.id)}
                             className="h-6 w-6 p-0 mr-2 hover:bg-primary/10"
                           >
                             {isProjectExpanded ? (
@@ -634,9 +665,15 @@ export const TimeTrackingGrid = ({
                             )}
                           </Button>
                           <div className="flex items-center gap-2">
-                            <div className="w-2 h-8 bg-primary rounded-sm"></div>
+                            <div className={cn(
+                              "w-2 h-8 rounded-sm",
+                              hasEntries ? "bg-primary" : "bg-muted"
+                            )}></div>
                             <div>
-                              <div className="font-semibold text-foreground">{project.name}</div>
+                              <div className={cn(
+                                "font-semibold",
+                                hasEntries ? "text-foreground" : "text-muted-foreground"
+                              )}>{project.name}</div>
                               <div className="text-xs text-muted-foreground">#{project.nr}</div>
                             </div>
                           </div>
@@ -649,14 +686,16 @@ export const TimeTrackingGrid = ({
                             >
                               <Edit3 className="h-3 w-3" />
                             </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => deleteProjectEntriesInRange(projectId)}
-                              className="h-7 w-7 p-0 hover:bg-destructive/10 text-destructive"
-                            >
-                              <Trash2 className="h-3 w-3" />
-                            </Button>
+                            {hasEntries && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => deleteProjectEntriesInRange(project.id)}
+                                className="h-7 w-7 p-0 hover:bg-destructive/10 text-destructive"
+                              >
+                                <Trash2 className="h-3 w-3" />
+                              </Button>
+                            )}
                           </div>
                         </div>
                         {dateRange.slice(0, 7).map((date, index) => (
@@ -666,24 +705,32 @@ export const TimeTrackingGrid = ({
                                 {projectTotals[index].toFixed(1)}
                               </Badge>
                             ) : (
-                              <span className="text-muted-foreground text-xs">0:00</span>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => openBulkDialog(date, project)}
+                                className="h-6 w-6 p-0 hover:bg-primary/10 text-muted-foreground hover:text-primary"
+                              >
+                                <Plus className="h-3 w-3" />
+                              </Button>
                             )}
                           </div>
                         ))}
                       </div>
 
                       {/* Work Package and Activity Rows */}
-                      {isProjectExpanded && (
+                      {isProjectExpanded && hasEntries && (
                         <div className="bg-muted/5">
                           {Object.entries(projectWorkPackages).map(([wpKey, { workPackage, activities }]) => {
-                            const workPackageKey = `${projectId}-${wpKey}`;
+                            const workPackageKey = `${project.id}-${wpKey}`;
                             const isWpExpanded = expandedWorkPackages.has(workPackageKey);
                             
                             // Calculate work package totals
                             const wpTotals = dateRange.slice(0, 7).map(date => {
-                              const entries = Object.values(activities).flat().filter(e => 
-                                e.date === format(date, 'yyyy-MM-dd')
-                              );
+                              const entries = Object.values(activities).flat().filter(e => {
+                                const entryDate = e.date?.includes('T') ? e.date.split('T')[0] : e.date;
+                                return entryDate === format(date, 'yyyy-MM-dd');
+                              });
                               return entries.reduce((sum, entry) => sum + durationToHours(entry.duration), 0);
                             });
 
@@ -746,9 +793,10 @@ export const TimeTrackingGrid = ({
                                       </div>
                                     </div>
                                     {dateRange.slice(0, 7).map((date) => {
-                                      const dayEntries = activityEntries.filter(e => 
-                                        e.date === format(date, 'yyyy-MM-dd')
-                                      );
+                                      const dayEntries = activityEntries.filter(e => {
+                                        const entryDate = e.date?.includes('T') ? e.date.split('T')[0] : e.date;
+                                        return entryDate === format(date, 'yyyy-MM-dd');
+                                      });
                                       const dayTotal = dayEntries.reduce((sum, entry) => 
                                         sum + durationToHours(entry.duration), 0
                                       );
@@ -845,7 +893,7 @@ export const TimeTrackingGrid = ({
                           </Tooltip>
                         </TooltipProvider>
                       ) : (
-                        '-'
+                        <span className="text-muted-foreground">0:00</span>
                       )}
                     </div>
                   );
