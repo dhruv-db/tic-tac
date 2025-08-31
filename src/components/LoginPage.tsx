@@ -17,9 +17,14 @@ export const LoginPage = ({
   onOAuthConnect,
   isConnected
 }: LoginPageProps) => {
-  const TikTakLogo = () => (
-    <div className="flex flex-col items-center space-y-2">
-      <img src="/lovable-uploads/4363b3b2-8f6b-49f6-8c4e-9802678fe2c1.png" alt="tik-tak" className="h-16 w-auto" />
+  const TikTakLogo = ({ className = "" }) => (
+    <div className={`flex flex-col items-center space-y-2 ${className}`}>
+      <img 
+        src="/lovable-uploads/4363b3b2-8f6b-49f6-8c4e-9802678fe2c1.png" 
+        alt="tik-tak" 
+        className="h-10 w-auto md:h-12" 
+      />
+      <p className="text-sm opacity-80">Smart & simple time-tracking</p>
     </div>
   );
   const features = [{
@@ -46,8 +51,8 @@ export const LoginPage = ({
         <div className="relative z-10 flex flex-col justify-center px-12 py-16 text-white bg-[#164e59]">
           {/* Logo & Brand */}
           <div className="mb-12 text-center">
-            <TikTakLogo />
-            <h1 className="text-3xl font-bold tracking-tight text-white mt-4 mb-2">
+            <TikTakLogo className="mb-6" />
+            <h1 className="text-3xl font-bold tracking-tight text-white mb-2">
               Transform Your Time Tracking
             </h1>
             <p className="text-xl text-white/90 leading-relaxed">
@@ -93,12 +98,7 @@ export const LoginPage = ({
         <div className="w-full max-w-md">
           {/* Mobile Header */}
           <div className="lg:hidden text-center mb-8">
-            <div className="flex items-center justify-center gap-3 mb-4">
-              <div className="text-primary">
-                <TikTakLogo />
-              </div>
-            </div>
-            <p className="text-muted-foreground">Smart & simple time-tracking</p>
+            <TikTakLogo className="text-primary" />
           </div>
 
           {/* Login Card */}
