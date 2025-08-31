@@ -44,9 +44,7 @@ export const LoginPage = ({
           <div className="mb-12">
             
             
-            <p className="text-xl text-white/90 leading-relaxed">
-              Connect seamlessly with Bexio and transform how you track time, manage projects, and analyze productivity across your team.
-            </p>
+            
           </div>
 
           {/* Features Grid */}
