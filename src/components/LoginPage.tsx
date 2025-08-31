@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Calendar, FileText, User, BarChart3, Play } from "lucide-react";
+import { Calendar, FileText, User, BarChart3, Play, CheckCircle2, Clock, Zap, Shield } from "lucide-react";
 import { BexioConnector } from "./BexioConnector";
 
 interface LoginPageProps {
@@ -78,178 +78,228 @@ export const LoginPage = ({
   }
 
   return (
-    <div className="min-h-screen flex">
-      {/* Left side - Dark teal gradient with branding */}
-      <div className="w-full lg:w-1/2 bg-gradient-to-br from-teal-800 via-teal-700 to-teal-900 p-8 lg:p-12 flex flex-col justify-between text-white relative overflow-hidden">
+    <div className="min-h-screen bg-white flex">
+      {/* Left Side - Main Content */}
+      <div className="flex-1 flex flex-col">
         {/* Header */}
-        <div className="flex justify-between items-start mb-8">
+        <header className="flex justify-between items-center p-6 lg:p-8">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-white/10 rounded-lg flex items-center justify-center backdrop-blur">
-              <div className="w-6 h-6 bg-green-500 rounded-full flex items-center justify-center">
-                <svg width="12" height="9" viewBox="0 0 12 9" fill="none">
-                  <path d="M1 4.5L4.5 8L11 1" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
-              </div>
-            </div>
-            <div>
-              <h1 className="text-2xl font-bold">tik✓tak</h1>
-            </div>
+            <img 
+              src="/lovable-uploads/7897546d-e6d9-4ed7-b5e0-0d3c1db11940.png" 
+              alt="tik-tak logo" 
+              className="h-12 w-auto"
+            />
           </div>
-          <div className="flex gap-4">
-            <button className="text-white/80 hover:text-white text-sm">SIGN IN</button>
-            <div className="flex items-center gap-1 text-sm">
+          <div className="flex items-center gap-6">
+            <button className="text-gray-600 hover:text-gray-900 text-sm font-medium">
+              Sign In
+            </button>
+            <div className="flex items-center gap-2 text-sm text-gray-600">
               <span>EN</span>
               <svg width="12" height="8" fill="currentColor" viewBox="0 0 12 8">
                 <path d="M6 8L0 2h12L6 8z"/>
               </svg>
             </div>
           </div>
-        </div>
+        </header>
 
-        {/* Main content */}
-        <div className="space-y-8 flex-1">
-          <div>
-            <p className="text-lg text-white/90 mb-8">Smart & simple time-tracking</p>
-            
-            <div className="space-y-4">
-              <div className="bg-green-500 hover:bg-green-600 text-white px-8 py-6 text-lg font-medium rounded-lg shadow-lg cursor-pointer text-center"
-                   onClick={() => setShowManualEntry(true)}>
-                REGISTER WITH BEXIO LOGIN
-                <br />
-                <span className="text-sm font-normal">(WITHOUT CREDIT CARD)</span>
+        {/* Hero Section */}
+        <div className="flex-1 flex items-center justify-center px-6 lg:px-8">
+          <div className="max-w-6xl w-full grid lg:grid-cols-2 gap-12 items-center">
+            {/* Left Content */}
+            <div className="space-y-8">
+              <div className="space-y-6">
+                <h1 className="text-5xl lg:text-6xl font-bold text-gray-900 leading-tight">
+                  Smart & simple<br />
+                  <span style={{ color: '#5faf59' }}>time-tracking</span>
+                </h1>
+                <p className="text-xl text-gray-600 leading-relaxed">
+                  Professional time tracking that integrates seamlessly with Bexio. 
+                  Track projects, manage teams, and boost productivity.
+                </p>
+              </div>
+
+              <div className="space-y-4">
+                <Button 
+                  className="text-lg px-8 py-6 rounded-xl shadow-lg"
+                  style={{ backgroundColor: '#5faf59' }}
+                  onClick={() => setShowManualEntry(true)}
+                >
+                  Get Started with Bexio
+                  <span className="block text-sm font-normal opacity-90">
+                    No credit card required
+                  </span>
+                </Button>
+                
+                <div className="flex items-center gap-4 text-sm text-gray-500">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4" style={{ color: '#5faf59' }} />
+                    <span>Free 14-day trial</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Shield className="w-4 h-4" style={{ color: '#5faf59' }} />
+                    <span>Secure & encrypted</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Stats */}
+              <div className="grid grid-cols-3 gap-6 pt-8 border-t border-gray-200">
+                <div className="text-center">
+                  <div className="text-3xl font-bold" style={{ color: '#164e59' }}>10k+</div>
+                  <div className="text-sm text-gray-600">Active Users</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-3xl font-bold" style={{ color: '#164e59' }}>99.9%</div>
+                  <div className="text-sm text-gray-600">Uptime</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-3xl font-bold" style={{ color: '#164e59' }}>4.9★</div>
+                  <div className="text-sm text-gray-600">User Rating</div>
+                </div>
               </div>
             </div>
-          </div>
 
-          {/* Demo video area */}
-          <div className="bg-white/10 backdrop-blur rounded-lg p-6 max-w-md">
-            <div className="bg-white rounded-lg p-4 relative">
-              <div className="flex items-center gap-2 mb-4">
-                <div className="w-8 h-8 bg-teal-700 rounded flex items-center justify-center text-white text-xs font-bold">
-                  tik✓tak
+            {/* Right Content - Demo/Preview */}
+            <div className="relative">
+              <div className="bg-white rounded-2xl shadow-2xl p-8 border border-gray-100">
+                <div className="space-y-6">
+                  <div className="flex items-center gap-3 pb-4 border-b border-gray-200">
+                    <img 
+                      src="/lovable-uploads/7897546d-e6d9-4ed7-b5e0-0d3c1db11940.png" 
+                      alt="tik-tak logo" 
+                      className="h-8 w-auto"
+                    />
+                    <span className="text-sm text-gray-600">Dashboard Preview</span>
+                  </div>
+                  
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                      <div className="flex items-center gap-3">
+                        <Clock className="w-5 h-5" style={{ color: '#5faf59' }} />
+                        <span className="font-medium">Today's Time</span>
+                      </div>
+                      <span className="text-lg font-bold" style={{ color: '#164e59' }}>7h 32m</span>
+                    </div>
+                    
+                    <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                      <div className="flex items-center gap-3">
+                        <Zap className="w-5 h-5" style={{ color: '#5faf59' }} />
+                        <span className="font-medium">Active Projects</span>
+                      </div>
+                      <span className="text-lg font-bold" style={{ color: '#164e59' }}>12</span>
+                    </div>
+                    
+                    <div className="p-4 rounded-lg" style={{ backgroundColor: '#5faf59' }}>
+                      <div className="text-white text-center">
+                        <div className="text-2xl font-bold">Ready to start?</div>
+                        <div className="text-sm opacity-90">Connect your Bexio account</div>
+                      </div>
+                    </div>
+                  </div>
                 </div>
-                <span className="text-sm text-gray-600">Smart & simple time-tracking</span>
               </div>
-              <div className="bg-gray-100 rounded p-4 mb-4">
-                <div className="text-xs text-gray-600 mb-2">Time tracking for employees</div>
-                <div className="text-xs text-gray-600">monitoring, project management</div>
-                <div className="text-xs text-gray-600">and productivity analysis</div>
-              </div>
-              <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
-                <div className="w-12 h-12 bg-orange-500 rounded-full flex items-center justify-center cursor-pointer">
-                  <Play className="w-5 h-5 text-white ml-1" fill="currentColor" />
+              
+              {/* Floating elements */}
+              <div className="absolute -top-4 -right-4 w-8 h-8 rounded-full" style={{ backgroundColor: '#5faf59' }}></div>
+              <div className="absolute -bottom-4 -left-4 w-6 h-6 rounded-full" style={{ backgroundColor: '#164e59' }}></div>
+            </div>
+          </div>
+        </div>
+
+        {/* Features Section */}
+        <div className="px-6 lg:px-8 py-16" style={{ backgroundColor: '#f8fafb' }}>
+          <div className="max-w-6xl mx-auto">
+            <div className="text-center mb-12">
+              <h2 className="text-3xl font-bold text-gray-900 mb-4">
+                Everything you need for efficient time tracking
+              </h2>
+              <p className="text-lg text-gray-600">
+                Powerful features designed for modern businesses
+              </p>
+            </div>
+            
+            <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
+              <div className="text-center space-y-4">
+                <div className="w-16 h-16 mx-auto rounded-2xl flex items-center justify-center" style={{ backgroundColor: '#164e59' }}>
+                  <Calendar className="w-8 h-8 text-white" />
                 </div>
+                <h3 className="text-xl font-semibold text-gray-900">Worktime</h3>
+                <p className="text-gray-600 text-sm">
+                  Track daily worktime in less than a minute with smart automation
+                </p>
+              </div>
+              
+              <div className="text-center space-y-4">
+                <div className="w-16 h-16 mx-auto rounded-2xl flex items-center justify-center" style={{ backgroundColor: '#164e59' }}>
+                  <FileText className="w-8 h-8 text-white" />
+                </div>
+                <h3 className="text-xl font-semibold text-gray-900">Projects</h3>
+                <p className="text-gray-600 text-sm">
+                  Manage billable and non-billable hours across multiple projects
+                </p>
+              </div>
+              
+              <div className="text-center space-y-4">
+                <div className="w-16 h-16 mx-auto rounded-2xl flex items-center justify-center" style={{ backgroundColor: '#164e59' }}>
+                  <User className="w-8 h-8 text-white" />
+                </div>
+                <h3 className="text-xl font-semibold text-gray-900">Absences</h3>
+                <p className="text-gray-600 text-sm">
+                  Track vacations, sick days, and other absences effortlessly
+                </p>
+              </div>
+              
+              <div className="text-center space-y-4">
+                <div className="w-16 h-16 mx-auto rounded-2xl flex items-center justify-center" style={{ backgroundColor: '#164e59' }}>
+                  <BarChart3 className="w-8 h-8 text-white" />
+                </div>
+                <h3 className="text-xl font-semibold text-gray-900">Analytics</h3>
+                <p className="text-gray-600 text-sm">
+                  Comprehensive reporting and team productivity insights
+                </p>
               </div>
             </div>
           </div>
         </div>
 
         {/* Footer */}
-        <div className="text-xs text-white/60 space-y-1">
-          <p>© 2021 by tik-tak. All rights reserved.</p>
-          <div className="flex gap-4">
-            <a href="#" className="hover:text-white/80">Terms & conditions</a>
-            <span>and</span>
-            <a href="#" className="hover:text-white/80">Privacy policy</a>
+        <footer className="px-6 lg:px-8 py-8 border-t border-gray-200">
+          <div className="max-w-6xl mx-auto">
+            <div className="flex flex-col md:flex-row justify-between items-center gap-4">
+              <div className="text-sm text-gray-600">
+                © 2024 by tik-tak. All rights reserved.
+              </div>
+              <div className="flex gap-6 text-sm text-gray-600">
+                <a href="#" className="hover:text-gray-900">Terms & Conditions</a>
+                <a href="#" className="hover:text-gray-900">Privacy Policy</a>
+              </div>
+            </div>
           </div>
-        </div>
-
-        {/* Decorative elements */}
-        <div className="absolute top-20 right-20 w-2 h-2 bg-green-400 rounded-full"></div>
-        <div className="absolute top-40 right-40 w-3 h-3 bg-teal-400 rounded-full"></div>
-        <div className="absolute bottom-40 right-20 w-2 h-2 bg-blue-400 rounded-full"></div>
-        <div className="absolute bottom-20 right-60 w-4 h-4 bg-green-300 rounded-full"></div>
+        </footer>
       </div>
 
-      {/* Right side - White background with features */}
-      <div className="hidden lg:block w-1/2 bg-gray-50 p-12 relative overflow-hidden">
-        {/* Feature cards */}
-        <div className="grid grid-cols-2 gap-8 h-full">
-          {/* Worktime */}
-          <div className="space-y-4 pt-16">
-            <div className="w-16 h-16 bg-white rounded-lg shadow-sm flex items-center justify-center mb-4">
-              <Calendar className="w-8 h-8 text-teal-600" />
-            </div>
-            <h3 className="text-xl font-semibold text-gray-800">Worktime</h3>
-            <p className="text-gray-600 text-sm leading-relaxed">
-              Track your daily worktime in less than a minute. Use text recognition or start-and-stop tracking.
-            </p>
-          </div>
-
-          {/* Projects Work */}
-          <div className="space-y-4">
-            <div className="w-16 h-16 bg-white rounded-lg shadow-sm flex items-center justify-center mb-4">
-              <FileText className="w-8 h-8 text-teal-600" />
-            </div>
-            <h3 className="text-xl font-semibold text-gray-800">Projects Work</h3>
-            <p className="text-gray-600 text-sm leading-relaxed">
-              Track your times on projects. Manage billable and non-billable hours, and much more.
-            </p>
-          </div>
-
-          {/* Absences & Vacations */}
-          <div className="space-y-4">
-            <div className="w-16 h-16 bg-white rounded-lg shadow-sm flex items-center justify-center mb-4">
-              <User className="w-8 h-8 text-teal-600" />
-            </div>
-            <h3 className="text-xl font-semibold text-gray-800">Absences & Vacations</h3>
-            <p className="text-gray-600 text-sm leading-relaxed">
-              Track your absences like vacations, sickness, military and many more easily and fast.
-            </p>
-          </div>
-
-          {/* Analyse & Reporting */}
-          <div className="space-y-4 pb-16">
-            <div className="w-16 h-16 bg-white rounded-lg shadow-sm flex items-center justify-center mb-4">
-              <BarChart3 className="w-8 h-8 text-teal-600" />
-            </div>
-            <h3 className="text-xl font-semibold text-gray-800">Analyse & Reporting</h3>
-            <p className="text-gray-600 text-sm leading-relaxed">
-              See how your team spends time, money and resources. Manage your projects efficiently.
-            </p>
-          </div>
-        </div>
-
-        {/* Decorative elements */}
-        <div className="absolute top-32 left-20 w-3 h-3 bg-teal-600 rounded-full"></div>
-        <div className="absolute top-20 right-32 w-2 h-2 bg-blue-500 rounded-full"></div>
-        <div className="absolute bottom-60 left-40 w-2 h-2 bg-green-400 rounded-full"></div>
-        <div className="absolute bottom-32 right-20 w-3 h-3 bg-teal-500 rounded-full"></div>
-        <div className="absolute top-60 right-20 w-4 h-4 bg-green-300 rounded-full"></div>
-      </div>
-
-      {/* Mobile/Tablet overlay for auth */}
+      {/* Connection Modal */}
       {showManualEntry && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-          <Card className="w-full max-w-md">
-            <CardContent className="p-6">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-xl font-semibold text-gray-900">Connect to Bexio</h3>
+                <button 
+                  onClick={() => setShowManualEntry(false)}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
               <BexioConnector onConnect={onConnect} onOAuthConnect={onOAuthConnect} isConnected={isConnected} />
-              <Button 
-                variant="ghost" 
-                className="w-full mt-4"
-                onClick={() => setShowManualEntry(false)}
-              >
-                Close
-              </Button>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
         </div>
       )}
-
-      {/* Mobile floating auth card */}
-      <div className="lg:hidden fixed bottom-8 left-4 right-4 z-40">
-        <Card className="shadow-lg">
-          <CardContent className="p-4">
-            {!showManualEntry ? (
-              <div className="space-y-4">
-                <BexioConnector onConnect={onConnect} onOAuthConnect={onOAuthConnect} isConnected={isConnected} />
-              </div>
-            ) : (
-              <ManualEntry onConnect={onConnect} onBack={() => setShowManualEntry(false)} />
-            )}
-          </CardContent>
-        </Card>
-      </div>
     </div>
   );
 };
