@@ -133,7 +133,7 @@ export const useBexioApi = () => {
     console.log('aud:', aud);
     console.log('exp:', claims.exp);
     console.groupEnd();
-    const required = ['project_show','contact_show','timesheet_show'];
+    const required = ['project_show','contact_show','monitoring_show'];
     const hasScope = (s: string) => Array.isArray(scopes) ? scopes.includes(s) : (typeof scopes === 'string' ? scopes.split(' ').includes(s) : false);
     const missing = required.filter((s) => !hasScope(s));
     if (missing.length) {
@@ -262,14 +262,53 @@ export const useBexioApi = () => {
   }, [credentials, toast]);
 
   const fetchContacts = useCallback(async () => {
-    // Disabled temporarily due to missing contact_show scope
-    toast({
-      title: "Contacts disabled",
-      description: "Contact access is temporarily disabled due to missing permissions.",
-      variant: "destructive",
-    });
-    return;
-  }, [toast]);
+    if (!credentials) {
+      toast({
+        title: "Not connected",
+        description: "Please connect to Bexio first.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const authToken = await ensureValidToken();
+    if (!authToken) return;
+
+    setIsLoadingContacts(true);
+    try {
+      const response = await fetch(`https://opcjifbdwpyttaxqlqbf.supabase.co/functions/v1/bexio-proxy`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          endpoint: '/3.0/contacts',
+          apiKey: authToken,
+          companyId: credentials.companyId,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      setContacts(Array.isArray(data) ? data : []);
+
+      toast({
+        title: "Contacts loaded",
+        description: `Fetched ${Array.isArray(data) ? data.length : 0} contacts.`,
+      });
+    } catch (error) {
+      console.error('Error fetching contacts:', error);
+      toast({
+        title: "Failed to fetch contacts",
+        description: error instanceof Error ? error.message : "An error occurred while fetching contacts.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoadingContacts(false);
+    }
+  }, [credentials, ensureValidToken, toast]);
 
   const fetchProjects = useCallback(async () => {
     if (!credentials) {
@@ -323,14 +362,53 @@ export const useBexioApi = () => {
   }, [credentials, ensureValidToken, toast]);
 
   const fetchTimeEntries = useCallback(async () => {
-    // Disabled temporarily due to missing timesheet_show scope
-    toast({
-      title: "Time entries disabled",
-      description: "Time entry access is temporarily disabled due to missing permissions.",
-      variant: "destructive",
-    });
-    return;
-  }, [toast]);
+    if (!credentials) {
+      toast({
+        title: "Not connected",
+        description: "Please connect to Bexio first.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const authToken = await ensureValidToken();
+    if (!authToken) return;
+
+    setIsLoadingTimeEntries(true);
+    try {
+      const response = await fetch(`https://opcjifbdwpyttaxqlqbf.supabase.co/functions/v1/bexio-proxy`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          endpoint: '/timesheet',
+          apiKey: authToken,
+          companyId: credentials.companyId,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      setTimeEntries(Array.isArray(data) ? data : []);
+
+      toast({
+        title: "Time entries loaded",
+        description: `Fetched ${Array.isArray(data) ? data.length : 0} time entries.`,
+      });
+    } catch (error) {
+      console.error('Error fetching time entries:', error);
+      toast({
+        title: "Failed to fetch time entries",
+        description: error instanceof Error ? error.message : "An error occurred while fetching time entries.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoadingTimeEntries(false);
+    }
+  }, [credentials, ensureValidToken, toast]);
 
   const fetchWorkPackages = useCallback(async (projectId?: number) => {
     if (!credentials) {
