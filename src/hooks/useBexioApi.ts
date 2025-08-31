@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { DateRange } from "react-day-picker";
 import { format } from "date-fns";
@@ -111,6 +111,12 @@ export const useBexioApi = () => {
   const [businessActivities, setBusinessActivities] = useState<{ id: number; name: string }[]>([]);
   const [isLoadingActivities, setIsLoadingActivities] = useState(false);
   const [isCreatingTimeEntry, setIsCreatingTimeEntry] = useState(false);
+  const [hasInitiallyLoaded, setHasInitiallyLoaded] = useState({
+    contacts: false,
+    projects: false,
+    timeEntries: false
+  });
+  const fetchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const { toast } = useToast();
 
   // Debug helpers: decode JWT to inspect scopes and audience
@@ -263,14 +269,7 @@ export const useBexioApi = () => {
   }, [credentials, toast]);
 
   const fetchContacts = useCallback(async () => {
-    if (!credentials) {
-      toast({
-        title: "Not connected",
-        description: "Please connect to Bexio first.",
-        variant: "destructive",
-      });
-      return;
-    }
+    if (!credentials || isLoadingContacts) return;
 
     const authToken = await ensureValidToken();
     if (!authToken) return;
@@ -299,6 +298,7 @@ export const useBexioApi = () => {
             ? (data as any).data
             : (data && typeof data === 'object' ? [data as any] : []));
       setContacts(items);
+      setHasInitiallyLoaded(prev => ({ ...prev, contacts: true }));
 
       toast({
         title: "Contacts loaded",
@@ -314,17 +314,10 @@ export const useBexioApi = () => {
     } finally {
       setIsLoadingContacts(false);
     }
-  }, [credentials, ensureValidToken, toast]);
+  }, [credentials, ensureValidToken, toast, isLoadingContacts]);
 
   const fetchProjects = useCallback(async () => {
-    if (!credentials) {
-      toast({
-        title: "Not connected",
-        description: "Please connect to Bexio first.",
-        variant: "destructive",
-      });
-      return;
-    }
+    if (!credentials || isLoadingProjects) return;
 
     const authToken = await ensureValidToken();
     if (!authToken) return;
@@ -350,6 +343,7 @@ export const useBexioApi = () => {
 
       const data = await response.json();
       setProjects(Array.isArray(data) ? data : []);
+      setHasInitiallyLoaded(prev => ({ ...prev, projects: true }));
       
       toast({
         title: "Projects loaded successfully",
@@ -365,16 +359,15 @@ export const useBexioApi = () => {
     } finally {
       setIsLoadingProjects(false);
     }
-  }, [credentials, ensureValidToken, toast]);
+  }, [credentials, ensureValidToken, toast, isLoadingProjects]);
 
   const fetchTimeEntries = useCallback(async (dateRange?: { from: Date; to: Date }) => {
-    if (!credentials) {
-      toast({
-        title: "Not connected",
-        description: "Please connect to Bexio first.",
-        variant: "destructive",
-      });
-      return;
+    if (!credentials || isLoadingTimeEntries) return;
+
+    // Clear any pending fetch timeout
+    if (fetchTimeoutRef.current) {
+      clearTimeout(fetchTimeoutRef.current);
+      fetchTimeoutRef.current = null;
     }
 
     const authToken = await ensureValidToken();
@@ -402,11 +395,22 @@ export const useBexioApi = () => {
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+        
+        // Handle 429 rate limiting with retry
+        if (response.status === 429) {
+          console.warn('Rate limited, scheduling retry in 2 seconds...');
+          fetchTimeoutRef.current = setTimeout(() => {
+            fetchTimeEntries(dateRange);
+          }, 2000);
+          return;
+        }
+        
+        throw new Error(errorData.error || `Bexio API error: ${response.status}`);
       }
 
       const data = await response.json();
       setTimeEntries(Array.isArray(data) ? data : []);
+      setHasInitiallyLoaded(prev => ({ ...prev, timeEntries: true }));
 
       toast({
         title: "Time entries loaded",
@@ -422,7 +426,7 @@ export const useBexioApi = () => {
     } finally {
       setIsLoadingTimeEntries(false);
     }
-  }, [credentials, ensureValidToken, toast]);
+  }, [credentials, ensureValidToken, toast, isLoadingTimeEntries]);
 
   const fetchWorkPackages = useCallback(async (projectId?: number) => {
     if (!credentials) {
@@ -1159,6 +1163,7 @@ export const useBexioApi = () => {
     isLoadingWorkPackages,
     isCreatingTimeEntry,
     isConnected: !!credentials,
+    hasInitiallyLoaded,
     connect,
     connectWithOAuth,
     fetchContacts,

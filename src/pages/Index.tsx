@@ -26,6 +26,7 @@ const Index = () => {
     isLoadingWorkPackages,
     isCreatingTimeEntry,
     isConnected,
+    hasInitiallyLoaded,
     connect,
     connectWithOAuth,
     fetchContacts,
@@ -52,12 +53,19 @@ const Index = () => {
 
   useEffect(() => {
     // Auto-fetch contacts and projects when switching to Time Tracking or Analytics
+    // Only fetch if we haven't loaded initially and not currently loading
     if (activeTab === "timetracking" || activeTab === "analytics") {
-      if (contacts.length === 0 && !isLoadingContacts) fetchContacts();
-      if (projects.length === 0 && !isLoadingProjects) fetchProjects();
-      if (timeEntries.length === 0 && !isLoadingTimeEntries) fetchTimeEntries();
+      if (contacts.length === 0 && !isLoadingContacts && !hasInitiallyLoaded.contacts) {
+        fetchContacts();
+      }
+      if (projects.length === 0 && !isLoadingProjects && !hasInitiallyLoaded.projects) {
+        fetchProjects();
+      }
+      if (timeEntries.length === 0 && !isLoadingTimeEntries && !hasInitiallyLoaded.timeEntries) {
+        fetchTimeEntries();
+      }
     }
-  }, [activeTab, contacts.length, projects.length, timeEntries.length, isLoadingContacts, isLoadingProjects, isLoadingTimeEntries, fetchContacts, fetchProjects, fetchTimeEntries]);
+  }, [activeTab, hasInitiallyLoaded, isLoadingContacts, isLoadingProjects, isLoadingTimeEntries, fetchContacts, fetchProjects, fetchTimeEntries]);
 
   const handleRefresh = () => {
     if (activeTab === "contacts") {

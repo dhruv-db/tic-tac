@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -56,6 +56,7 @@ export const TimeTrackingGrid = ({
   const [showBulkDialog, setShowBulkDialog] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [selectedProjectForDialog, setSelectedProjectForDialog] = useState<any>(null);
+  const fetchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const { toast } = useToast();
 
   // Calculate date ranges
@@ -89,15 +90,32 @@ export const TimeTrackingGrid = ({
     setCurrentDate(newDate);
   };
 
-  // Effect to fetch data when date range changes
+  // Effect to fetch data when date range changes with debouncing
   useEffect(() => {
     if (onDateRangeChange) {
-      const range = viewType === 'week' 
-        ? { from: weekStart, to: weekEnd }
-        : { from: monthStart, to: monthEnd };
-      onDateRangeChange(range);
+      // Clear any existing timeout
+      if (fetchTimeoutRef.current) {
+        clearTimeout(fetchTimeoutRef.current);
+      }
+      
+      // Debounce the API call by 500ms
+      fetchTimeoutRef.current = setTimeout(() => {
+        const range = viewType === 'week' 
+          ? { from: weekStart, to: weekEnd }
+          : { from: monthStart, to: monthEnd };
+        onDateRangeChange(range);
+      }, 500);
     }
-  }, [currentDate, viewType, weekStart, weekEnd, monthStart, monthEnd, onDateRangeChange]);
+  }, [currentDate, viewType, onDateRangeChange]);
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (fetchTimeoutRef.current) {
+        clearTimeout(fetchTimeoutRef.current);
+      }
+    };
+  }, []);
 
   // Get entries for a specific date
   const getEntriesForDate = (date: Date) => {
