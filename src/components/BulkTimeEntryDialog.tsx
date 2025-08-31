@@ -48,11 +48,11 @@ export const BulkTimeEntryDialog = ({
 }: BulkTimeEntryDialogProps) => {
   const [formData, setFormData] = useState({
     employee: "current-user",
-    customer_id: "",
-    contact_id: "",
-    project_id: selectedProject?.id?.toString() || "",
-    activity_id: "",
-    status_id: "",
+    customer_id: "all",
+    contact_id: "none",
+    project_id: selectedProject?.id?.toString() || "none",
+    activity_id: "none",
+    status_id: "none",
     duration: "1:00",
     date: selectedDate ? format(selectedDate, "yyyy-MM-dd") : format(new Date(), "yyyy-MM-dd"),
     billable: true,
@@ -115,6 +115,8 @@ export const BulkTimeEntryDialog = ({
     const [hours, minutes] = durationStr.split(':').map(Number);
     return (hours * 60 + minutes) * 60; // Convert to seconds
   };
+
+  const toOptionalId = (value: string): number | undefined => (/^\d+$/.test(value) ? parseInt(value, 10) : undefined);
 
   const getDateRangeForBulkMode = () => {
     const baseDate = formData.date ? new Date(formData.date) : new Date();
@@ -198,10 +200,10 @@ export const BulkTimeEntryDialog = ({
               useDuration: true,
               text: formData.description,
               allowable_bill: formData.billable,
-              contact_id: formData.contact_id ? parseInt(formData.contact_id) : undefined,
-              project_id: formData.project_id ? parseInt(formData.project_id) : undefined,
-              client_service_id: formData.activity_id ? parseInt(formData.activity_id) : undefined,
-              status_id: formData.status_id ? parseInt(formData.status_id) : undefined
+              contact_id: toOptionalId(formData.contact_id),
+              project_id: toOptionalId(formData.project_id),
+              client_service_id: toOptionalId(formData.activity_id),
+              status_id: toOptionalId(formData.status_id)
             });
           }
         }
@@ -210,7 +212,7 @@ export const BulkTimeEntryDialog = ({
       // Submit all entries
       for (const entry of entries) {
         await onSubmit({
-          project_id: formData.project_id ? parseInt(formData.project_id) : undefined,
+          project_id: toOptionalId(formData.project_id),
           date: format(entry.dateRange.from, 'yyyy-MM-dd'),
           duration: parseDuration(formData.duration),
           text: formData.description,
@@ -267,7 +269,7 @@ export const BulkTimeEntryDialog = ({
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="bg-popover z-50">
                     <SelectItem value="current-user">Current User</SelectItem>
                   </SelectContent>
                 </Select>
@@ -280,8 +282,8 @@ export const BulkTimeEntryDialog = ({
                   <SelectTrigger>
                     <SelectValue placeholder="All customers" />
                   </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="">All customers</SelectItem>
+                  <SelectContent className="bg-popover z-50">
+                    <SelectItem value="all">All customers</SelectItem>
                     {contacts.map((contact) => (
                       <SelectItem key={contact.id} value={contact.id.toString()}>
                         {contact.name_1}
@@ -298,8 +300,8 @@ export const BulkTimeEntryDialog = ({
                   <SelectTrigger>
                     <SelectValue placeholder="Select" />
                   </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="">No contact</SelectItem>
+                  <SelectContent className="bg-popover z-50">
+                    <SelectItem value="none">No contact</SelectItem>
                     {contacts.map((contact) => (
                       <SelectItem key={contact.id} value={contact.id.toString()}>
                         {contact.name_1} (#{contact.nr})
@@ -316,8 +318,8 @@ export const BulkTimeEntryDialog = ({
                   <SelectTrigger>
                     <SelectValue placeholder="Select" />
                   </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="">No project</SelectItem>
+                  <SelectContent className="bg-popover z-50">
+                    <SelectItem value="none">No project</SelectItem>
                     {projects.map((project) => (
                       <SelectItem key={project.id} value={project.id.toString()}>
                         {project.name} (#{project.nr})
@@ -334,8 +336,8 @@ export const BulkTimeEntryDialog = ({
                   <SelectTrigger>
                     <SelectValue placeholder="Select" />
                   </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="">No activity</SelectItem>
+                  <SelectContent className="bg-popover z-50">
+                    <SelectItem value="none">No activity</SelectItem>
                     <SelectItem value="5">Default Activity</SelectItem>
                   </SelectContent>
                 </Select>
@@ -348,8 +350,8 @@ export const BulkTimeEntryDialog = ({
                   <SelectTrigger>
                     <SelectValue placeholder="Select" />
                   </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="">No status</SelectItem>
+                  <SelectContent className="bg-popover z-50">
+                    <SelectItem value="none">No status</SelectItem>
                     <SelectItem value="1">Draft</SelectItem>
                     <SelectItem value="2">Open</SelectItem>
                     <SelectItem value="3">Confirmed</SelectItem>
@@ -391,7 +393,7 @@ export const BulkTimeEntryDialog = ({
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="bg-popover z-50">
                       <SelectItem value="week">Week</SelectItem>
                       <SelectItem value="month">Month</SelectItem>
                       <SelectItem value="quarter">Quarter</SelectItem>

@@ -267,6 +267,30 @@ export const TimeTrackingGrid = ({
     }
   };
 
+  // Delete all entries for a project in current view range
+  const deleteProjectEntriesInRange = async (projectId: number) => {
+    const rangeDates = dateRange.slice(0, 7).map(d => format(d, 'yyyy-MM-dd'));
+    const ids = timeEntries
+      .filter(e => e.project_id === projectId && rangeDates.includes(e.date))
+      .map(e => e.id);
+
+    if (ids.length === 0) {
+      toast({ title: 'No entries to delete', description: 'This project has no entries in the selected range.' });
+      return;
+    }
+
+    const confirm = window.confirm(`Delete ${ids.length} time entr${ids.length === 1 ? 'y' : 'ies'} for this project in the current range?`);
+    if (!confirm) return;
+
+    try {
+      if (!onDeleteTimeEntry) throw new Error('Delete handler not provided');
+      await Promise.all(ids.map(id => onDeleteTimeEntry(id)));
+      toast({ title: 'Deleted', description: `${ids.length} entr${ids.length === 1 ? 'y' : 'ies'} removed.` });
+    } catch (err) {
+      toast({ title: 'Failed to delete project entries', variant: 'destructive' });
+    }
+  };
+
   // Mock data for demonstration
   const targetHours = 40;
   const totalWorkedHours = getTotalHours();
@@ -359,7 +383,7 @@ export const TimeTrackingGrid = ({
                 <SelectTrigger className="w-40">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="bg-popover z-50">
                   <SelectItem value="all">All</SelectItem>
                   <SelectItem value="current">Current User</SelectItem>
                 </SelectContent>
@@ -372,7 +396,7 @@ export const TimeTrackingGrid = ({
                 <SelectTrigger className="w-40">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="bg-popover z-50">
                   <SelectItem value="all">All</SelectItem>
                   {contacts.map((contact) => (
                     <SelectItem key={contact.id} value={contact.id.toString()}>
@@ -389,7 +413,7 @@ export const TimeTrackingGrid = ({
                 <SelectTrigger className="w-40">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="bg-popover z-50">
                   <SelectItem value="all">All</SelectItem>
                   {projects.map((project) => (
                     <SelectItem key={project.id} value={project.id.toString()}>
@@ -485,6 +509,15 @@ export const TimeTrackingGrid = ({
                               className="h-8 w-8 p-0"
                             >
                               <Edit3 className="h-3 w-3" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => deleteProjectEntriesInRange(project.id)}
+                              className="h-8 w-8 p-0 text-destructive hover:bg-destructive/10"
+                              aria-label="Delete project entries in range"
+                            >
+                              <Trash2 className="h-3 w-3" />
                             </Button>
                           </div>
                         </div>
