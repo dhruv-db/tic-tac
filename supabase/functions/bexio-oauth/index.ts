@@ -27,6 +27,7 @@ serve(async (req) => {
       const maskedId = clientId ? `${clientId.slice(0, 6)}...${clientId.slice(-4)}` : 'none';
       console.log(`Client ID exists: ${!!clientId}, Client Secret exists: ${!!clientSecret}`);
       console.log(`Using Bexio client_id: ${maskedId}`);
+      console.log(`Full client_id for verification: ${clientId}`); // Temporary debug log
       
       if (!clientId || !clientSecret) {
         console.error('BEXIO_CLIENT_ID or BEXIO_CLIENT_SECRET not found in environment');
@@ -34,7 +35,8 @@ serve(async (req) => {
           error: 'OAuth not configured', 
           details: {
             client_id: !!clientId,
-            client_secret: !!clientSecret
+            client_secret: !!clientSecret,
+            message: 'Please verify your Bexio app credentials in Supabase secrets'
           }
         }), { 
           status: 500,
@@ -295,22 +297,29 @@ serve(async (req) => {
           tokenParams.set('code_verifier', codeVerifierFromState);
         }
 
+        console.log(`Token exchange request to Bexio with client_id: ${clientId.slice(0, 6)}...${clientId.slice(-4)}`);
+        console.log(`Token exchange params: ${tokenParams.toString().replace(/client_secret=[^&]+/, 'client_secret=***').replace(/code=[^&]+/, 'code=***')}`);
+        
         const tokenResponse = await fetch('https://auth.bexio.com/realms/bexio/protocol/openid-connect/token', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/x-www-form-urlencoded',
+            'Accept': 'application/json',
           },
           body: tokenParams,
         });
 
+        const responseText = await tokenResponse.text();
+        console.log(`Token exchange response status: ${tokenResponse.status}`);
+        
         if (!tokenResponse.ok) {
-          const errorText = await tokenResponse.text();
-          console.error(`Token exchange failed: ${tokenResponse.status} ${errorText}`);
-          throw new Error(`Token exchange failed: ${tokenResponse.status}`);
+          console.error(`Token exchange failed: ${tokenResponse.status} ${responseText}`);
+          throw new Error(`Token exchange failed: ${tokenResponse.status} - ${responseText}`);
         }
 
-        const tokenData = await tokenResponse.json();
+        const tokenData = JSON.parse(responseText);
         console.log('Successfully obtained access token');
+        console.log(`Token data keys: ${Object.keys(tokenData).join(', ')}`);
         
         // Extract user info from tokens
         let companyId = '';

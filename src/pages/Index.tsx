@@ -7,6 +7,7 @@ import { BexioConnector } from "@/components/BexioConnector";
 import { ContactList } from "@/components/ContactList";
 import { ProjectList } from "@/components/ProjectList";
 import { TimeTrackingList } from "@/components/TimeTrackingList";
+import { DebugOAuth } from "@/components/DebugOAuth";
 import { useBexioApi } from "@/hooks/useBexioApi";
 import { RefreshCw, Database, LogOut, Users, FolderOpen, BarChart3, CheckCircle2, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
@@ -182,6 +183,13 @@ const Index = () => {
                 onOAuthConnect={connectWithOAuth}
                 isConnected={isConnected} 
               />
+              
+              {/* Debug OAuth - temporary for troubleshooting */}
+              {!isConnected && (
+                <div className="mt-6">
+                  <DebugOAuth />
+                </div>
+              )}
             </div>
           </div>
 
