@@ -84,8 +84,8 @@ export const BexioConnector = ({ onConnect, onOAuthConnect, isConnected }: Bexio
         ru: window.location.origin 
       }));
       
-      // Use the edge function to initiate OAuth with proper scope including contact_show
-      const scope = 'openid profile email offline_access contact_show contact_edit project_show project_edit timesheet_show timesheet_edit';
+      // Use the edge function to initiate OAuth with proper scope including monitoring scopes
+      const scope = 'openid profile email offline_access contact_show monitoring_show monitoring_edit project_show timesheet_show';
       
       const response = await fetch('https://opcjifbdwpyttaxqlqbf.supabase.co/functions/v1/bexio-oauth/auth', {
         method: 'POST',

@@ -37,7 +37,7 @@ serve(async (req) => {
       const allowedScopes = [
         'openid', 'profile', 'email', 'offline_access', 'company_profile',
         'contact_show', 'contact_edit', 'project_show', 'project_edit', 
-        'timesheet_show', 'timesheet_edit', 'accounting'
+        'timesheet_show', 'timesheet_edit', 'accounting', 'monitoring_show', 'monitoring_edit'
       ];
       const requested = (requestedScope || '')
         .split(/\s+/)
