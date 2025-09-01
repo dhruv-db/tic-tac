@@ -6,12 +6,12 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Clock, Calendar, User, DollarSign, PlayCircle, PauseCircle, Edit, Trash2, CalendarDays, Filter, X } from "lucide-react";
 import { format } from "date-fns";
-import { TimeEntryForm } from "./TimeEntryForm";
 import { TimesheetCalendar } from "./TimesheetCalendar";
 import { EditTimeEntryDialog } from "./EditTimeEntryDialog";
 import { BulkActionToolbar } from "./BulkActionToolbar";
 import { BulkUpdateDialog } from "./BulkUpdateDialog";
 import { Button } from "@/components/ui/button";
+import { Plus } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { DateRange } from "react-day-picker";
 
@@ -72,6 +72,7 @@ interface TimeTrackingListProps {
   isLoadingWorkPackages: boolean;
   onFetchWorkPackages: (projectId: number) => Promise<void>;
   hideForm?: boolean;
+  onScrollToForm?: () => void;
 }
 
 interface WorkPackage {
@@ -96,7 +97,8 @@ export const TimeTrackingList = ({
   workPackages,
   isLoadingWorkPackages,
   onFetchWorkPackages,
-  hideForm = false
+  hideForm = false,
+  onScrollToForm
 }: TimeTrackingListProps) => {
   const [editingEntry, setEditingEntry] = useState<TimeEntry | null>(null);
   const [activeView, setActiveView] = useState<'list' | 'calendar'>('list');
@@ -256,33 +258,31 @@ export const TimeTrackingList = ({
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Clock className="h-5 w-5 text-primary" />
-          <Badge variant="secondary" className="ml-2">
-            {filteredTimeEntries.length} entries
-            {filteredTimeEntries.length !== timeEntries.length && (
-              <span className="text-muted-foreground ml-1">
-                / {timeEntries.length} total
-              </span>
-            )}
-          </Badge>
+        <div>
+          <h1 className="text-3xl font-bold text-title">Time Tracking List</h1>
+          <div className="flex items-center gap-2 mt-2">
+            <Clock className="h-5 w-5 text-primary" />
+            <Badge variant="secondary" className="ml-2">
+              {filteredTimeEntries.length} entries
+              {filteredTimeEntries.length !== timeEntries.length && (
+                <span className="text-muted-foreground ml-1">
+                  / {timeEntries.length} total
+                </span>
+              )}
+            </Badge>
+          </div>
         </div>
         
-        {/* Remove duplicate view tabs - controlled from parent */}
+        <Button 
+          onClick={onScrollToForm}
+          className="gap-2 bg-primary hover:bg-primary/90"
+          size="lg"
+        >
+          <Plus className="h-4 w-4" />
+          Add Time Entry
+        </Button>
       </div>
 
-      {onCreateTimeEntry && !hideForm && (
-        <TimeEntryForm 
-          onSubmit={onCreateTimeEntry} 
-          isSubmitting={isCreatingTimeEntry}
-          contacts={contacts}
-          projects={projects}
-          workPackages={workPackages}
-          isLoadingWorkPackages={isLoadingWorkPackages}
-          onFetchWorkPackages={onFetchWorkPackages}
-          initialData={calendarInitialData}
-        />
-      )}
 
       <Tabs value="list" className="space-y-6">
         <TabsContent value="list" className="space-y-6">

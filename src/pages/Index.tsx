@@ -276,6 +276,12 @@ const Index = () => {
                 isLoadingWorkPackages={isLoadingWorkPackages}
                 onFetchWorkPackages={fetchWorkPackages}
                 hideForm={true}
+                onScrollToForm={() => {
+                  document.getElementById('time-entry-form')?.scrollIntoView({ 
+                    behavior: 'smooth', 
+                    block: 'start' 
+                  });
+                }}
               />
             ) : timeTrackingView === 'grid' ? (
               <SimpleTimeGrid
