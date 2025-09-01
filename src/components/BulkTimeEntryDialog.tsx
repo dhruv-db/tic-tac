@@ -33,6 +33,7 @@ interface BulkTimeEntryDialogProps {
   workPackages: WorkPackage[];
   selectedDate?: Date;
   selectedProject?: any;
+  initialData?: any;
 }
 
 export const BulkTimeEntryDialog = ({
@@ -44,7 +45,8 @@ export const BulkTimeEntryDialog = ({
   projects,
   workPackages,
   selectedDate,
-  selectedProject
+  selectedProject,
+  initialData
 }: BulkTimeEntryDialogProps) => {
   const [formData, setFormData] = useState({
     employee: "current-user",
@@ -87,7 +89,30 @@ export const BulkTimeEntryDialog = ({
         project_id: selectedProject.id?.toString() || "none"
       }));
     }
-  }, [selectedDate, selectedProject]);
+    
+    // Pre-fill form with existing entry data
+    if (initialData) {
+      setFormData(prev => ({
+        ...prev,
+        duration: initialData.duration || prev.duration,
+        project_id: initialData.project_id?.toString() || prev.project_id,
+        pr_package_id: initialData.pr_package_id || "none",
+        description: initialData.text || `${initialData.projectName || 'Project'}${initialData.workPackageName ? ` - ${initialData.workPackageName}` : ''} - ${initialData.date ? format(new Date(initialData.date), 'dd.MM.yyyy') : ''}`,
+        billable: initialData.allowable_bill ?? true,
+        date: initialData.date || prev.date,
+        // Auto-check the day of the week for the selected date
+        applyTo: {
+          MON: selectedDate?.getDay() === 1,
+          TUE: selectedDate?.getDay() === 2, 
+          WED: selectedDate?.getDay() === 3,
+          THU: selectedDate?.getDay() === 4,
+          FRI: selectedDate?.getDay() === 5,
+          SAT: selectedDate?.getDay() === 6,
+          SUN: selectedDate?.getDay() === 0
+        }
+      }));
+    }
+  }, [selectedDate, selectedProject, initialData]);
 
   // Get days of current week for checkbox labels
   const getWeekDays = () => {

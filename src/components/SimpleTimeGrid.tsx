@@ -233,13 +233,42 @@ const getActiveProjects = () => {
     }
   };
 
-  // Open detailed dialog
-  const openDetailDialog = (date: Date, project?: any) => {
+  // Open detailed dialog with pre-filled data
+  const openDetailDialog = (date: Date, project?: any, packageId?: number | string) => {
     setSelectedDate(date);
     setSelectedProject(project);
+    
+    // Find existing entry data for pre-filling
+    let initialEntryData = null;
+    if (project?.id && date) {
+      const entries = getProjectDayEntries(project.id, date, packageId);
+      if (entries.length === 1) {
+        const entry = entries[0];
+        const workPackage = workPackages?.find(wp => wp.id === entry.pr_package_id || wp.id === String(entry.pr_package_id));
+        
+        initialEntryData = {
+          duration: formatHours(durationToHours(entry.duration)),
+          project_id: project.id,
+          pr_package_id: entry.pr_package_id,
+          text: entry.text,
+          allowable_bill: entry.allowable_bill,
+          date: format(date, 'yyyy-MM-dd'),
+          projectName: project.name,
+          workPackageName: workPackage?.name || `WP ${entry.pr_package_id}`,
+          entryId: entry.id
+        };
+      }
+    }
+    
     if (project?.id && onFetchWorkPackages) {
       onFetchWorkPackages(project.id);
     }
+    
+    // Store initial data for the dialog
+    setSelectedProject({
+      ...project,
+      initialEntryData
+    });
     setShowBulkDialog(true);
   };
 
@@ -598,8 +627,8 @@ const getActiveProjects = () => {
                                                      setTimeInputs(prev => { const p = { ...prev }; delete p[key]; return p; });
                                                    });
                                                 } else {
-                                                  toast({ title: 'Multiple entries', description: 'Open details to edit individual entries.' });
-                                                  openDetailDialog(date, project);
+                                   toast({ title: 'Multiple entries', description: 'Open details to edit individual entries.' });
+                                   openDetailDialog(date, project, pkg.id);
                                                 }
                                               } else if (e.key === 'Escape') {
                                                 setTimeInputs(prev => { const p = { ...prev }; delete p[key]; return p; });
@@ -646,14 +675,15 @@ const getActiveProjects = () => {
                                     {/* Action buttons for existing entries */}
                                     {dayHours > 0 && (
                                       <div className="absolute -top-1 -right-1 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                        <Button
-                                          variant="ghost"
-                                          size="sm"
-                                          onClick={() => openDetailDialog(date, project)}
-                                          className="h-5 w-5 p-0 hover:bg-primary/10"
-                                        >
-                                          <Edit3 className="h-3 w-3" />
-                                        </Button>
+                                         <Button
+                                           variant="ghost"
+                                           size="sm"
+                                           onClick={() => openDetailDialog(date, project, pkg.id)}
+                                           className="h-5 w-5 p-0 hover:bg-primary/10"
+                                           title="Edit entry"
+                                         >
+                                           <Edit3 className="h-3 w-3" />
+                                         </Button>
                                         {dayEntries.map((entry: any) => (
                                           <Button
                                             key={entry.id}
@@ -738,6 +768,7 @@ const getActiveProjects = () => {
         workPackages={workPackages || []}
         selectedDate={selectedDate}
         selectedProject={selectedProject}
+        initialData={selectedProject?.initialEntryData}
       />
     </div>
   );
