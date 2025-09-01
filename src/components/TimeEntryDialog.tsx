@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
 import { TimeEntryForm } from "./TimeEntryForm";
@@ -90,6 +90,9 @@ export const TimeEntryDialog = ({
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Add Time Entry</DialogTitle>
+            <DialogDescription className="sr-only">
+              Create a new time entry by selecting date, duration or start/end time, and details.
+            </DialogDescription>
           </DialogHeader>
           
           <TimeEntryForm 
