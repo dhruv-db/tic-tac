@@ -159,6 +159,9 @@ const getActiveProjects = () => {
   const targetHours = 40;
   const difference = weeklyTotal - targetHours;
 
+  // Helper: refresh current week data after mutations
+  const refreshWeek = () => onDateRangeChange?.({ from: weekStart, to: weekEnd });
+  
   // Handle quick time entry (optionally for a work package)
   const handleQuickEntry = async (projectId: number, date: Date, timeStr: string, packageId?: number | string) => {
     if (!timeStr || timeStr === '0:00') return;
@@ -197,8 +200,8 @@ const getActiveProjects = () => {
         pr_package_id: packageId != null ? String(packageId) : undefined
       });
       
-      // Keep input value until data refresh updates the cell
-      // This provides instant visual feedback
+      // Trigger a refresh so totals and grid reflect immediately
+      refreshWeek();
       
       toast({
         title: "Time entry created",
@@ -261,6 +264,7 @@ const getActiveProjects = () => {
 
     try {
       await Promise.all(ids.map((id: number) => onDeleteTimeEntry?.(id)));
+      refreshWeek();
       toast({ title: 'Deleted', description: `${ids.length} entr${ids.length === 1 ? 'y' : 'ies'} removed.` });
     } catch {
       toast({ title: 'Failed to delete project entries', variant: 'destructive' });
@@ -292,6 +296,7 @@ const getActiveProjects = () => {
 
     try {
       await Promise.all(ids.map((id: number) => onDeleteTimeEntry?.(id)));
+      refreshWeek();
       toast({ title: 'Deleted', description: `${ids.length} entr${ids.length === 1 ? 'y' : 'ies'} removed from ${workPackageName}.` });
     } catch {
       toast({ title: 'Failed to delete work package entries', variant: 'destructive' });
@@ -410,14 +415,28 @@ const getActiveProjects = () => {
                               <div className="font-semibold text-primary">{project.name}</div>
                               <div className="text-sm text-muted-foreground">#{project.nr}</div>
                             </div>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => openDetailDialog(new Date(), project)}
-                              className="opacity-0 group-hover:opacity-100 transition-opacity"
-                            >
-                              <Edit3 className="h-4 w-4" />
-                            </Button>
+                            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => openDetailDialog(new Date(), project)}
+                                className="h-6 w-6 p-0 hover:bg-primary/10"
+                                title="Open details"
+                              >
+                                <Edit3 className="h-3 w-3" />
+                              </Button>
+                              {weekDays.some((d) => getProjectDayHours(project.id, d) > 0) && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => deleteProjectEntriesInWeek(project.id)}
+                                  className="h-6 w-6 p-0 hover:bg-destructive/10 text-destructive"
+                                  title="Delete all project entries this week"
+                                >
+                                  <Trash2 className="h-3 w-3" />
+                                </Button>
+                              )}
+                            </div>
                           </div>
                           {weekDays.map((date) => {
                             const dayHours = getProjectDayHours(project.id, date);
@@ -429,22 +448,26 @@ const getActiveProjects = () => {
                             const save = async () => {
                               const newVal = (timeInputs[key] ?? '').trim();
                               if (!newVal || newVal === existing) return;
-                              if (dayEntries.length === 1) {
-                                const entry = dayEntries[0];
-                                await onUpdateTimeEntry?.(entry.id, {
-                                  dateRange: { from: date, to: date },
-                                  useDuration: true,
-                                  duration: newVal,
-                                  text: entry.text || '',
-                                  allowable_bill: entry.allowable_bill ?? true,
-                                  project_id: project.id,
-                                  pr_package_id: entry.pr_package_id ? String(entry.pr_package_id) : undefined,
-                                });
-                                setTimeInputs(prev => { const p = { ...prev }; delete p[key]; return p; });
-                              } else if (dayEntries.length === 0) {
-                                await handleQuickEntry(project.id, date, newVal);
-                                setTimeInputs(prev => { const p = { ...prev }; delete p[key]; return p; });
-                              } else {
+                                if (dayEntries.length === 1) {
+                                  const entry = dayEntries[0];
+                                  const newText = entry.text && entry.text.trim().length
+                                    ? entry.text
+                                    : `${project?.name || 'Project'} - ${format(date, 'dd.MM.yyyy')}`;
+                                  await onUpdateTimeEntry?.(entry.id, {
+                                    dateRange: { from: date, to: date },
+                                    useDuration: true,
+                                    duration: newVal,
+                                    text: newText,
+                                    allowable_bill: entry.allowable_bill ?? true,
+                                    project_id: project.id,
+                                    pr_package_id: entry.pr_package_id ? String(entry.pr_package_id) : undefined,
+                                  });
+                                  setTimeInputs(prev => { const p = { ...prev }; delete p[key]; return p; });
+                                  refreshWeek();
+                                } else if (dayEntries.length === 0) {
+                                  await handleQuickEntry(project.id, date, newVal);
+                                  setTimeInputs(prev => { const p = { ...prev }; delete p[key]; return p; });
+                                } else {
                                 toast({ title: 'Multiple entries', description: 'Open details to edit individual entries.' });
                                 openDetailDialog(date, project);
                               }
@@ -556,15 +579,20 @@ const getActiveProjects = () => {
                                                 if (!newVal) return;
                                                 if (dayEntries.length === 1) {
                                                   const entry = dayEntries[0];
+                                                  const wp = workPackages?.find(wp => wp.id === entry.pr_package_id || wp.id === String(entry.pr_package_id) || wp.id === String(pkg.id));
+                                                  const wpName = wp?.name || `WP ${entry.pr_package_id ?? pkg.id}`;
+                                                  const newText = entry.text && entry.text.trim().length
+                                                    ? entry.text
+                                                    : `${project.name} - ${wpName} - ${format(date, 'dd.MM.yyyy')}`;
                                                   void onUpdateTimeEntry?.(entry.id, {
                                                     dateRange: { from: date, to: date },
                                                     useDuration: true,
                                                     duration: newVal,
-                                                    text: entry.text || '',
+                                                    text: newText,
                                                     allowable_bill: entry.allowable_bill ?? true,
                                                     project_id: project.id,
                                                     pr_package_id: entry.pr_package_id ? String(entry.pr_package_id) : String(pkg.id),
-                                                  }).then(() => setTimeInputs(prev => { const p = { ...prev }; delete p[key]; return p; }));
+                                                  }).then(() => { setTimeInputs(prev => { const p = { ...prev }; delete p[key]; return p; }); refreshWeek(); });
                                                 } else if (dayEntries.length === 0) {
                                                    void handleQuickEntry(project.id, date, newVal, pkg.id).then(() => {
                                                      setTimeInputs(prev => { const p = { ...prev }; delete p[key]; return p; });
@@ -583,20 +611,25 @@ const getActiveProjects = () => {
                                               if (!newVal) return;
                                               if (dayEntries.length === 1) {
                                                 const entry = dayEntries[0];
+                                                const wp = workPackages?.find(wp => wp.id === entry.pr_package_id || wp.id === String(entry.pr_package_id) || wp.id === String(pkg.id));
+                                                const wpName = wp?.name || `WP ${entry.pr_package_id ?? pkg.id}`;
+                                                const newText = entry.text && entry.text.trim().length
+                                                  ? entry.text
+                                                  : `${project.name} - ${wpName} - ${format(date, 'dd.MM.yyyy')}`;
                                                 void onUpdateTimeEntry?.(entry.id, {
                                                   dateRange: { from: date, to: date },
                                                   useDuration: true,
                                                   duration: newVal,
-                                                  text: entry.text || '',
+                                                  text: newText,
                                                   allowable_bill: entry.allowable_bill ?? true,
                                                   project_id: project.id,
                                                   pr_package_id: entry.pr_package_id ? String(entry.pr_package_id) : String(pkg.id),
-                                                }).then(() => setTimeInputs(prev => { const p = { ...prev }; delete p[key]; return p; }));
-                               } else if (dayEntries.length === 0) {
-                                 void handleQuickEntry(project.id, date, newVal, pkg.id).then(() => {
-                                   setTimeInputs(prev => { const p = { ...prev }; delete p[key]; return p; });
-                                 });
-                               }
+                                                }).then(() => { setTimeInputs(prev => { const p = { ...prev }; delete p[key]; return p; }); refreshWeek(); });
+                                      } else if (dayEntries.length === 0) {
+                                        void handleQuickEntry(project.id, date, newVal, pkg.id).then(() => {
+                                          setTimeInputs(prev => { const p = { ...prev }; delete p[key]; return p; });
+                                        });
+                                      }
                                             }}
                                             className={cn(
                                               "h-8 text-center text-sm",

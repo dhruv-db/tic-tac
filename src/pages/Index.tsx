@@ -10,7 +10,9 @@ import { TimeEntryDialog } from "@/components/TimeEntryDialog";
 import { EditTimeEntryDialog } from "@/components/EditTimeEntryDialog";
 import { LoginPage } from "@/components/LoginPage";
 import { useBexioApi } from "@/hooks/useBexioApi";
-import { RefreshCw, Database, LogOut, BarChart3, CheckCircle2, Grid, List, CalendarDays } from "lucide-react";
+import { RefreshCw, Database, LogOut, BarChart3, CheckCircle2, Grid, List, CalendarDays, Edit3 } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 
 const Index = () => {
@@ -47,6 +49,9 @@ const Index = () => {
   const [isTestingConnection, setIsTestingConnection] = useState(false);
   const [editingEntry, setEditingEntry] = useState<any>(null);
   const [calendarInitialData, setCalendarInitialData] = useState<any>(null);
+  const [logoUrl, setLogoUrl] = useState<string>(() => localStorage.getItem('adminLogoUrl') || 'https://cdn.prod.website-files.com/644a6e413354d12887abce48/678e77dc82ed84dfe2ede9f8_db%20icon%20(1).png');
+  const [isLogoDialogOpen, setIsLogoDialogOpen] = useState(false);
+  const [logoUrlInput, setLogoUrlInput] = useState<string>(logoUrl);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -139,18 +144,7 @@ const Index = () => {
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-primary-subtle">
-                <Database className="h-6 w-6 text-primary" />
-              </div>
-              <div>
-                <h1 className="text-2xl font-bold">
-                  <span className="databridge-brand">data</span>
-                  <span className="databridge-accent">^</span>
-                  <span className="databridge-brand">bridge</span>
-                  <span className="text-muted-foreground text-lg ml-2">Analytics</span>
-                </h1>
-                <p className="text-sm text-muted-foreground">Business Intelligence Platform</p>
-              </div>
+              <img src={logoUrl} alt="App logo" className="h-8 w-8 rounded-md" />
             </div>
             
             <div className="flex items-center gap-2">
