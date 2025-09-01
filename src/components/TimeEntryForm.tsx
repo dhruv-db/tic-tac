@@ -124,30 +124,35 @@ export const TimeEntryForm = ({
   }, [formData.project_id, onFetchWorkPackages]);
 
   useEffect(() => {
+    let isMounted = true;
     if (fetchTimesheetStatuses && fetchBusinessActivities) {
-      fetchTimesheetStatuses();
-      fetchBusinessActivities();
+      if (isMounted) {
+        fetchTimesheetStatuses();
+        fetchBusinessActivities();
+      }
     }
-  }, [fetchTimesheetStatuses, fetchBusinessActivities]);
+    return () => { isMounted = false; };
+  }, []); // Only fetch once on mount
 
   // Watch for initial data changes (from calendar clicks)
   useEffect(() => {
-    if (initialData?.dateRange) {
-      setFormData({
+    if (initialData?.dateRange && !formData.dateRange) {
+      setFormData(prev => ({
+        ...prev,
         dateRange: initialData.dateRange,
-        startTime: initialData.startTime || "09:00",
-        endTime: initialData.endTime || "17:00",
-        duration: initialData.duration || "08:00",
-        useDuration: initialData.useDuration || false,
-        text: initialData.text || "",
-        allowable_bill: initialData.allowable_bill ?? true,
-        contact_id: initialData.contact_id,
-        project_id: initialData.project_id,
-        client_service_id: initialData.client_service_id,
-        status_id: initialData.status_id,
-        pr_package_id: initialData.pr_package_id,
-        pr_milestone_id: initialData.pr_milestone_id,
-      });
+        startTime: initialData.startTime || prev.startTime,
+        endTime: initialData.endTime || prev.endTime,
+        duration: initialData.duration || prev.duration,
+        useDuration: initialData.useDuration || prev.useDuration,
+        text: initialData.text || prev.text,
+        allowable_bill: initialData.allowable_bill ?? prev.allowable_bill,
+        contact_id: initialData.contact_id || prev.contact_id,
+        project_id: initialData.project_id || prev.project_id,
+        client_service_id: initialData.client_service_id || prev.client_service_id,
+        status_id: initialData.status_id || prev.status_id,
+        pr_package_id: initialData.pr_package_id || prev.pr_package_id,
+        pr_milestone_id: initialData.pr_milestone_id || prev.pr_milestone_id,
+      }));
       setIsOpen(true); // Auto-open form when calendar date is selected
       
       // Focus description field after a brief delay
@@ -155,7 +160,7 @@ export const TimeEntryForm = ({
         descriptionRef.current?.focus();
       }, 100);
     }
-  }, [initialData]);
+  }, [initialData?.dateRange]); // Only watch for dateRange changes
 
   const parseDuration = (durationStr: string): number => {
     const [hours, minutes] = durationStr.split(':').map(Number);

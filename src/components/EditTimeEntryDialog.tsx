@@ -173,6 +173,16 @@ export const EditTimeEntryDialog = ({
       const { startTime, endTime } = parseDurationToTimes(entry.duration);
       const entryDate = new Date(entry.date);
       
+      // Convert duration properly - handle both string and number formats
+      let durationString = "08:00";
+      if (typeof entry.duration === 'number') {
+        const hours = Math.floor(entry.duration / 3600);
+        const minutes = Math.floor((entry.duration % 3600) / 60);
+        durationString = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+      } else if (typeof entry.duration === 'string') {
+        durationString = entry.duration;
+      }
+      
       setFormData({
         dateRange: {
           from: entryDate,
@@ -180,7 +190,7 @@ export const EditTimeEntryDialog = ({
         },
         startTime,
         endTime,
-        duration: "08:00",
+        duration: durationString,
         useDuration: false,
         text: entry.text || "",
         allowable_bill: entry.allowable_bill,
@@ -192,14 +202,14 @@ export const EditTimeEntryDialog = ({
         pr_milestone_id: entry.pr_milestone_id,
       });
     }
-  }, [entry, isOpen]);
+  }, [entry?.id, isOpen]); // Only depend on entry.id to avoid loops
 
   useEffect(() => {
-    if (fetchTimesheetStatuses && fetchBusinessActivities) {
+    if (isOpen && fetchTimesheetStatuses && fetchBusinessActivities) {
       fetchTimesheetStatuses();
       fetchBusinessActivities();
     }
-  }, [fetchTimesheetStatuses, fetchBusinessActivities]);
+  }, [isOpen]); // Only fetch when dialog opens
 
   const calculateDuration = (start: string, end: string): number => {
     const [startHours, startMinutes] = start.split(':').map(Number);
