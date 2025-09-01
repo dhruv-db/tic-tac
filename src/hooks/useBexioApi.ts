@@ -112,6 +112,10 @@ export const useBexioApi = () => {
   const [businessActivities, setBusinessActivities] = useState<{ id: number; name: string }[]>([]);
   const [isLoadingActivities, setIsLoadingActivities] = useState(false);
   const [languages, setLanguages] = useState<{ id: number; name: string; iso_639_1: string }[]>([]);
+  
+  // Guards to avoid duplicate or spammy work package fetches
+  const workPackageInFlightRef = useRef<Record<number, boolean>>({});
+  const workPackageLastFetchedRef = useRef<Record<number, number>>({});
   const [currentLanguage, setCurrentLanguage] = useState<string>('en');
   const [isLoadingLanguages, setIsLoadingLanguages] = useState(false);
   const [isCreatingTimeEntry, setIsCreatingTimeEntry] = useState(false);
@@ -462,11 +466,7 @@ export const useBexioApi = () => {
 
   const fetchWorkPackages = useCallback(async (projectId?: number) => {
     if (!credentials) {
-      toast({
-        title: "Not connected",
-        description: "Please connect to Bexio first.",
-        variant: "destructive",
-      });
+      // Silent fail to avoid noisy toasts
       return;
     }
 
@@ -475,8 +475,23 @@ export const useBexioApi = () => {
       return;
     }
 
+    // Guard: avoid concurrent and too-frequent fetches per project
+    const now = Date.now();
+    if (workPackageInFlightRef.current[projectId]) {
+      return;
+    }
+    if (workPackageLastFetchedRef.current[projectId] && now - workPackageLastFetchedRef.current[projectId] < 120000) {
+      // fetched within last 2 minutes, skip
+      return;
+    }
+    workPackageInFlightRef.current[projectId] = true;
+    workPackageLastFetchedRef.current[projectId] = now;
+
     const authToken = await ensureValidToken();
-    if (!authToken) return;
+    if (!authToken) {
+      workPackageInFlightRef.current[projectId] = false;
+      return;
+    }
 
     setIsLoadingWorkPackages(true);
     console.log(`🔍 Fetching work packages for project ID: ${projectId}`);
@@ -491,6 +506,7 @@ export const useBexioApi = () => {
           endpoint: `/3.0/projects/${projectId}/packages`,
           apiKey: authToken,
           companyId: credentials.companyId,
+          acceptLanguage: currentLanguage,
         }),
       });
 
@@ -500,13 +516,10 @@ export const useBexioApi = () => {
         const errorData = await response.json().catch(() => ({}));
         console.error(`❌ Error fetching packages for project ${projectId}:`, errorData);
         
-        // If this specific project doesn't have packages, that's okay - just return empty
+        // If this specific project doesn't have packages, that's okay - just return empty (no toast)
         if (response.status === 404) {
           setWorkPackages([]);
-          toast({
-            title: "No work packages found",
-            description: `Project ${projectId} doesn't have any work packages.`,
-          });
+          setWorkPackagesByProject(prev => ({ ...prev, [projectId]: [] }));
           return;
         }
         
@@ -526,24 +539,18 @@ export const useBexioApi = () => {
         estimated_time_in_hours: pkg.estimated_time_in_hours,
         comment: pkg.comment,
         pr_milestone_id: pkg.pr_milestone_id,
+        pr_project_id: pkg.pr_project_id ?? pkg.project_id,
       }));
       
       setWorkPackages(transformedPackages);
       setWorkPackagesByProject(prev => ({ ...prev, [projectId]: transformedPackages }));
-      
-      // Only show toast for successful fetches when not loading silently
-      if (transformedPackages.length > 0) {
-        toast({
-          title: "Work packages loaded successfully",
-          description: `Successfully fetched ${transformedPackages.length} work packages for project ${projectId}.`,
-        });
-      }
+      // No success toast to avoid spam
       
     } catch (error) {
       console.error(`❌ Error fetching work packages for project ${projectId}:`, error);
       setWorkPackages([]);
       setWorkPackagesByProject(prev => ({ ...prev, [projectId]: [] }));
-      
+      // Keep error toast minimal
       toast({
         title: "Failed to fetch work packages",
         description: error instanceof Error ? error.message : "An error occurred while fetching work packages.",
@@ -551,6 +558,7 @@ export const useBexioApi = () => {
       });
     } finally {
       setIsLoadingWorkPackages(false);
+      workPackageInFlightRef.current[projectId] = false;
     }
   }, [credentials, ensureValidToken, toast, currentLanguage]);
 

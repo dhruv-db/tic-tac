@@ -89,11 +89,18 @@ export const SimpleTimeGrid = ({
     if (typeof duration === 'string') {
       if (duration.includes(':')) {
         const [hours, minutes] = duration.split(':').map(Number);
-        return hours + (minutes / 60);
+        return (isNaN(hours) ? 0 : hours) + ((isNaN(minutes) ? 0 : minutes) / 60);
       }
-      return parseFloat(duration) || 0;
+      // Numeric string – treat as seconds
+      if (/^\d+$/.test(duration)) {
+        const secs = parseInt(duration, 10);
+        return secs / 3600;
+      }
+      const num = parseFloat(duration);
+      return isNaN(num) ? 0 : num; // assume already hours
     }
-    return duration / 3600;
+    // number: assume seconds from API
+    return (duration as number) / 3600;
   };
 
   // Format hours as H:MM
