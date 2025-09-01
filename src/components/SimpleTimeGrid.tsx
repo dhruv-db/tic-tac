@@ -175,6 +175,10 @@ const getActiveProjects = () => {
 
     const durationSeconds = (hours * 3600) + (minutes * 60);
     const project = projects.find(p => p.id === projectId);
+    
+    // Get work package name from workPackages array
+    const workPackage = workPackages?.find(wp => wp.id === packageId || wp.id === String(packageId));
+    const workPackageName = workPackage?.name || `WP ${packageId}`;
 
     const formatSecondsToHM = (sec: number) => {
       const h = Math.floor(sec / 3600);
@@ -187,7 +191,7 @@ const getActiveProjects = () => {
         dateRange: { from: date, to: date },
         useDuration: true,
         duration: formatSecondsToHM(durationSeconds),
-        text: `Time entry for ${project?.name}${packageId ? ` • WP ${packageId}` : ''}`,
+        text: `${project?.name || 'Project'}${packageId ? ` - ${workPackageName}` : ''} - ${format(date, 'dd.MM.yyyy')}`,
         allowable_bill: true,
         project_id: projectId,
         pr_package_id: packageId != null ? String(packageId) : undefined
@@ -198,7 +202,7 @@ const getActiveProjects = () => {
       
       toast({
         title: "Time entry created",
-        description: `${timeStr} logged for ${project?.name}${packageId ? ` • WP ${packageId}` : ''}`
+        description: `${timeStr} logged for ${project?.name}${packageId ? ` - ${workPackageName}` : ''}`
       });
     } catch (error) {
       toast({
@@ -260,6 +264,37 @@ const getActiveProjects = () => {
       toast({ title: 'Deleted', description: `${ids.length} entr${ids.length === 1 ? 'y' : 'ies'} removed.` });
     } catch {
       toast({ title: 'Failed to delete project entries', variant: 'destructive' });
+    }
+  };
+
+  // Delete all entries for a work package in the current week
+  const deleteWorkPackageEntriesInWeek = async (projectId: number, packageId: number | string) => {
+    const weekDates = weekDays.map((d) => format(d, 'yyyy-MM-dd'));
+    const ids = timeEntries
+      .filter((e: any) => (e.pr_project_id ?? e.project_id) === projectId)
+      .filter((e: any) => e.pr_package_id === packageId || e.pr_package_id === String(packageId))
+      .filter((e: any) => {
+        const entryDate = e.date?.includes('T') ? e.date.split('T')[0] : e.date;
+        return weekDates.includes(entryDate);
+      })
+      .map((e: any) => e.id);
+
+    if (ids.length === 0) {
+      toast({ title: 'No entries to delete', description: 'This work package has no entries this week.' });
+      return;
+    }
+
+    const workPackage = workPackages?.find(wp => wp.id === packageId || wp.id === String(packageId));
+    const workPackageName = workPackage?.name || `WP ${packageId}`;
+    
+    const confirm = window.confirm(`Delete ${ids.length} entr${ids.length === 1 ? 'y' : 'ies'} for ${workPackageName} this week?`);
+    if (!confirm) return;
+
+    try {
+      await Promise.all(ids.map((id: number) => onDeleteTimeEntry?.(id)));
+      toast({ title: 'Deleted', description: `${ids.length} entr${ids.length === 1 ? 'y' : 'ies'} removed from ${workPackageName}.` });
+    } catch {
+      toast({ title: 'Failed to delete work package entries', variant: 'destructive' });
     }
   };
   return (
@@ -442,37 +477,60 @@ const getActiveProjects = () => {
                         </div>
                       )}
 
-                      {/* Project Header - when there ARE work packages */}
-                      {activePackages.length > 0 && (
-                        <div className="grid grid-cols-8 bg-muted/20">
-                          <div className="p-4 flex items-center justify-between">
-                            <div>
-                              <div className="font-semibold text-primary">{project.name}</div>
-                              <div className="text-sm text-muted-foreground">#{project.nr}</div>
-                            </div>
-                          </div>
-                          {weekDays.map((date) => {
-                            const aggHours = getProjectDayHours(project.id, date);
-                            return (
-                              <div key={date.toISOString()} className="p-4 text-center">
-                                {aggHours > 0 ? (
-                                  <span className="font-semibold text-primary">{formatHours(aggHours)}</span>
-                                ) : (
-                                  <span className="text-muted-foreground">0:00</span>
-                                )}
-                              </div>
-                            );
-                          })}
-                        </div>
-                      )}
+                       {/* Project Header - when there ARE work packages */}
+                       {activePackages.length > 0 && (
+                         <div className="grid grid-cols-8 bg-muted/20 group">
+                           <div className="p-4 flex items-center justify-between">
+                             <div>
+                               <div className="font-semibold text-primary">{project.name}</div>
+                               <div className="text-sm text-muted-foreground">#{project.nr}</div>
+                             </div>
+                             <Button
+                               variant="ghost"
+                               size="sm"
+                               onClick={() => deleteProjectEntriesInWeek(project.id)}
+                               className="opacity-0 group-hover:opacity-100 transition-opacity h-6 w-6 p-0 hover:bg-destructive/10 text-destructive"
+                               title="Delete all project entries this week"
+                             >
+                               <Trash2 className="h-3 w-3" />
+                             </Button>
+                           </div>
+                           {weekDays.map((date) => {
+                             const aggHours = getProjectDayHours(project.id, date);
+                             return (
+                               <div key={date.toISOString()} className="p-4 text-center">
+                                 {aggHours > 0 ? (
+                                   <span className="font-semibold text-primary">{formatHours(aggHours)}</span>
+                                 ) : (
+                                   <span className="text-muted-foreground">0:00</span>
+                                 )}
+                               </div>
+                             );
+                           })}
+                         </div>
+                       )}
 
-                      {/* Work Package Rows - ALWAYS show input boxes */}
-                      {activePackages.map((pkg) => {
-                        return (
-                          <div key={`${project.id}-${pkg.id}`} className="grid grid-cols-8 pl-6 pr-2 py-1 bg-background/50">
-                            <div className="p-3 flex items-center">
-                              <div className="font-medium text-sm">WP {pkg.id}</div>
-                            </div>
+                       {/* Work Package Rows - ALWAYS show input boxes */}
+                       {activePackages.map((pkg) => {
+                         const workPackage = workPackages?.find(wp => wp.id === pkg.id || wp.id === String(pkg.id));
+                         const workPackageName = workPackage?.name || `WP ${pkg.id}`;
+                         
+                         return (
+                           <div key={`${project.id}-${pkg.id}`} className="grid grid-cols-8 pl-6 pr-2 py-1 bg-background/50 group">
+                             <div className="p-3 flex items-center justify-between">
+                               <div className="font-medium text-sm" title={workPackageName}>
+                                 {workPackageName}
+                               </div>
+                               <Button
+                                 variant="ghost"
+                                 size="sm"
+                                 onClick={() => deleteWorkPackageEntriesInWeek(project.id, pkg.id)}
+                                 className="opacity-0 group-hover:opacity-100 transition-opacity h-5 w-5 p-0 hover:bg-destructive/10 text-destructive"
+                                 title={`Delete all ${workPackageName} entries this week`}
+                               >
+                                 <Trash2 className="h-3 w-3" />
+                               </Button>
+                             </div>
                             {weekDays.map((date) => {
                               const dayHours = getProjectDayHours(project.id, date, pkg.id);
                               const dayEntries = getProjectDayEntries(project.id, date, pkg.id);
@@ -508,8 +566,9 @@ const getActiveProjects = () => {
                                                     pr_package_id: entry.pr_package_id ? String(entry.pr_package_id) : String(pkg.id),
                                                   }).then(() => setTimeInputs(prev => { const p = { ...prev }; delete p[key]; return p; }));
                                                 } else if (dayEntries.length === 0) {
-                                                  void handleQuickEntry(project.id, date, newVal, pkg.id);
-                                                  setTimeInputs(prev => { const p = { ...prev }; delete p[key]; return p; });
+                                                   void handleQuickEntry(project.id, date, newVal, pkg.id).then(() => {
+                                                     setTimeInputs(prev => { const p = { ...prev }; delete p[key]; return p; });
+                                                   });
                                                 } else {
                                                   toast({ title: 'Multiple entries', description: 'Open details to edit individual entries.' });
                                                   openDetailDialog(date, project);
@@ -533,10 +592,11 @@ const getActiveProjects = () => {
                                                   project_id: project.id,
                                                   pr_package_id: entry.pr_package_id ? String(entry.pr_package_id) : String(pkg.id),
                                                 }).then(() => setTimeInputs(prev => { const p = { ...prev }; delete p[key]; return p; }));
-                                              } else if (dayEntries.length === 0) {
-                                                void handleQuickEntry(project.id, date, newVal, pkg.id);
-                                                setTimeInputs(prev => { const p = { ...prev }; delete p[key]; return p; });
-                                              }
+                               } else if (dayEntries.length === 0) {
+                                 void handleQuickEntry(project.id, date, newVal, pkg.id).then(() => {
+                                   setTimeInputs(prev => { const p = { ...prev }; delete p[key]; return p; });
+                                 });
+                               }
                                             }}
                                             className={cn(
                                               "h-8 text-center text-sm",
