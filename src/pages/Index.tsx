@@ -199,21 +199,20 @@ const Index = () => {
       <main className="container mx-auto px-4 py-8">
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full max-w-md grid-cols-2 mx-auto">
-            <TabsTrigger value="timetracking" className="gap-2">
-              <RefreshCw className="h-4 w-4" />
-              Time Tracking
-            </TabsTrigger>
-            <TabsTrigger value="analytics" className="gap-2">
-              <BarChart3 className="h-4 w-4" />
-              Analytics
-            </TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="timetracking" className="space-y-6">
-            {/* View Toggle */}
-            <div className="flex items-center justify-between">
-              <h2 className="text-2xl font-semibold">Time Tracking</h2>
+          <div className="flex items-center justify-between">
+            <TabsList className="grid w-full max-w-md grid-cols-2">
+              <TabsTrigger value="timetracking" className="gap-2">
+                <RefreshCw className="h-4 w-4" />
+                Time Tracking
+              </TabsTrigger>
+              <TabsTrigger value="analytics" className="gap-2">
+                <BarChart3 className="h-4 w-4" />
+                Analytics
+              </TabsTrigger>
+            </TabsList>
+            
+            {/* View Toggle - only show when on timetracking tab */}
+            {activeTab === "timetracking" && (
               <div className="flex items-center gap-2">
                 <Button
                   variant={timeTrackingView === 'list' ? 'default' : 'outline'}
@@ -243,8 +242,10 @@ const Index = () => {
                   Calendar
                 </Button>
               </div>
-            </div>
+            )}
+          </div>
 
+          <TabsContent value="timetracking" className="space-y-6">
             {/* Consistent TimeEntryForm across all views */}
             <TimeEntryForm 
               onSubmit={createTimeEntry} 

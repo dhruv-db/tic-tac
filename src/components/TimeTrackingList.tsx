@@ -258,7 +258,6 @@ export const TimeTrackingList = ({
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Clock className="h-5 w-5 text-primary" />
-          <h2 className="text-2xl font-semibold">Time Tracking</h2>
           <Badge variant="secondary" className="ml-2">
             {filteredTimeEntries.length} entries
             {filteredTimeEntries.length !== timeEntries.length && (
@@ -269,18 +268,7 @@ export const TimeTrackingList = ({
           </Badge>
         </div>
         
-        <Tabs value={activeView} onValueChange={(value) => setActiveView(value as 'list' | 'calendar')}>
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="list" className="gap-2">
-              <Clock className="h-4 w-4" />
-              List View
-            </TabsTrigger>
-            <TabsTrigger value="calendar" className="gap-2">
-              <CalendarDays className="h-4 w-4" />
-              Calendar
-            </TabsTrigger>
-          </TabsList>
-        </Tabs>
+        {/* Remove duplicate view tabs - controlled from parent */}
       </div>
 
       {onCreateTimeEntry && !hideForm && (
@@ -296,31 +284,7 @@ export const TimeTrackingList = ({
         />
       )}
 
-      <Tabs value={activeView} className="space-y-6">
-        <TabsContent value="calendar" className="space-y-6">
-          <TimesheetCalendar
-            timeEntries={timeEntries}
-            isLoading={isLoading}
-            onEditEntry={setEditingEntry}
-            onCreateEntry={(date) => {
-              // Set initial data and switch to list view
-              setCalendarInitialData({
-                dateRange: { from: date, to: date },
-                startTime: "09:00",
-                endTime: "17:00",
-                text: "",
-                allowable_bill: true,
-              });
-              setActiveView('list'); // Switch to list view to show the form
-            }}
-            onDeleteEntry={async (id) => {
-              if (onDeleteTimeEntry && window.confirm('Are you sure you want to delete this time entry?')) {
-                await onDeleteTimeEntry(id);
-              }
-            }}
-          />
-        </TabsContent>
-
+      <Tabs value="list" className="space-y-6">
         <TabsContent value="list" className="space-y-6">
           {/* Filters */}
           <Card className="corporate-card">
