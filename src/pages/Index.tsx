@@ -42,7 +42,7 @@ const Index = () => {
     disconnect,
   } = useBexioApi();
 
-  const [activeTab, setActiveTab] = useState("timetracking");
+  const [activeTab, setActiveTab] = useState("analytics");
   const [timeTrackingView, setTimeTrackingView] = useState<'list' | 'grid' | 'calendar'>('list');
   const [isTestingConnection, setIsTestingConnection] = useState(false);
   const [editingEntry, setEditingEntry] = useState<any>(null);
@@ -201,13 +201,13 @@ const Index = () => {
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
           <div className="flex items-center justify-between">
             <TabsList className="grid w-full max-w-md grid-cols-2">
-              <TabsTrigger value="timetracking" className="gap-2">
-                <RefreshCw className="h-4 w-4" />
-                Time Tracking
-              </TabsTrigger>
               <TabsTrigger value="analytics" className="gap-2">
                 <BarChart3 className="h-4 w-4" />
                 Analytics
+              </TabsTrigger>
+              <TabsTrigger value="timetracking" className="gap-2">
+                <RefreshCw className="h-4 w-4" />
+                Time Tracking
               </TabsTrigger>
             </TabsList>
             
@@ -247,16 +247,18 @@ const Index = () => {
 
           <TabsContent value="timetracking" className="space-y-6">
             {/* Consistent TimeEntryForm across all views */}
-            <TimeEntryForm 
-              onSubmit={createTimeEntry} 
-              isSubmitting={isCreatingTimeEntry}
-              contacts={contacts}
-              projects={projects}
-              workPackages={workPackages}
-              isLoadingWorkPackages={isLoadingWorkPackages}
-              onFetchWorkPackages={fetchWorkPackages}
-              initialData={calendarInitialData}
-            />
+            <div id="time-entry-form">
+              <TimeEntryForm 
+                onSubmit={createTimeEntry} 
+                isSubmitting={isCreatingTimeEntry}
+                contacts={contacts}
+                projects={projects}
+                workPackages={workPackages}
+                isLoadingWorkPackages={isLoadingWorkPackages}
+                onFetchWorkPackages={fetchWorkPackages}
+                initialData={calendarInitialData}
+              />
+            </div>
 
             {timeTrackingView === 'list' ? (
               <TimeTrackingList 
@@ -287,6 +289,12 @@ const Index = () => {
                 isLoadingWorkPackages={isLoadingWorkPackages}
                 onFetchWorkPackages={fetchWorkPackages}
                 hideForm={true}
+                onScrollToForm={() => {
+                  document.getElementById('time-entry-form')?.scrollIntoView({ 
+                    behavior: 'smooth', 
+                    block: 'start' 
+                  });
+                }}
               />
             ) : (
               <TimesheetCalendar
@@ -301,6 +309,13 @@ const Index = () => {
                     text: "",
                     allowable_bill: true,
                   });
+                  // Scroll to form after setting initial data
+                  setTimeout(() => {
+                    document.getElementById('time-entry-form')?.scrollIntoView({ 
+                      behavior: 'smooth', 
+                      block: 'start' 
+                    });
+                  }, 100);
                 }}
                 onDeleteEntry={async (id) => {
                   if (window.confirm('Are you sure you want to delete this time entry?')) {
