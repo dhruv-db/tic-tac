@@ -71,6 +71,7 @@ interface TimeTrackingListProps {
   workPackages: WorkPackage[];
   isLoadingWorkPackages: boolean;
   onFetchWorkPackages: (projectId: number) => Promise<void>;
+  hideForm?: boolean;
 }
 
 interface WorkPackage {
@@ -94,7 +95,8 @@ export const TimeTrackingList = ({
   projects,
   workPackages,
   isLoadingWorkPackages,
-  onFetchWorkPackages
+  onFetchWorkPackages,
+  hideForm = false
 }: TimeTrackingListProps) => {
   const [editingEntry, setEditingEntry] = useState<TimeEntry | null>(null);
   const [activeView, setActiveView] = useState<'list' | 'calendar'>('list');
@@ -281,7 +283,7 @@ export const TimeTrackingList = ({
         </Tabs>
       </div>
 
-      {onCreateTimeEntry && (
+      {onCreateTimeEntry && !hideForm && (
         <TimeEntryForm 
           onSubmit={onCreateTimeEntry} 
           isSubmitting={isCreatingTimeEntry}

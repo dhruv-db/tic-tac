@@ -4,11 +4,13 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TimeTrackingList } from "@/components/TimeTrackingList";
-import { TimeTrackingGrid } from "@/components/TimeTrackingGrid";
 import { SimpleTimeGrid } from "@/components/SimpleTimeGrid";
+import { TimesheetCalendar } from "@/components/TimesheetCalendar";
+import { TimeEntryForm } from "@/components/TimeEntryForm";
+import { EditTimeEntryDialog } from "@/components/EditTimeEntryDialog";
 import { LoginPage } from "@/components/LoginPage";
 import { useBexioApi } from "@/hooks/useBexioApi";
-import { RefreshCw, Database, LogOut, BarChart3, CheckCircle2, Grid, List } from "lucide-react";
+import { RefreshCw, Database, LogOut, BarChart3, CheckCircle2, Grid, List, CalendarDays } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 const Index = () => {
@@ -41,8 +43,10 @@ const Index = () => {
   } = useBexioApi();
 
   const [activeTab, setActiveTab] = useState("timetracking");
-  const [timeTrackingView, setTimeTrackingView] = useState<'grid' | 'list'>('grid');
+  const [timeTrackingView, setTimeTrackingView] = useState<'list' | 'grid' | 'calendar'>('list');
   const [isTestingConnection, setIsTestingConnection] = useState(false);
+  const [editingEntry, setEditingEntry] = useState<any>(null);
+  const [calendarInitialData, setCalendarInitialData] = useState<any>(null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -209,44 +213,51 @@ const Index = () => {
           <TabsContent value="timetracking" className="space-y-6">
             {/* View Toggle */}
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <h2 className="text-2xl font-semibold">Time Tracking</h2>
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant={timeTrackingView === 'grid' ? 'default' : 'outline'}
-                    size="sm"
-                    onClick={() => setTimeTrackingView('grid')}
-                    className="gap-2"
-                  >
-                    <Grid className="h-4 w-4" />
-                    Grid View
-                  </Button>
-                  <Button
-                    variant={timeTrackingView === 'list' ? 'default' : 'outline'}
-                    size="sm"
-                    onClick={() => setTimeTrackingView('list')}
-                    className="gap-2"
-                  >
-                    <List className="h-4 w-4" />
-                    List View
-                  </Button>
-                </div>
+              <h2 className="text-2xl font-semibold">Time Tracking</h2>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant={timeTrackingView === 'list' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setTimeTrackingView('list')}
+                  className="gap-2"
+                >
+                  <List className="h-4 w-4" />
+                  List View
+                </Button>
+                <Button
+                  variant={timeTrackingView === 'grid' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setTimeTrackingView('grid')}
+                  className="gap-2"
+                >
+                  <Grid className="h-4 w-4" />
+                  Grid View
+                </Button>
+                <Button
+                  variant={timeTrackingView === 'calendar' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setTimeTrackingView('calendar')}
+                  className="gap-2"
+                >
+                  <CalendarDays className="h-4 w-4" />
+                  Calendar
+                </Button>
               </div>
             </div>
 
-            {timeTrackingView === 'grid' ? (
-              <SimpleTimeGrid
-                timeEntries={timeEntries}
-                projects={projects}
-                onCreateTimeEntry={createTimeEntry}
-                onDeleteTimeEntry={deleteTimeEntry}
-                onDateRangeChange={(range) => fetchTimeEntries(range, { quiet: true })}
-                isLoading={isLoadingTimeEntries}
-                workPackages={workPackages}
-                isLoadingWorkPackages={isLoadingWorkPackages}
-                onFetchWorkPackages={fetchWorkPackages}
-              />
-            ) : (
+            {/* Consistent TimeEntryForm across all views */}
+            <TimeEntryForm 
+              onSubmit={createTimeEntry} 
+              isSubmitting={isCreatingTimeEntry}
+              contacts={contacts}
+              projects={projects}
+              workPackages={workPackages}
+              isLoadingWorkPackages={isLoadingWorkPackages}
+              onFetchWorkPackages={fetchWorkPackages}
+              initialData={calendarInitialData}
+            />
+
+            {timeTrackingView === 'list' ? (
               <TimeTrackingList 
                 timeEntries={timeEntries} 
                 isLoading={isLoadingTimeEntries}
@@ -261,6 +272,59 @@ const Index = () => {
                 workPackages={workPackages}
                 isLoadingWorkPackages={isLoadingWorkPackages}
                 onFetchWorkPackages={fetchWorkPackages}
+                hideForm={true}
+              />
+            ) : timeTrackingView === 'grid' ? (
+              <SimpleTimeGrid
+                timeEntries={timeEntries}
+                projects={projects}
+                onCreateTimeEntry={createTimeEntry}
+                onDeleteTimeEntry={deleteTimeEntry}
+                onDateRangeChange={(range) => fetchTimeEntries(range, { quiet: true })}
+                isLoading={isLoadingTimeEntries}
+                workPackages={workPackages}
+                isLoadingWorkPackages={isLoadingWorkPackages}
+                onFetchWorkPackages={fetchWorkPackages}
+                hideForm={true}
+              />
+            ) : (
+              <TimesheetCalendar
+                timeEntries={timeEntries}
+                isLoading={isLoadingTimeEntries}
+                onEditEntry={setEditingEntry}
+                onCreateEntry={(date) => {
+                  setCalendarInitialData({
+                    dateRange: { from: date, to: date },
+                    startTime: "09:00",
+                    endTime: "17:00",
+                    text: "",
+                    allowable_bill: true,
+                  });
+                }}
+                onDeleteEntry={async (id) => {
+                  if (window.confirm('Are you sure you want to delete this time entry?')) {
+                    await deleteTimeEntry(id);
+                  }
+                }}
+              />
+            )}
+
+            {/* Edit Dialog */}
+            {editingEntry && (
+              <EditTimeEntryDialog
+                entry={editingEntry}
+                isOpen={!!editingEntry}
+                onClose={() => setEditingEntry(null)}
+                onSubmit={async (id, data) => {
+                  await updateTimeEntry(id, data);
+                  setEditingEntry(null);
+                }}
+                contacts={contacts}
+                projects={projects}
+                workPackages={workPackages}
+                isLoadingWorkPackages={isLoadingWorkPackages}
+                onFetchWorkPackages={fetchWorkPackages}
+                isSubmitting={false}
               />
             )}
           </TabsContent>

@@ -21,6 +21,7 @@ interface SimpleTimeGridProps {
   workPackages?: any[];
   isLoadingWorkPackages?: boolean;
   onFetchWorkPackages?: (projectId: number) => Promise<void>;
+  hideForm?: boolean;
 }
 
 export const SimpleTimeGrid = ({ 
@@ -33,6 +34,7 @@ export const SimpleTimeGrid = ({
   workPackages,
   isLoadingWorkPackages,
   onFetchWorkPackages,
+  hideForm = false,
 }: SimpleTimeGridProps) => {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [timeInputs, setTimeInputs] = useState<Record<string, string>>({});
