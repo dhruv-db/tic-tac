@@ -15,6 +15,7 @@ interface SimpleTimeGridProps {
   timeEntries: TimeEntry[];
   projects: any[];
   onCreateTimeEntry?: (data: any) => Promise<void>;
+  onUpdateTimeEntry?: (id: number, data: any) => Promise<void>;
   onDeleteTimeEntry?: (id: number) => Promise<void>;
   onDateRangeChange?: (dateRange: { from: Date; to: Date }) => void;
   isLoading: boolean;
@@ -28,6 +29,7 @@ export const SimpleTimeGrid = ({
   timeEntries, 
   projects, 
   onCreateTimeEntry,
+  onUpdateTimeEntry,
   onDeleteTimeEntry,
   onDateRangeChange,
   isLoading,
@@ -93,10 +95,19 @@ export const SimpleTimeGrid = ({
     return entries.reduce((total, entry) => total + durationToHours(entry.duration), 0);
   };
 
-  // Get projects to display in grid (show all to allow quick entry everywhere)
-  const getActiveProjects = () => {
-    return projects;
-  };
+// Get projects to display in grid (only those with entries in current week)
+const getActiveProjects = () => {
+  const activeIds = new Set<number>();
+  weekDays.forEach((date) => {
+    const dateStr = format(date, 'yyyy-MM-dd');
+    timeEntries.forEach((entry: any) => {
+      const entryDate = entry.date?.includes('T') ? entry.date.split('T')[0] : entry.date;
+      const projId = (entry.pr_project_id ?? entry.project_id) as number | undefined;
+      if (projId && entryDate === dateStr) activeIds.add(projId);
+    });
+  });
+  return projects.filter((p) => activeIds.has(p.id));
+};
 
   // Get ALL work packages that appear for a project (with or without hours)
   const getAllWorkPackagesForProject = (projectId: number) => {
@@ -225,6 +236,32 @@ export const SimpleTimeGrid = ({
     setShowBulkDialog(true);
   };
 
+  // Delete all entries for a project in the current week
+  const deleteProjectEntriesInWeek = async (projectId: number) => {
+    const weekDates = weekDays.map((d) => format(d, 'yyyy-MM-dd'));
+    const ids = timeEntries
+      .filter((e: any) => (e.pr_project_id ?? e.project_id) === projectId)
+      .filter((e: any) => {
+        const entryDate = e.date?.includes('T') ? e.date.split('T')[0] : e.date;
+        return weekDates.includes(entryDate);
+      })
+      .map((e: any) => e.id);
+
+    if (ids.length === 0) {
+      toast({ title: 'No entries to delete', description: 'This project has no entries this week.' });
+      return;
+    }
+
+    const confirm = window.confirm(`Delete ${ids.length} entr${ids.length === 1 ? 'y' : 'ies'} for this project this week?`);
+    if (!confirm) return;
+
+    try {
+      await Promise.all(ids.map((id: number) => onDeleteTimeEntry?.(id)));
+      toast({ title: 'Deleted', description: `${ids.length} entr${ids.length === 1 ? 'y' : 'ies'} removed.` });
+    } catch {
+      toast({ title: 'Failed to delete project entries', variant: 'destructive' });
+    }
+  };
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -349,44 +386,56 @@ export const SimpleTimeGrid = ({
                           </div>
                           {weekDays.map((date) => {
                             const dayHours = getProjectDayHours(project.id, date);
+                            const dayEntries = getProjectDayEntries(project.id, date);
                             const key = `${project.id}-p-${format(date, 'yyyy-MM-dd')}`;
-                            const inputValue = timeInputs[key] || '';
+                            const existing = dayHours > 0 ? formatHours(dayHours) : '';
+                            const value = timeInputs[key] ?? existing;
+
+                            const save = async () => {
+                              const newVal = (timeInputs[key] ?? '').trim();
+                              if (!newVal || newVal === existing) return;
+                              if (dayEntries.length === 1) {
+                                const entry = dayEntries[0];
+                                await onUpdateTimeEntry?.(entry.id, {
+                                  dateRange: { from: date, to: date },
+                                  useDuration: true,
+                                  duration: newVal,
+                                  text: entry.text || '',
+                                  allowable_bill: entry.allowable_bill ?? true,
+                                  project_id: project.id,
+                                  pr_package_id: entry.pr_package_id ? String(entry.pr_package_id) : undefined,
+                                });
+                                setTimeInputs(prev => { const p = { ...prev }; delete p[key]; return p; });
+                              } else if (dayEntries.length === 0) {
+                                await handleQuickEntry(project.id, date, newVal);
+                                setTimeInputs(prev => { const p = { ...prev }; delete p[key]; return p; });
+                              } else {
+                                toast({ title: 'Multiple entries', description: 'Open details to edit individual entries.' });
+                                openDetailDialog(date, project);
+                              }
+                            };
 
                             return (
                               <div key={date.toISOString()} className="p-2">
-                                {dayHours > 0 ? (
-                                  <div className="text-center">
-                                    <Badge variant="default" className="font-semibold">
-                                      {formatHours(dayHours)}
-                                    </Badge>
-                                  </div>
-                                ) : (
-                                  <TooltipProvider>
-                                    <Tooltip>
-                                      <TooltipTrigger asChild>
-                                        <Input
-                                          type="text"
-                                          placeholder="0:00"
-                                          value={inputValue}
-                                          onChange={(e) => setTimeInputs(prev => ({
-                                            ...prev,
-                                            [key]: e.target.value
-                                          }))}
-                                          onKeyDown={(e) => handleKeyPress(e, project.id, date)}
-                                          onBlur={() => {
-                                            if (inputValue && inputValue !== '0:00') {
-                                              handleQuickEntry(project.id, date, inputValue);
-                                            }
-                                          }}
-                                          className="h-8 text-center text-sm"
-                                        />
-                                      </TooltipTrigger>
-                                      <TooltipContent>
-                                        <p>Enter time (H:MM) • Enter to save • Esc to cancel</p>
-                                      </TooltipContent>
-                                    </Tooltip>
-                                  </TooltipProvider>
-                                )}
+                                <TooltipProvider>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <Input
+                                        type="text"
+                                        placeholder="0:00"
+                                        value={value}
+                                        onChange={(e) => setTimeInputs(prev => ({ ...prev, [key]: e.target.value }))}
+                                        onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); void save(); } if (e.key === 'Escape') { setTimeInputs(prev => { const p = { ...prev }; delete p[key]; return p; }); } }}
+                                        onFocus={() => { if (timeInputs[key] == null && existing) setTimeInputs(prev => ({ ...prev, [key]: existing })); }}
+                                        onBlur={() => void save()}
+                                        className={cn("h-8 text-center text-sm", dayHours > 0 && "bg-primary/10 font-semibold text-primary")}
+                                      />
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                      <p>{dayEntries.length > 1 ? 'Multiple entries - open details to edit' : 'Enter time (H:MM) • Enter to save • Esc to cancel'}</p>
+                                    </TooltipContent>
+                                  </Tooltip>
+                                </TooltipProvider>
                               </div>
                             );
                           })}
@@ -440,31 +489,59 @@ export const SimpleTimeGrid = ({
                                           <Input
                                             type="text"
                                             placeholder="0:00"
-                                            value={dayHours > 0 ? formatHours(dayHours) : inputValue}
-                                            onChange={(e) => {
-                                              if (dayHours === 0) {
-                                                setTimeInputs(prev => ({
-                                                  ...prev,
-                                                  [key]: e.target.value
-                                                }));
+                                            value={timeInputs[key] ?? (dayHours > 0 ? formatHours(dayHours) : '')}
+                                            onChange={(e) => setTimeInputs(prev => ({ ...prev, [key]: e.target.value }))}
+                                            onKeyDown={(e) => {
+                                              if (e.key === 'Enter') {
+                                                e.preventDefault();
+                                                const newVal = (timeInputs[key] ?? '').trim();
+                                                if (!newVal) return;
+                                                if (dayEntries.length === 1) {
+                                                  const entry = dayEntries[0];
+                                                  void onUpdateTimeEntry?.(entry.id, {
+                                                    dateRange: { from: date, to: date },
+                                                    useDuration: true,
+                                                    duration: newVal,
+                                                    text: entry.text || '',
+                                                    allowable_bill: entry.allowable_bill ?? true,
+                                                    project_id: project.id,
+                                                    pr_package_id: entry.pr_package_id ? String(entry.pr_package_id) : String(pkg.id),
+                                                  }).then(() => setTimeInputs(prev => { const p = { ...prev }; delete p[key]; return p; }));
+                                                } else if (dayEntries.length === 0) {
+                                                  void handleQuickEntry(project.id, date, newVal, pkg.id);
+                                                  setTimeInputs(prev => { const p = { ...prev }; delete p[key]; return p; });
+                                                } else {
+                                                  toast({ title: 'Multiple entries', description: 'Open details to edit individual entries.' });
+                                                  openDetailDialog(date, project);
+                                                }
+                                              } else if (e.key === 'Escape') {
+                                                setTimeInputs(prev => { const p = { ...prev }; delete p[key]; return p; });
                                               }
                                             }}
-                                            onKeyDown={(e) => handleKeyPress(e, project.id, date, pkg.id)}
+                                            onFocus={() => { if (timeInputs[key] == null && dayHours > 0) setTimeInputs(prev => ({ ...prev, [key]: formatHours(dayHours) })); }}
                                             onBlur={() => {
-                                              if (dayHours === 0 && inputValue && inputValue !== '0:00') {
-                                                handleQuickEntry(project.id, date, inputValue, pkg.id);
-                                              }
-                                            }}
-                                            onFocus={(e) => {
-                                              if (dayHours > 0) {
-                                                e.target.select();
+                                              const newVal = (timeInputs[key] ?? '').trim();
+                                              if (!newVal) return;
+                                              if (dayEntries.length === 1) {
+                                                const entry = dayEntries[0];
+                                                void onUpdateTimeEntry?.(entry.id, {
+                                                  dateRange: { from: date, to: date },
+                                                  useDuration: true,
+                                                  duration: newVal,
+                                                  text: entry.text || '',
+                                                  allowable_bill: entry.allowable_bill ?? true,
+                                                  project_id: project.id,
+                                                  pr_package_id: entry.pr_package_id ? String(entry.pr_package_id) : String(pkg.id),
+                                                }).then(() => setTimeInputs(prev => { const p = { ...prev }; delete p[key]; return p; }));
+                                              } else if (dayEntries.length === 0) {
+                                                void handleQuickEntry(project.id, date, newVal, pkg.id);
+                                                setTimeInputs(prev => { const p = { ...prev }; delete p[key]; return p; });
                                               }
                                             }}
                                             className={cn(
                                               "h-8 text-center text-sm",
                                               dayHours > 0 && "bg-primary/10 font-semibold text-primary"
                                             )}
-                                            readOnly={dayHours > 0}
                                           />
                                         </TooltipTrigger>
                                         <TooltipContent>

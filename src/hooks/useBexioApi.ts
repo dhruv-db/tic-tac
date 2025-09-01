@@ -642,7 +642,7 @@ export const useBexioApi = () => {
           allowable_bill: timeEntryData.allowable_bill,
           tracking: {
             type: "duration",
-            date: date.toISOString().split('T')[0],
+            date: format(date, 'yyyy-MM-dd'),
             duration: durationString,
           },
           ...(timeEntryData.contact_id !== undefined && { contact_id: timeEntryData.contact_id }),
@@ -971,7 +971,7 @@ export const useBexioApi = () => {
         allowable_bill: timeEntryData.allowable_bill,
         tracking: {
           type: "duration",
-          date: timeEntryData.dateRange.from.toISOString().split('T')[0],
+          date: format(timeEntryData.dateRange.from, 'yyyy-MM-dd'),
           duration: durationString,
         },
         ...(timeEntryData.contact_id !== undefined && { contact_id: timeEntryData.contact_id }),
