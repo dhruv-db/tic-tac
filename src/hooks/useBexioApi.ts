@@ -790,17 +790,10 @@ export const useBexioApi = () => {
       const data = await response.json();
       console.log('✅ Received timesheet statuses:', data);
       
-      // Transform the data to our expected format with English labels
-      const EN_STATUS: Record<number, string> = {
-        1: 'Open',
-        2: 'In progress',
-        3: 'Completed',
-        4: 'Invoiced',
-        5: 'Closed',
-      };
+      // Transform the data to our expected format using actual API names
       const statuses = Array.isArray(data) ? data.map((status: any) => ({
         id: status.id,
-        name: EN_STATUS[status.id] ?? status.name ?? `Status ${status.id}`,
+        name: status.name || `Status ${status.id}`,
       })) : [];
       
       setTimesheetStatuses(statuses);
@@ -864,7 +857,7 @@ export const useBexioApi = () => {
 
       const activities = Array.isArray(data) ? data.map((a: any) => ({
         id: a.id,
-        name: a.name || a.label || a.text || a.title || a.description || `Activity ${a.id}`,
+        name: a.name || `Activity ${a.id}`,
       })) : [];
 
       setBusinessActivities(activities);
@@ -886,40 +879,69 @@ export const useBexioApi = () => {
   }, [credentials, ensureValidToken, toast]);
 
   const fetchLanguages = useCallback(async () => {
-    // Using hardcoded languages list instead of API call to avoid 404 errors
-    // The Bexio API languages endpoint appears to be unavailable or requires different authentication
+    if (!credentials) return;
+
+    const authToken = await ensureValidToken();
+    if (!authToken) return;
+
     setIsLoadingLanguages(true);
-    console.log('🌍 Using hardcoded languages list');
+    console.log('🌍 Fetching languages from Bexio API');
     
     try {
-      // Common languages with ISO codes
-      const hardcodedLanguages = [
-        { id: 1, name: 'English', iso_639_1: 'en' },
-        { id: 2, name: 'Deutsch', iso_639_1: 'de' },
-        { id: 3, name: 'Français', iso_639_1: 'fr' },
-        { id: 4, name: 'Italiano', iso_639_1: 'it' },
-        { id: 5, name: 'Español', iso_639_1: 'es' },
-      ];
-      
-      setLanguages(hardcodedLanguages);
-      console.log('✅ Languages loaded:', hardcodedLanguages);
-      
-      // Set English as default if not already set
-      if (!currentLanguage) {
+      const response = await fetch(`https://opcjifbdwpyttaxqlqbf.supabase.co/functions/v1/bexio-proxy`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          endpoint: '/2.0/languages',
+          apiKey: authToken,
+          companyId: credentials.companyId,
+        }),
+      });
+
+      if (!response.ok) {
+        // If languages API fails, use fallback list
+        console.warn('Languages API failed, using fallback list');
+        const fallbackLanguages = [
+          { id: 1, name: 'English', iso_639_1: 'en' },
+          { id: 2, name: 'Deutsch', iso_639_1: 'de' },
+          { id: 3, name: 'Français', iso_639_1: 'fr' },
+          { id: 4, name: 'Italiano', iso_639_1: 'it' },
+        ];
+        setLanguages(fallbackLanguages);
         setCurrentLanguage('en');
+        return;
+      }
+
+      const data = await response.json();
+      console.log('✅ Received languages:', data);
+      
+      const languages = Array.isArray(data) ? data.map((lang: any) => ({
+        id: lang.id,
+        name: lang.name,
+        iso_639_1: lang.iso_639_1,
+      })) : [];
+
+      setLanguages(languages);
+      
+      // Set English as default if available, otherwise first language
+      const defaultLang = languages.find(l => l.iso_639_1 === 'en') || languages[0];
+      if (defaultLang && !currentLanguage) {
+        setCurrentLanguage(defaultLang.iso_639_1);
       }
       
     } catch (error) {
       console.error('❌ Error loading languages:', error);
-      toast({
-        title: "Failed to load languages",
-        description: "Using default language settings.",
-        variant: "destructive",
-      });
+      // Use fallback on error
+      const fallbackLanguages = [
+        { id: 1, name: 'English', iso_639_1: 'en' },
+        { id: 2, name: 'Deutsch', iso_639_1: 'de' },
+      ];
+      setLanguages(fallbackLanguages);
+      setCurrentLanguage('en');
     } finally {
       setIsLoadingLanguages(false);
     }
-  }, [toast, currentLanguage]);
+  }, [credentials, ensureValidToken, toast, currentLanguage]);
 
   const updateTimeEntry = useCallback(async (id: number, timeEntryData: {
     dateRange: DateRange | undefined;

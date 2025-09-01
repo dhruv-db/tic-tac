@@ -221,45 +221,25 @@ export const TimeTrackingList = ({
     return Array.from(monthYears).sort().reverse();
   };
 
-  // Short label ordering based on current list
-  const wpOrder = Array.from(
-    new Set(filteredAndSortedTimeEntries.map(e => e.pr_package_id).filter((v): v is string => !!v))
-  );
-  const activityOrder = Array.from(
-    new Set(filteredAndSortedTimeEntries.map(e => e.client_service_id).filter((v): v is number => typeof v === 'number'))
-  );
-  const statusOrder = Array.from(
-    new Set(filteredAndSortedTimeEntries.map(e => e.status_id).filter((v): v is number => typeof v === 'number'))
-  );
-
-  const getWpShort = (id?: string) => {
-    if (!id) return 'WP';
-    const idx = wpOrder.indexOf(id);
-    return `WP${idx >= 0 ? idx + 1 : ''}`;
-  };
-  const getActivityShort = (id?: number) => {
-    if (id == null) return 'ACT';
-    const idx = activityOrder.indexOf(id);
-    return `ACT${idx >= 0 ? idx + 1 : ''}`;
-  };
-  const getStatusShort = (id?: number) => {
-    if (id == null) return 'ST';
-    const idx = statusOrder.indexOf(id);
-    return `ST${idx >= 0 ? idx + 1 : ''}`;
-  };
-
-  // Helper function to get status label (name if available, else short)
+  // Helper function to get status name
   const getStatusName = (statusId?: number): string => {
     if (!statusId) return 'No Status';
     const status = timesheetStatuses.find(s => s.id === statusId);
-    return status?.name || getStatusShort(statusId);
+    return status?.name || `Status ${statusId}`;
   };
 
-  // Helper function to get activity label (name if available, else short)
+  // Helper function to get activity name
   const getActivityName = (activityId?: number): string => {
     if (!activityId) return 'No Activity';
     const activity = businessActivities.find(a => a.id === activityId);
-    return activity?.name || getActivityShort(activityId);
+    return activity?.name || `Activity ${activityId}`;
+  };
+
+  // Helper function to get work package name
+  const getWorkPackageName = (packageId?: string): string => {
+    if (!packageId) return 'No Work Package';
+    const workPackage = workPackages.find(wp => wp.id === packageId);
+    return workPackage?.name || `Work Package ${packageId}`;
   };
 
   // Helper function to format last updated
@@ -525,7 +505,7 @@ export const TimeTrackingList = ({
                               <div className="flex items-center gap-2">
                                 <DollarSign className="h-4 w-4 text-muted-foreground" />
                                 <span className="font-medium">
-                                  {workPackages.find(wp => wp.id === entry.pr_package_id)?.name || getWpShort(entry.pr_package_id)}
+                                  {getWorkPackageName(entry.pr_package_id)}
                                 </span>
                               </div>
                             )}
