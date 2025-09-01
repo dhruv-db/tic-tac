@@ -474,71 +474,35 @@ export const TimeTrackingList = ({
                            </Badge>
                          </div>
 
-                         {/* Description */}
-                         {entry.text && (
-                           <div className="bg-muted/50 p-3 rounded-md">
-                             <p className="text-sm group-hover:text-foreground transition-[var(--transition-smooth)]">
-                               {entry.text}
-                             </p>
-                           </div>
-                         )}
+                          {/* Description */}
+                          {entry.text && (
+                            <div className="bg-muted/50 p-3 rounded-md">
+                              <p className="text-sm group-hover:text-foreground transition-[var(--transition-smooth)]">
+                                {entry.text}
+                              </p>
+                            </div>
+                          )}
 
-                         {/* Details Grid */}
-                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 text-xs">
-                           {entry.contact_id && (
-                             <div className="flex items-center gap-2 p-2 bg-background/50 rounded border">
-                               <User className="h-3 w-3 text-muted-foreground" />
-                               <span className="text-muted-foreground">Contact:</span>
-                               <span className="font-medium">
-                                 {contacts.find(c => c.id === entry.contact_id)?.name_1 || `#${entry.contact_id}`}
-                               </span>
-                             </div>
-                           )}
-                           
-                           {entry.project_id && (
-                             <div className="flex items-center gap-2 p-2 bg-background/50 rounded border">
-                               <CalendarDays className="h-3 w-3 text-muted-foreground" />
-                               <span className="text-muted-foreground">Project:</span>
-                               <span className="font-medium">
-                                 {projects.find(p => p.id === entry.project_id)?.name || `#${entry.project_id}`}
-                               </span>
-                             </div>
-                           )}
-
-                           {entry.client_service_id && (
-                             <div className="flex items-center gap-2 p-2 bg-background/50 rounded border">
-                               <Clock className="h-3 w-3 text-muted-foreground" />
-                               <span className="text-muted-foreground">Activity:</span>
-                               <span className="font-medium">
-                                 {getActivityName(entry.client_service_id)}
-                               </span>
-                             </div>
-                           )}
-                           
-                           {entry.pr_package_id && (
-                             <div className="flex items-center gap-2 p-2 bg-background/50 rounded border">
-                               <DollarSign className="h-3 w-3 text-muted-foreground" />
-                               <span className="text-muted-foreground">Work Package:</span>
-                               <span className="font-medium">
-                                 {workPackages.find(wp => wp.id === entry.pr_package_id)?.name || `#${entry.pr_package_id}`}
-                               </span>
-                             </div>
-                           )}
-
-                           {entry.user_id && (
-                             <div className="flex items-center gap-2 p-2 bg-background/50 rounded border">
-                               <User className="h-3 w-3 text-muted-foreground" />
-                               <span className="text-muted-foreground">User:</span>
-                               <span className="font-medium">{entry.user_id}</span>
-                             </div>
-                           )}
-                           
-                           <div className="flex items-center gap-2 p-2 bg-background/50 rounded border">
-                             <Clock className="h-3 w-3 text-muted-foreground" />
-                             <span className="text-muted-foreground">Last Updated:</span>
-                             <span className="font-medium">{formatLastUpdated(entry)}</span>
-                           </div>
-                         </div>
+                          {/* Essential Details */}
+                          <div className="flex items-center gap-4 flex-wrap text-sm">
+                            {entry.client_service_id && (
+                              <div className="flex items-center gap-2">
+                                <Clock className="h-4 w-4 text-muted-foreground" />
+                                <span className="font-medium">
+                                  {getActivityName(entry.client_service_id)}
+                                </span>
+                              </div>
+                            )}
+                            
+                            {entry.pr_package_id && (
+                              <div className="flex items-center gap-2">
+                                <DollarSign className="h-4 w-4 text-muted-foreground" />
+                                <span className="font-medium">
+                                  {workPackages.find(wp => wp.id === entry.pr_package_id)?.name || `Work Package #${entry.pr_package_id}`}
+                                </span>
+                              </div>
+                            )}
+                          </div>
                        </div>
                      </div>
 
