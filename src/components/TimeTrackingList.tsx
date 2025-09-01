@@ -71,7 +71,6 @@ interface TimeTrackingListProps {
   workPackages: WorkPackage[];
   isLoadingWorkPackages: boolean;
   onFetchWorkPackages: (projectId: number) => Promise<void>;
-  hideForm?: boolean;
   onScrollToForm?: () => void;
 }
 
@@ -97,7 +96,6 @@ export const TimeTrackingList = ({
   workPackages,
   isLoadingWorkPackages,
   onFetchWorkPackages,
-  hideForm = false,
   onScrollToForm
 }: TimeTrackingListProps) => {
   const [editingEntry, setEditingEntry] = useState<TimeEntry | null>(null);
@@ -257,31 +255,6 @@ export const TimeTrackingList = ({
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-title">Time Tracking List</h1>
-          <div className="flex items-center gap-2 mt-2">
-            <Clock className="h-5 w-5 text-primary" />
-            <Badge variant="secondary" className="ml-2">
-              {filteredTimeEntries.length} entries
-              {filteredTimeEntries.length !== timeEntries.length && (
-                <span className="text-muted-foreground ml-1">
-                  / {timeEntries.length} total
-                </span>
-              )}
-            </Badge>
-          </div>
-        </div>
-        
-        <Button 
-          onClick={onScrollToForm}
-          className="gap-2 bg-primary hover:bg-primary/90"
-          size="lg"
-        >
-          <Plus className="h-4 w-4" />
-          Add Time Entry
-        </Button>
-      </div>
 
 
       <Tabs value="list" className="space-y-6">

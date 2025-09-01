@@ -6,7 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TimeTrackingList } from "@/components/TimeTrackingList";
 import { SimpleTimeGrid } from "@/components/SimpleTimeGrid";
 import { TimesheetCalendar } from "@/components/TimesheetCalendar";
-import { TimeEntryForm } from "@/components/TimeEntryForm";
+import { TimeEntryDialog } from "@/components/TimeEntryDialog";
 import { EditTimeEntryDialog } from "@/components/EditTimeEntryDialog";
 import { LoginPage } from "@/components/LoginPage";
 import { useBexioApi } from "@/hooks/useBexioApi";
@@ -246,20 +246,6 @@ const Index = () => {
           </div>
 
           <TabsContent value="timetracking" className="space-y-6">
-            {/* Consistent TimeEntryForm across all views */}
-            <div id="time-entry-form">
-              <TimeEntryForm 
-                onSubmit={createTimeEntry} 
-                isSubmitting={isCreatingTimeEntry}
-                contacts={contacts}
-                projects={projects}
-                workPackages={workPackages}
-                isLoadingWorkPackages={isLoadingWorkPackages}
-                onFetchWorkPackages={fetchWorkPackages}
-                initialData={calendarInitialData}
-              />
-            </div>
-
             {timeTrackingView === 'list' ? (
               <TimeTrackingList 
                 timeEntries={timeEntries} 
@@ -275,13 +261,6 @@ const Index = () => {
                 workPackages={workPackages}
                 isLoadingWorkPackages={isLoadingWorkPackages}
                 onFetchWorkPackages={fetchWorkPackages}
-                hideForm={true}
-                onScrollToForm={() => {
-                  document.getElementById('time-entry-form')?.scrollIntoView({ 
-                    behavior: 'smooth', 
-                    block: 'start' 
-                  });
-                }}
               />
             ) : timeTrackingView === 'grid' ? (
               <SimpleTimeGrid
@@ -294,13 +273,6 @@ const Index = () => {
                 workPackages={workPackages}
                 isLoadingWorkPackages={isLoadingWorkPackages}
                 onFetchWorkPackages={fetchWorkPackages}
-                hideForm={true}
-                onScrollToForm={() => {
-                  document.getElementById('time-entry-form')?.scrollIntoView({ 
-                    behavior: 'smooth', 
-                    block: 'start' 
-                  });
-                }}
               />
             ) : (
               <TimesheetCalendar
@@ -315,13 +287,6 @@ const Index = () => {
                     text: "",
                     allowable_bill: true,
                   });
-                  // Scroll to form after setting initial data
-                  setTimeout(() => {
-                    document.getElementById('time-entry-form')?.scrollIntoView({ 
-                      behavior: 'smooth', 
-                      block: 'start' 
-                    });
-                  }, 100);
                 }}
                 onDeleteEntry={async (id) => {
                   if (window.confirm('Are you sure you want to delete this time entry?')) {
@@ -360,6 +325,20 @@ const Index = () => {
             />
           </TabsContent>
         </Tabs>
+
+        {/* Single TimeEntryDialog for all views */}
+        <TimeEntryDialog
+          onSubmit={createTimeEntry}
+          isSubmitting={isCreatingTimeEntry}
+          contacts={contacts}
+          projects={projects}
+          workPackages={workPackages}
+          isLoadingWorkPackages={isLoadingWorkPackages}
+          onFetchWorkPackages={fetchWorkPackages}
+          initialData={calendarInitialData}
+          buttonText="Add Time Entry"
+          buttonSize="lg"
+        />
       </main>
     </div>
   );

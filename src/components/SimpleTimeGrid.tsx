@@ -22,7 +22,6 @@ interface SimpleTimeGridProps {
   isLoadingWorkPackages?: boolean;
   onFetchWorkPackages?: (projectId: number) => Promise<void>;
   hideForm?: boolean;
-  onScrollToForm?: () => void;
 }
 
 export const SimpleTimeGrid = ({ 
@@ -36,7 +35,6 @@ export const SimpleTimeGrid = ({
   isLoadingWorkPackages,
   onFetchWorkPackages,
   hideForm = false,
-  onScrollToForm,
 }: SimpleTimeGridProps) => {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [timeInputs, setTimeInputs] = useState<Record<string, string>>({});
@@ -235,14 +233,6 @@ export const SimpleTimeGrid = ({
           <h1 className="text-3xl font-bold text-title">Time Tracking Grid</h1>
           <p className="text-muted-foreground">Weekly time tracking overview</p>
         </div>
-        <Button 
-          onClick={onScrollToForm}
-          className="gap-2 bg-primary hover:bg-primary/90"
-          size="lg"
-        >
-          <Plus className="h-4 w-4" />
-          Add Time Entry
-        </Button>
       </div>
 
       {/* Stats */}

@@ -60,6 +60,7 @@ interface TimeEntryFormProps {
   isLoadingWorkPackages: boolean;
   onFetchWorkPackages: (projectId: number) => Promise<void>;
   initialData?: Partial<TimeEntryFormData>;
+  hideFormWrapper?: boolean;
 }
 
 import { useBexioApi } from "@/hooks/useBexioApi";
@@ -72,7 +73,8 @@ export const TimeEntryForm = ({
   workPackages,
   isLoadingWorkPackages,
   onFetchWorkPackages,
-  initialData 
+  initialData,
+  hideFormWrapper = false
 }: TimeEntryFormProps) => {
   const { 
     timesheetStatuses, 
@@ -258,7 +260,7 @@ export const TimeEntryForm = ({
     }
   };
 
-  if (!isOpen) {
+  if (!isOpen && !hideFormWrapper) {
     return (
       <Button 
         onClick={() => setIsOpen(true)}
@@ -271,16 +273,8 @@ export const TimeEntryForm = ({
     );
   }
 
-  return (
-    <Card className="mb-6">
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Plus className="h-5 w-5" />
-          Add New Time Entry
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
-        <form onSubmit={handleSubmit} className="space-y-4">
+  const formContent = (
+    <form onSubmit={handleSubmit} className="space-y-4">
           {/* Date Range Picker */}
           <div className="space-y-2">
             <Label htmlFor="dateRange">Date Range</Label>
@@ -581,16 +575,34 @@ export const TimeEntryForm = ({
                 </>
               )}
             </Button>
-            <Button 
-              type="button" 
-              variant="outline" 
-              onClick={() => setIsOpen(false)}
-              disabled={isSubmitting}
-            >
-              Cancel
-            </Button>
+            {!hideFormWrapper && (
+              <Button 
+                type="button" 
+                variant="outline" 
+                onClick={() => setIsOpen(false)}
+                disabled={isSubmitting}
+              >
+                Cancel
+              </Button>
+            )}
           </div>
         </form>
+  );
+
+  if (hideFormWrapper) {
+    return formContent;
+  }
+
+  return (
+    <Card className="mb-6">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Plus className="h-5 w-5" />
+          Add New Time Entry
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        {formContent}
       </CardContent>
     </Card>
   );
