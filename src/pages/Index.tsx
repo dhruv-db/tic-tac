@@ -277,6 +277,7 @@ const Index = () => {
                 timeEntries={timeEntries}
                 projects={projects}
                 onCreateTimeEntry={createTimeEntry}
+                onUpdateTimeEntry={updateTimeEntry}
                 onDeleteTimeEntry={deleteTimeEntry}
                 onDateRangeChange={(range) => fetchTimeEntries(range, { quiet: true })}
                 isLoading={isLoadingTimeEntries}

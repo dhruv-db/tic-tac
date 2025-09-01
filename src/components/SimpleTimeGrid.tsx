@@ -737,7 +737,13 @@ const getActiveProjects = () => {
                       const entryDate = entry.date?.includes('T') ? entry.date.split('T')[0] : entry.date;
                       return entryDate === dateStr;
                     });
-                    const dayTotal = dayEntries.reduce((sum, entry) => sum + durationToHours(entry.duration), 0);
+                    const seen = new Set<string>();
+                    const dayTotal = dayEntries.reduce((sum, entry: any) => {
+                      const key = entry.id ? `id:${entry.id}` : `${entry.date}:${getProjId(entry) ?? ''}:${entry.pr_package_id ?? ''}:${entry.duration}`;
+                      if (seen.has(key)) return sum;
+                      seen.add(key);
+                      return sum + durationToHours(entry.duration);
+                    }, 0);
 
                     return (
                       <div key={date.toISOString()} className="p-4 text-center">

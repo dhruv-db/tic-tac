@@ -362,6 +362,7 @@ export const useBexioApi = () => {
   }, [credentials, ensureValidToken, toast, isLoadingProjects]);
 
   const lastFetchRef = useRef<{ key: string; ts: number } | null>(null);
+  const lastRangeRef = useRef<{ from: Date; to: Date } | null>(null);
 
   const fetchTimeEntries = useCallback(async (
     dateRange?: { from: Date; to: Date },
@@ -376,6 +377,9 @@ export const useBexioApi = () => {
       const toDate = format(dateRange.to, 'yyyy-MM-dd');
       endpoint += `?date_from=${fromDate}&date_to=${toDate}`;
     }
+    // Remember last requested range for consistent refreshes across views
+    lastRangeRef.current = dateRange ?? null;
+
 
     // Skip duplicate fetch within 1500ms
     const now = Date.now();
@@ -728,7 +732,7 @@ export const useBexioApi = () => {
       }
 
       // Refresh time entries to show the new ones
-      await fetchTimeEntries();
+      await fetchTimeEntries(lastRangeRef.current || undefined, { quiet: true });
     } catch (error) {
       console.error('Error creating time entry:', error);
       toast({
@@ -1011,7 +1015,7 @@ export const useBexioApi = () => {
         description: "The time entry has been successfully updated.",
       });
 
-      await fetchTimeEntries();
+      await fetchTimeEntries(lastRangeRef.current || undefined, { quiet: true });
     } catch (error) {
       console.error('Error updating time entry:', error);
       toast({
@@ -1067,7 +1071,7 @@ export const useBexioApi = () => {
           title: "Time entry deleted",
           description: "The time entry has been successfully deleted.",
         });
-        await fetchTimeEntries();
+        await fetchTimeEntries(lastRangeRef.current || undefined, { quiet: true });
       }
     } catch (error) {
       console.error('Error deleting time entry:', error);
@@ -1091,7 +1095,7 @@ export const useBexioApi = () => {
         // Simple recreate with updateData - full implementation would merge data
       }
       toast({ title: "Bulk update completed" });
-      await fetchTimeEntries();
+      await fetchTimeEntries(lastRangeRef.current || undefined, { quiet: true });
     } catch (error) {
       toast({ title: "Bulk update failed", variant: "destructive" });
     } finally {
@@ -1143,7 +1147,7 @@ export const useBexioApi = () => {
       }
       
       // Refresh only once at the end
-      await fetchTimeEntries();
+      await fetchTimeEntries(lastRangeRef.current || undefined, { quiet: true });
     } catch (error) {
       toast({ title: "Bulk delete failed", variant: "destructive" });
     } finally {
