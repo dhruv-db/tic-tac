@@ -233,10 +233,6 @@ export const SimpleTimeGrid = ({
           <h1 className="text-3xl font-bold text-title">Time Tracking Grid</h1>
           <p className="text-muted-foreground">Weekly time tracking overview</p>
         </div>
-        <Button onClick={() => openDetailDialog(new Date())} className="gap-2">
-          <Plus className="h-4 w-4" />
-          Add Entry
-        </Button>
       </div>
 
       {/* Stats */}
@@ -323,11 +319,11 @@ export const SimpleTimeGrid = ({
 
               {/* Project Rows */}
               {activeProjects.length === 0 ? (
-                <div className="p-8 text-center text-muted-foreground">
-                  <Clock className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                  <p className="text-lg font-medium mb-2">No time entries for this week</p>
-                  <p className="text-sm">Click "Add Entry" to start tracking time.</p>
-                </div>
+                 <div className="p-8 text-center text-muted-foreground">
+                   <Clock className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                   <p className="text-lg font-medium mb-2">No time entries for this week</p>
+                   <p className="text-sm">Use the form above to start tracking time.</p>
+                 </div>
               ) : (
                 activeProjects.map((project) => {
                   const activePackages = getActiveWorkPackagesForProject(project.id);
