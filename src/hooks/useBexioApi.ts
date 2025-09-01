@@ -901,7 +901,7 @@ export const useBexioApi = () => {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          endpoint: '/languages',
+          endpoint: '/v2.0/languages',
           apiKey: authToken,
           companyId: credentials.companyId,
         }),
