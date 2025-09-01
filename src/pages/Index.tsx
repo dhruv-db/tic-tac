@@ -3,7 +3,13 @@ import { Analytics } from "@/components/Analytics";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { 
+  Select, 
+  SelectContent, 
+  SelectItem, 
+  SelectTrigger, 
+  SelectValue 
+} from "@/components/ui/select";
 import { TimeTrackingList } from "@/components/TimeTrackingList";
 import { SimpleTimeGrid } from "@/components/SimpleTimeGrid";
 import { TimesheetCalendar } from "@/components/TimesheetCalendar";
