@@ -118,9 +118,11 @@ export const TimeTrackingList = ({
   const { toast } = useToast();
   const { timesheetStatuses, businessActivities, fetchWorkPackages, workPackagesByProject, getWorkPackageName: getWpName } = useBexioApi();
   
-  // Prefetch work packages for visible projects
+  // Prefetch work packages for visible projects - handle both project_id and pr_project_id
   useEffect(() => {
-    const projectIds = Array.from(new Set(timeEntries.map(e => e.project_id).filter((id): id is number => !!id)));
+    const projectIds = Array.from(new Set(
+      timeEntries.map(e => (e as any).pr_project_id || e.project_id).filter((id): id is number => !!id)
+    ));
     projectIds.forEach(pid => {
       if (!workPackagesByProject[pid]) {
         fetchWorkPackages(pid);
@@ -174,8 +176,11 @@ export const TimeTrackingList = ({
     .filter(entry => {
       // Project filter
       if (projectFilter && projectFilter !== "all") {
-        if (projectFilter === "none" && entry.project_id) return false;
-        if (projectFilter !== "none" && entry.project_id?.toString() !== projectFilter) return false;
+        if (projectFilter === "none" && ((entry as any).pr_project_id || entry.project_id)) return false;
+        if (projectFilter !== "none") {
+          const entryProjectId = (entry as any).pr_project_id || entry.project_id;
+          if (entryProjectId?.toString() !== projectFilter) return false;
+        }
       }
       
       // Month/Year filter
@@ -242,10 +247,13 @@ export const TimeTrackingList = ({
     return activity?.name || `Activity ${activityId}`;
   };
 
-  // Helper function to get work package name via cache
-  const getWorkPackageName = (projectId?: number, packageId?: string): string => {
-    if (!projectId || !packageId) return 'No Work Package';
-    return getWpName(projectId, packageId);
+  // Helper function to get work package name via cache - handle both project_id and pr_project_id
+  const getWorkPackageName = (entry: TimeEntry): string => {
+    if (!entry.pr_package_id) return 'No Work Package';
+    // Try pr_project_id first (from Bexio API), then project_id as fallback
+    const projectId = (entry as any).pr_project_id || entry.project_id;
+    if (!projectId) return `WP ${entry.pr_package_id}`;
+    return getWpName(projectId, entry.pr_package_id);
   };
 
   // Helper function to format last updated
@@ -511,7 +519,7 @@ export const TimeTrackingList = ({
                               <div className="flex items-center gap-2">
                                 <DollarSign className="h-4 w-4 text-muted-foreground" />
                                 <span className="font-medium">
-                                  {getWorkPackageName(entry.project_id, entry.pr_package_id)}
+                                  {getWorkPackageName(entry)}
                                 </span>
                               </div>
                             )}

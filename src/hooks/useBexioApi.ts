@@ -156,12 +156,13 @@ export const useBexioApi = () => {
     }
   };
 
-  // Helper: get work package name from cache
+  // Helper: get work package name from cache, handle both project_id and pr_project_id
   const getWorkPackageName = (projectId: number | undefined, packageId: string | undefined): string => {
-    if (!projectId || !packageId) return 'No Work Package';
+    if (!packageId) return 'No Work Package';
+    if (!projectId) return `WP ${packageId}`;
     const list = workPackagesByProject[projectId] || [];
-    const found = list.find(wp => wp.id === packageId);
-    return found?.name || `Work Package ${packageId}`;
+    const found = list.find(wp => wp.id === packageId || wp.id === String(packageId));
+    return found?.name || `WP ${packageId}`;
   };
 
   const connect = useCallback(async (apiKey: string, companyId: string) => {
@@ -885,20 +886,35 @@ export const useBexioApi = () => {
     console.log('🌍 Fetching languages from Bexio API');
     
     try {
-      const response = await fetch(`https://opcjifbdwpyttaxqlqbf.supabase.co/functions/v1/bexio-proxy`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          endpoint: '/2.0/languages',
-          apiKey: authToken,
-          companyId: credentials.companyId,
-          acceptLanguage: currentLanguage,
-        }),
-      });
+      // Try multiple language endpoints as fallback
+      const endpoints = ['/languages', '/2.0/languages', '/3.0/languages'];
+      let response: Response | null = null;
+      
+      for (const endpoint of endpoints) {
+        try {
+          response = await fetch(`https://opcjifbdwpyttaxqlqbf.supabase.co/functions/v1/bexio-proxy`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              endpoint,
+              apiKey: authToken,
+              companyId: credentials.companyId,
+              acceptLanguage: currentLanguage,
+            }),
+          });
 
-      if (!response.ok) {
-        // If languages API fails, use fallback list
-        console.warn('Languages API failed, using fallback list');
+          if (response.ok) {
+            console.log(`✅ Languages loaded from ${endpoint}`);
+            break;
+          }
+        } catch (error) {
+          console.warn(`Failed to fetch languages from ${endpoint}:`, error);
+        }
+      }
+
+      if (!response || !response.ok) {
+        // If all language APIs fail, use fallback list
+        console.warn('All language APIs failed, using fallback list');
         const fallbackLanguages = [
           { id: 1, name: 'English', iso_639_1: 'en' },
           { id: 2, name: 'Deutsch', iso_639_1: 'de' },

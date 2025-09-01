@@ -149,9 +149,16 @@ const Index = () => {
 
   // Re-fetch translatable resources when language changes
   useEffect(() => {
-    fetchTimesheetStatuses?.();
-    fetchBusinessActivities?.();
-  }, [currentLanguage]);
+    if (currentLanguage) {
+      fetchTimesheetStatuses?.();
+      fetchBusinessActivities?.();
+      // Also re-fetch work packages to get localized names
+      const projectIds = Array.from(new Set(
+        timeEntries.map(e => (e as any).pr_project_id || e.project_id).filter((id): id is number => !!id)
+      ));
+      projectIds.forEach(pid => fetchWorkPackages?.(pid));
+    }
+  }, [currentLanguage, fetchTimesheetStatuses, fetchBusinessActivities, timeEntries, fetchWorkPackages]);
 
   if (!isConnected) {
     return (

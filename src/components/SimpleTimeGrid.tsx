@@ -74,6 +74,16 @@ export const SimpleTimeGrid = ({
     onDateRangeChange?.({ from: weekStart, to: weekEnd });
   }, [currentDate, onDateRangeChange]);
 
+  // Auto-fetch work packages for active projects
+  useEffect(() => {
+    const activeProjectIds = getActiveProjects().map(p => p.id);
+    activeProjectIds.forEach(projectId => {
+      if (onFetchWorkPackages) {
+        onFetchWorkPackages(projectId);
+      }
+    });
+  }, [timeEntries, projects, onFetchWorkPackages]);
+
   // Convert duration to hours
   const durationToHours = (duration: string | number): number => {
     if (typeof duration === 'string') {
@@ -93,7 +103,7 @@ export const SimpleTimeGrid = ({
     return `${h}:${m.toString().padStart(2, '0')}`;
   };
 
-  // Helper to get project id from different sources
+  // Helper to get project id from different sources - handle pr_project_id priority
   const getProjId = (e: any): number | undefined => (e.pr_project_id ?? e.project_id) as number | undefined;
 
   const getProjectDayEntries = (projectId: number, date: Date, packageId?: number | string) => {
@@ -126,21 +136,33 @@ const getActiveProjects = () => {
   return projects.filter((p) => activeIds.has(p.id));
 };
 
-  // Get ALL work packages that appear for a project (with or without hours)
+  // Get ALL work packages that appear for a project - fetch from API cached data
   const getAllWorkPackagesForProject = (projectId: number) => {
     const pkgSet = new Set<string>();
     // Get packages from existing entries
     timeEntries.forEach((entry: any) => {
-      const projMatch = (entry.pr_project_id ?? entry.project_id) === projectId;
+      const projMatch = getProjId(entry) === projectId;
       if (projMatch && entry.pr_package_id != null) {
         pkgSet.add(String(entry.pr_package_id));
       }
     });
-    // Always include a default work package option for new entries
-    if (pkgSet.size === 0) {
-      pkgSet.add("1"); // Default work package
-    }
-    return Array.from(pkgSet).map(id => ({ id }));
+    
+    // Get packages from workPackages prop (fetched from API)
+    workPackages?.forEach((wp: any) => {
+      if ((wp.pr_project_id ?? wp.project_id) === projectId) {
+        pkgSet.add(String(wp.id));
+      }
+    });
+    
+    // Return actual work package objects with names
+    return Array.from(pkgSet).map(id => {
+      const wp = workPackages?.find((w: any) => w.id === id || w.id === String(id));
+      return {
+        id,
+        name: wp?.name || `WP ${id}`,
+        ...wp
+      };
+    });
   };
 
   // Get active work packages (with hours > 0) for display sorting
@@ -149,7 +171,7 @@ const getActiveProjects = () => {
     weekDays.forEach((date) => {
       const dayEntries = dedupedEntries.filter((entry: any) => {
         const entryDate = entry.date?.includes('T') ? entry.date.split('T')[0] : entry.date;
-        const projMatch = (entry.pr_project_id ?? entry.project_id) === projectId;
+        const projMatch = getProjId(entry) === projectId;
         return projMatch && entryDate === format(date, 'yyyy-MM-dd') && entry.pr_package_id != null;
       });
       dayEntries.forEach((e: any) => {
@@ -158,9 +180,18 @@ const getActiveProjects = () => {
         pkgMap.set(key, (pkgMap.get(key) || 0) + hrs);
       });
     });
+    
+    // Return work package objects with names instead of just IDs
     return Array.from(pkgMap.entries())
       .filter(([_, hours]) => hours > 0)
-      .map(([id]) => ({ id }));
+      .map(([id]) => {
+        const wp = workPackages?.find((w: any) => w.id === id || w.id === String(id));
+        return {
+          id,
+          name: wp?.name || `WP ${id}`,
+          hours: pkgMap.get(id) || 0
+        };
+      });
   };
 
   // Calculate totals
@@ -581,25 +612,29 @@ const getActiveProjects = () => {
                        )}
 
                        {/* Work Package Rows - ALWAYS show input boxes */}
-                       {activePackages.map((pkg) => {
-                         const workPackage = workPackages?.find(wp => wp.id === pkg.id || wp.id === String(pkg.id));
-                         const workPackageName = workPackage?.name || `WP ${pkg.id}`;
+                        {activePackages.map((pkg) => {
+                          // Find work package name from fetched data
+                          const projectWorkPackages = workPackages?.filter(wp => 
+                            (wp as any).pr_project_id === project.id || (wp as any).project_id === project.id
+                          ) || [];
+                          const workPackage = projectWorkPackages.find(wp => wp.id === pkg.id || wp.id === String(pkg.id));
+                          const workPackageName = workPackage?.name || `WP ${pkg.id}`;
                          
                          return (
                            <div key={`${project.id}-${pkg.id}`} className="grid grid-cols-8 pl-6 pr-2 py-1 bg-background/50 group">
-                             <div className="p-3 flex items-center justify-between">
-                               <div className="font-medium text-sm" title={workPackageName}>
-                                 {workPackageName}
-                               </div>
-                               <Button
-                                 variant="ghost"
-                                 size="sm"
-                                 onClick={() => deleteWorkPackageEntriesInWeek(project.id, pkg.id)}
-                                 className="opacity-0 group-hover:opacity-100 transition-opacity h-5 w-5 p-0 hover:bg-destructive/10 text-destructive"
-                                 title={`Delete all ${workPackageName} entries this week`}
-                               >
-                                 <Trash2 className="h-3 w-3" />
-                               </Button>
+                            <div className="p-3 flex items-center justify-between">
+                                <div className="font-medium text-sm" title={pkg.name}>
+                                  {pkg.name}
+                                </div>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => deleteWorkPackageEntriesInWeek(project.id, pkg.id)}
+                                  className="opacity-0 group-hover:opacity-100 transition-opacity h-5 w-5 p-0 hover:bg-destructive/10 text-destructive"
+                                  title={`Delete all ${pkg.name} entries this week`}
+                                >
+                                  <Trash2 className="h-3 w-3" />
+                                </Button>
                              </div>
                             {weekDays.map((date) => {
                               const dayHours = getProjectDayHours(project.id, date, pkg.id);
