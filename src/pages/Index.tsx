@@ -213,34 +213,50 @@ const Index = () => {
             
             {/* View Toggle - only show when on timetracking tab */}
             {activeTab === "timetracking" && (
-              <div className="flex items-center gap-2">
-                <Button
-                  variant={timeTrackingView === 'list' ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => setTimeTrackingView('list')}
-                  className="gap-2"
-                >
-                  <List className="h-4 w-4" />
-                  List View
-                </Button>
-                <Button
-                  variant={timeTrackingView === 'grid' ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => setTimeTrackingView('grid')}
-                  className="gap-2"
-                >
-                  <Grid className="h-4 w-4" />
-                  Grid View
-                </Button>
-                <Button
-                  variant={timeTrackingView === 'calendar' ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => setTimeTrackingView('calendar')}
-                  className="gap-2"
-                >
-                  <CalendarDays className="h-4 w-4" />
-                  Calendar
-                </Button>
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant={timeTrackingView === 'list' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setTimeTrackingView('list')}
+                    className="gap-2"
+                  >
+                    <List className="h-4 w-4" />
+                    List View
+                  </Button>
+                  <Button
+                    variant={timeTrackingView === 'grid' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setTimeTrackingView('grid')}
+                    className="gap-2"
+                  >
+                    <Grid className="h-4 w-4" />
+                    Grid View
+                  </Button>
+                  <Button
+                    variant={timeTrackingView === 'calendar' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setTimeTrackingView('calendar')}
+                    className="gap-2"
+                  >
+                    <CalendarDays className="h-4 w-4" />
+                    Calendar
+                  </Button>
+                </div>
+                
+                {/* Add Time Entry button */}
+                <TimeEntryDialog
+                  onSubmit={createTimeEntry}
+                  isSubmitting={isCreatingTimeEntry}
+                  contacts={contacts}
+                  projects={projects}
+                  workPackages={workPackages}
+                  isLoadingWorkPackages={isLoadingWorkPackages}
+                  onFetchWorkPackages={fetchWorkPackages}
+                  initialData={calendarInitialData}
+                  buttonText="Add Time Entry"
+                  buttonSize="sm"
+                />
               </div>
             )}
           </div>
@@ -325,20 +341,6 @@ const Index = () => {
             />
           </TabsContent>
         </Tabs>
-
-        {/* Single TimeEntryDialog for all views */}
-        <TimeEntryDialog
-          onSubmit={createTimeEntry}
-          isSubmitting={isCreatingTimeEntry}
-          contacts={contacts}
-          projects={projects}
-          workPackages={workPackages}
-          isLoadingWorkPackages={isLoadingWorkPackages}
-          onFetchWorkPackages={fetchWorkPackages}
-          initialData={calendarInitialData}
-          buttonText="Add Time Entry"
-          buttonSize="lg"
-        />
       </main>
     </div>
   );
