@@ -13,7 +13,7 @@ serve(async (req) => {
   }
 
   try {
-    const { endpoint, apiKey, accessToken, companyId, method = 'GET', data: requestData } = await req.json();
+    const { endpoint, apiKey, accessToken, companyId, method = 'GET', data: requestData, acceptLanguage } = await req.json();
     
     if (!endpoint || !(apiKey || accessToken)) {
       return new Response(JSON.stringify({ error: 'Missing required parameters' }), {
@@ -41,7 +41,7 @@ serve(async (req) => {
       headers: {
         'Authorization': `Bearer ${token}`,
         'Accept': 'application/json',
-        'Accept-Language': 'en',
+        'Accept-Language': acceptLanguage || 'en',
         'Content-Type': 'application/json',
         'User-Agent': 'Lovable-Bexio-Proxy/1.0',
       },

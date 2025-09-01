@@ -116,10 +116,17 @@ export const TimeTrackingList = ({
   const [sortBy, setSortBy] = useState<'date' | 'updated' | 'duration'>('updated');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const { toast } = useToast();
+  const { timesheetStatuses, businessActivities, fetchWorkPackages, workPackagesByProject, getWorkPackageName: getWpName } = useBexioApi();
   
-  const { timesheetStatuses, businessActivities } = useBexioApi();
-  
-  // Clear calendar initial data when form is submitted
+  // Prefetch work packages for visible projects
+  useEffect(() => {
+    const projectIds = Array.from(new Set(timeEntries.map(e => e.project_id).filter((id): id is number => !!id)));
+    projectIds.forEach(pid => {
+      if (!workPackagesByProject[pid]) {
+        fetchWorkPackages(pid);
+      }
+    });
+  }, [timeEntries, workPackagesByProject, fetchWorkPackages]);
   useEffect(() => {
     if (!isCreatingTimeEntry && calendarInitialData) {
       // Small delay to allow form submission to complete
@@ -235,11 +242,10 @@ export const TimeTrackingList = ({
     return activity?.name || `Activity ${activityId}`;
   };
 
-  // Helper function to get work package name
-  const getWorkPackageName = (packageId?: string): string => {
-    if (!packageId) return 'No Work Package';
-    const workPackage = workPackages.find(wp => wp.id === packageId);
-    return workPackage?.name || `Work Package ${packageId}`;
+  // Helper function to get work package name via cache
+  const getWorkPackageName = (projectId?: number, packageId?: string): string => {
+    if (!projectId || !packageId) return 'No Work Package';
+    return getWpName(projectId, packageId);
   };
 
   // Helper function to format last updated
@@ -505,7 +511,7 @@ export const TimeTrackingList = ({
                               <div className="flex items-center gap-2">
                                 <DollarSign className="h-4 w-4 text-muted-foreground" />
                                 <span className="font-medium">
-                                  {getWorkPackageName(entry.pr_package_id)}
+                                  {getWorkPackageName(entry.project_id, entry.pr_package_id)}
                                 </span>
                               </div>
                             )}

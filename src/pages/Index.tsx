@@ -43,6 +43,8 @@ const Index = () => {
     fetchTimeEntries,
     fetchWorkPackages,
     fetchLanguages,
+    fetchTimesheetStatuses,
+    fetchBusinessActivities,
     languages,
     currentLanguage,
     setCurrentLanguage,
@@ -90,7 +92,7 @@ const Index = () => {
         fetchLanguages();
       }
     }
-  }, [activeTab, hasInitiallyLoaded, isLoadingContacts, isLoadingProjects, isLoadingTimeEntries, fetchContacts, fetchProjects, fetchTimeEntries]);
+  }, [activeTab, hasInitiallyLoaded, isLoadingContacts, isLoadingProjects, isLoadingTimeEntries, fetchContacts, fetchProjects, fetchTimeEntries, languages.length]);
 
   const handleRefresh = () => {
     if (activeTab === "analytics" || activeTab === "timetracking") {
@@ -144,6 +146,12 @@ const Index = () => {
   };
 
   const isLoading = isLoadingContacts || isLoadingProjects || isLoadingTimeEntries;
+
+  // Re-fetch translatable resources when language changes
+  useEffect(() => {
+    fetchTimesheetStatuses?.();
+    fetchBusinessActivities?.();
+  }, [currentLanguage]);
 
   if (!isConnected) {
     return (
@@ -260,11 +268,10 @@ const Index = () => {
                 <div className="flex items-center gap-2">
                   <label className="text-sm text-muted-foreground">Language:</label>
                   <Select value={currentLanguage} onValueChange={setCurrentLanguage}>
-                    <SelectTrigger className="w-32">
-                      <SelectValue />
+                    <SelectTrigger className="w-40">
+                      <SelectValue placeholder="Language" />
                     </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="en">English</SelectItem>
+                    <SelectContent className="z-50 bg-background">
                       {languages.map((lang) => (
                         <SelectItem key={lang.id} value={lang.iso_639_1}>
                           {lang.name}

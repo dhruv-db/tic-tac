@@ -102,6 +102,7 @@ export const useBexioApi = () => {
   const [projects, setProjects] = useState<Project[]>([]);
   const [timeEntries, setTimeEntries] = useState<TimeEntry[]>([]);
   const [workPackages, setWorkPackages] = useState<WorkPackage[]>([]);
+  const [workPackagesByProject, setWorkPackagesByProject] = useState<Record<number, WorkPackage[]>>({});
   const [isLoadingContacts, setIsLoadingContacts] = useState(false);
   const [isLoadingProjects, setIsLoadingProjects] = useState(false);
   const [isLoadingTimeEntries, setIsLoadingTimeEntries] = useState(false);
@@ -153,6 +154,14 @@ export const useBexioApi = () => {
         variant: 'destructive',
       });
     }
+  };
+
+  // Helper: get work package name from cache
+  const getWorkPackageName = (projectId: number | undefined, packageId: string | undefined): string => {
+    if (!projectId || !packageId) return 'No Work Package';
+    const list = workPackagesByProject[projectId] || [];
+    const found = list.find(wp => wp.id === packageId);
+    return found?.name || `Work Package ${packageId}`;
   };
 
   const connect = useCallback(async (apiKey: string, companyId: string) => {
@@ -286,6 +295,7 @@ export const useBexioApi = () => {
           endpoint: '/3.0/contacts?limit=200',
           apiKey: authToken,
           companyId: credentials.companyId,
+          acceptLanguage: currentLanguage,
         }),
       });
 
@@ -336,6 +346,7 @@ export const useBexioApi = () => {
             endpoint: '/3.0/projects',
             apiKey: authToken,
             companyId: credentials.companyId,
+            acceptLanguage: currentLanguage,
           }),
       });
 
@@ -517,6 +528,7 @@ export const useBexioApi = () => {
       }));
       
       setWorkPackages(transformedPackages);
+      setWorkPackagesByProject(prev => ({ ...prev, [projectId]: transformedPackages }));
       
       toast({
         title: "Work packages loaded successfully",
@@ -526,6 +538,7 @@ export const useBexioApi = () => {
     } catch (error) {
       console.error(`❌ Error fetching work packages for project ${projectId}:`, error);
       setWorkPackages([]);
+      setWorkPackagesByProject(prev => ({ ...prev, [projectId]: [] }));
       
       toast({
         title: "Failed to fetch work packages",
@@ -535,7 +548,7 @@ export const useBexioApi = () => {
     } finally {
       setIsLoadingWorkPackages(false);
     }
-  }, [credentials, ensureValidToken, toast]);
+  }, [credentials, ensureValidToken, toast, currentLanguage]);
 
   // Load credentials from localStorage on mount
   const loadStoredCredentials = useCallback(() => {
@@ -752,11 +765,7 @@ export const useBexioApi = () => {
   const fetchTimesheetStatuses = useCallback(async () => {
     if (!credentials) {
       console.error('No credentials available');
-      toast({
-        title: "Error",
-        description: "API key not configured. Please connect to Bexio first.",
-        variant: "destructive",
-      });
+      toast({ title: "Error", description: "API key not configured. Please connect to Bexio first.", variant: "destructive" });
       return;
     }
 
@@ -769,18 +778,16 @@ export const useBexioApi = () => {
     try {
       const response = await fetch(`https://opcjifbdwpyttaxqlqbf.supabase.co/functions/v1/bexio-proxy`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           endpoint: '/timesheet_status',
           apiKey: authToken,
           companyId: credentials.companyId,
+          acceptLanguage: currentLanguage,
         }),
       });
 
       console.log('📊 Timesheet statuses response status:', response.status);
-
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
         console.error('❌ Error fetching timesheet statuses:', errorData);
@@ -789,33 +796,22 @@ export const useBexioApi = () => {
 
       const data = await response.json();
       console.log('✅ Received timesheet statuses:', data);
-      
-      // Transform the data to our expected format using actual API names
+
       const statuses = Array.isArray(data) ? data.map((status: any) => ({
         id: status.id,
         name: status.name || `Status ${status.id}`,
       })) : [];
-      
+
       setTimesheetStatuses(statuses);
-      
-      toast({
-        title: "Timesheet statuses loaded",
-        description: `Successfully fetched ${statuses.length} timesheet statuses.`,
-      });
-      
+      toast({ title: "Timesheet statuses loaded", description: `Successfully fetched ${statuses.length} timesheet statuses.` });
     } catch (error) {
       console.error('❌ Error fetching timesheet statuses:', error);
       setTimesheetStatuses([]);
-      
-      toast({
-        title: "Failed to load timesheet statuses",
-        description: "Using default status values instead.",
-        variant: "destructive",
-      });
+      toast({ title: "Failed to load timesheet statuses", description: "Please try again later.", variant: "destructive" });
     } finally {
-    setIsLoadingStatuses(false);
+      setIsLoadingStatuses(false);
     }
-  }, [credentials, ensureValidToken, toast]);
+  }, [credentials, ensureValidToken, toast, currentLanguage]);
 
   const fetchBusinessActivities = useCallback(async () => {
     if (!credentials) {
@@ -895,6 +891,7 @@ export const useBexioApi = () => {
           endpoint: '/2.0/languages',
           apiKey: authToken,
           companyId: credentials.companyId,
+          acceptLanguage: currentLanguage,
         }),
       });
 
@@ -1266,5 +1263,7 @@ export const useBexioApi = () => {
     bulkDeleteTimeEntries,
     loadStoredCredentials,
     disconnect,
+    workPackagesByProject,
+    getWorkPackageName,
   };
 };
