@@ -714,11 +714,34 @@ const getActiveProjects = () => {
                 <div className="grid grid-cols-8 bg-muted/50 font-medium">
                   <div className="p-4">Total</div>
                   {weekDays.map((date) => {
+                    const dateStr = format(date, 'yyyy-MM-dd');
                     const dayEntries = timeEntries.filter(entry => {
                       const entryDate = entry.date?.includes('T') ? entry.date.split('T')[0] : entry.date;
-                      return entryDate === format(date, 'yyyy-MM-dd');
+                      const matches = entryDate === dateStr;
+                      
+                      // Debug logging for Saturday
+                      if (dateStr.includes('06')) {
+                        console.log(`Debug Saturday ${dateStr}:`, {
+                          entryDate,
+                          duration: entry.duration,
+                          durationHours: durationToHours(entry.duration),
+                          matches,
+                          entryId: entry.id
+                        });
+                      }
+                      
+                      return matches;
                     });
-                    const dayTotal = dayEntries.reduce((sum, entry) => sum + durationToHours(entry.duration), 0);
+                    
+                    // Remove duplicates by ID to prevent double counting
+                    const uniqueEntries = dayEntries.filter((entry, index, arr) => 
+                      arr.findIndex(e => e.id === entry.id) === index
+                    );
+                    
+                    const dayTotal = uniqueEntries.reduce((sum, entry) => {
+                      const hours = durationToHours(entry.duration);
+                      return sum + hours;
+                    }, 0);
 
                     return (
                       <div key={date.toISOString()} className="p-4 text-center">
