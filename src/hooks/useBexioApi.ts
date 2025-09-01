@@ -657,7 +657,7 @@ export const useBexioApi = () => {
       const createWithRetry = async (date: Date) => {
         const bexioData = {
           user_id: 1,
-          client_service_id: timeEntryData.client_service_id ?? 5,
+          client_service_id: timeEntryData.client_service_id ?? (businessActivities[0]?.id),
           text: timeEntryData.text || "",
           allowable_bill: timeEntryData.allowable_bill,
           tracking: {
@@ -838,6 +838,7 @@ export const useBexioApi = () => {
           endpoint: '/client_service',
           apiKey: authToken,
           companyId: credentials.companyId,
+          acceptLanguage: currentLanguage,
         }),
       });
 
@@ -978,15 +979,65 @@ export const useBexioApi = () => {
 
     setIsCreatingTimeEntry(true);
     try {
-      // Since Bexio doesn't support PUT operations for timesheet updates,
-      // we'll use a delete-and-recreate approach as a workaround
+      // Calculate duration
+      let durationString: string;
       
-      // Step 1: Delete the existing entry
+      if (timeEntryData.useDuration && timeEntryData.duration) {
+        const [hours, minutes] = timeEntryData.duration.split(':').map(Number);
+        durationString = `${hours}:${minutes.toString().padStart(2, '0')}`;
+      } else {
+        const [startHours, startMinutes] = (timeEntryData.startTime || "09:00").split(':').map(Number);
+        const [endHours, endMinutes] = (timeEntryData.endTime || "17:00").split(':').map(Number);
+        const startTotalMinutes = startHours * 60 + startMinutes;
+        const endTotalMinutes = endHours * 60 + endMinutes;
+        let durationMinutes = endTotalMinutes - startTotalMinutes;
+        if (durationMinutes < 0) durationMinutes += 24 * 60;
+        const hours = Math.floor(durationMinutes / 60);
+        const minutes = durationMinutes % 60;
+        durationString = `${hours}:${minutes.toString().padStart(2, '0')}`;
+      }
+
+      const bexioData = {
+        user_id: 1,
+        ...(timeEntryData.client_service_id !== undefined && { client_service_id: timeEntryData.client_service_id }),
+        text: timeEntryData.text || "",
+        allowable_bill: timeEntryData.allowable_bill,
+        tracking: {
+          type: "duration",
+          date: format(timeEntryData.dateRange.from, 'yyyy-MM-dd'),
+          duration: durationString,
+        },
+        ...(timeEntryData.contact_id !== undefined && { contact_id: timeEntryData.contact_id }),
+        ...(timeEntryData.project_id !== undefined && { pr_project_id: timeEntryData.project_id }),
+        ...(timeEntryData.status_id !== undefined && { status_id: timeEntryData.status_id }),
+        ...(timeEntryData.pr_package_id !== undefined && { pr_package_id: timeEntryData.pr_package_id }),
+        ...(timeEntryData.pr_milestone_id !== undefined && { pr_milestone_id: timeEntryData.pr_milestone_id }),
+      } as Record<string, any>;
+
+      // Try updating via PUT first
+      const putResponse = await fetch(`https://opcjifbdwpyttaxqlqbf.supabase.co/functions/v1/bexio-proxy`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          endpoint: `/timesheet/${id}`,
+          method: 'PUT',
+          apiKey: authToken,
+          companyId: credentials.companyId,
+          data: bexioData,
+        }),
+      });
+
+      if (putResponse.ok) {
+        toast({ title: "Time entry updated", description: "The time entry has been successfully updated." });
+        await fetchTimeEntries(lastRangeRef.current || undefined, { quiet: true });
+        return;
+      }
+
+      // Fallback for APIs that don't allow PUT on timesheets: delete + recreate
+      // Delete existing
       const deleteResponse = await fetch(`https://opcjifbdwpyttaxqlqbf.supabase.co/functions/v1/bexio-proxy`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           endpoint: `/timesheet/${id}`,
           method: 'DELETE',
@@ -1000,35 +1051,10 @@ export const useBexioApi = () => {
         throw new Error(`Failed to delete existing entry: ${errorData.error || deleteResponse.status}`);
       }
 
-      // Step 2: Create a new entry with updated data
-      // Calculate duration
-      let durationString: string;
-      
-      if (timeEntryData.useDuration && timeEntryData.duration) {
-        // Use direct duration input
-        const [hours, minutes] = timeEntryData.duration.split(':').map(Number);
-        durationString = `${hours}:${minutes.toString().padStart(2, '0')}`;
-      } else {
-        // Calculate from start/end times
-        const [startHours, startMinutes] = (timeEntryData.startTime || "09:00").split(':').map(Number);
-        const [endHours, endMinutes] = (timeEntryData.endTime || "17:00").split(':').map(Number);
-        
-        const startTotalMinutes = startHours * 60 + startMinutes;
-        const endTotalMinutes = endHours * 60 + endMinutes;
-        
-        let durationMinutes = endTotalMinutes - startTotalMinutes;
-        if (durationMinutes < 0) {
-          durationMinutes += 24 * 60;
-        }
-        
-        const hours = Math.floor(durationMinutes / 60);
-        const minutes = durationMinutes % 60;
-        durationString = `${hours}:${minutes.toString().padStart(2, '0')}`;
-      }
-
-      const bexioData = {
+      // Re-create with new data (reuse computed durationString)
+      const recreateData = {
         user_id: 1,
-        client_service_id: timeEntryData.client_service_id ?? 5,
+        ...(timeEntryData.client_service_id !== undefined && { client_service_id: timeEntryData.client_service_id }),
         text: timeEntryData.text || "",
         allowable_bill: timeEntryData.allowable_bill,
         tracking: {
@@ -1041,25 +1067,22 @@ export const useBexioApi = () => {
         ...(timeEntryData.status_id !== undefined && { status_id: timeEntryData.status_id }),
         ...(timeEntryData.pr_package_id !== undefined && { pr_package_id: timeEntryData.pr_package_id }),
         ...(timeEntryData.pr_milestone_id !== undefined && { pr_milestone_id: timeEntryData.pr_milestone_id }),
-      };
+      } as Record<string, any>;
 
-      console.log('Updating time entry with data:', {
+      console.log('Updating time entry with data (recreate):', {
         originalId: id,
-        bexioData,
-        formData: timeEntryData
+        data: recreateData,
       });
 
       const createResponse = await fetch(`https://opcjifbdwpyttaxqlqbf.supabase.co/functions/v1/bexio-proxy`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           endpoint: '/timesheet',
           method: 'POST',
           apiKey: authToken,
           companyId: credentials.companyId,
-          data: bexioData,
+          data: recreateData,
         }),
       });
 
