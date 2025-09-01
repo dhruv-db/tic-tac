@@ -4,16 +4,18 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Clock, Calendar, User, DollarSign, PlayCircle, PauseCircle, Edit, Trash2, CalendarDays, Filter, X } from "lucide-react";
-import { format } from "date-fns";
+import { Clock, Calendar, User, DollarSign, PlayCircle, PauseCircle, Edit, Trash2, CalendarDays, Filter, X, ArrowUpDown } from "lucide-react";
+import { format, isThisMonth, parseISO } from "date-fns";
 import { TimesheetCalendar } from "./TimesheetCalendar";
 import { EditTimeEntryDialog } from "./EditTimeEntryDialog";
+import { TimeEntryDialog } from "./TimeEntryDialog";
 import { BulkActionToolbar } from "./BulkActionToolbar";
 import { BulkUpdateDialog } from "./BulkUpdateDialog";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { DateRange } from "react-day-picker";
+import { useBexioApi } from "@/hooks/useBexioApi";
 
 export interface TimeEntry {
   id: number;
@@ -28,6 +30,8 @@ export interface TimeEntry {
   status_id?: number;
   pr_package_id?: string;
   pr_milestone_id?: number;
+  created_at?: string;
+  updated_at?: string;
 }
 
 interface Contact {
@@ -104,8 +108,16 @@ export const TimeTrackingList = ({
   const [showBulkUpdate, setShowBulkUpdate] = useState(false);
   const [calendarInitialData, setCalendarInitialData] = useState<any>(null);
   const [projectFilter, setProjectFilter] = useState<string>("");
-  const [monthYearFilter, setMonthYearFilter] = useState<string>("");
+  const [monthYearFilter, setMonthYearFilter] = useState<string>(() => {
+    // Default to current month
+    const now = new Date();
+    return format(now, "yyyy-MM");
+  });
+  const [sortBy, setSortBy] = useState<'date' | 'updated' | 'duration'>('updated');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const { toast } = useToast();
+  
+  const { timesheetStatuses, businessActivities } = useBexioApi();
   
   // Clear calendar initial data when form is submitted
   useEffect(() => {
@@ -150,27 +162,49 @@ export const TimeTrackingList = ({
     }
   };
 
-  // Filter time entries based on selected filters
-  const filteredTimeEntries = timeEntries.filter(entry => {
-    // Project filter
-    if (projectFilter && projectFilter !== "all") {
-      if (projectFilter === "none" && entry.project_id) return false;
-      if (projectFilter !== "none" && entry.project_id?.toString() !== projectFilter) return false;
-    }
-    
-    // Month/Year filter
-    if (monthYearFilter && monthYearFilter !== "all") {
-      try {
-        const entryDate = new Date(entry.date);
-        const entryMonthYear = format(entryDate, "yyyy-MM");
-        if (entryMonthYear !== monthYearFilter) return false;
-      } catch {
-        return false;
+  // Filter and sort time entries
+  const filteredAndSortedTimeEntries = timeEntries
+    .filter(entry => {
+      // Project filter
+      if (projectFilter && projectFilter !== "all") {
+        if (projectFilter === "none" && entry.project_id) return false;
+        if (projectFilter !== "none" && entry.project_id?.toString() !== projectFilter) return false;
       }
-    }
-    
-    return true;
-  });
+      
+      // Month/Year filter
+      if (monthYearFilter && monthYearFilter !== "all") {
+        try {
+          const entryDate = new Date(entry.date);
+          const entryMonthYear = format(entryDate, "yyyy-MM");
+          if (entryMonthYear !== monthYearFilter) return false;
+        } catch {
+          return false;
+        }
+      }
+      
+      return true;
+    })
+    .sort((a, b) => {
+      let comparison = 0;
+      
+      switch (sortBy) {
+        case 'date':
+          comparison = new Date(a.date).getTime() - new Date(b.date).getTime();
+          break;
+        case 'updated':
+          const aUpdated = a.updated_at || a.created_at || a.date;
+          const bUpdated = b.updated_at || b.created_at || b.date;
+          comparison = new Date(aUpdated).getTime() - new Date(bUpdated).getTime();
+          break;
+        case 'duration':
+          comparison = toSeconds(a.duration) - toSeconds(b.duration);
+          break;
+        default:
+          return 0;
+      }
+      
+      return sortOrder === 'asc' ? comparison : -comparison;
+    });
 
   // Get unique month/year options from time entries
   const getMonthYearOptions = () => {
@@ -187,6 +221,31 @@ export const TimeTrackingList = ({
     return Array.from(monthYears).sort().reverse();
   };
 
+  // Helper function to get status name
+  const getStatusName = (statusId?: number): string => {
+    if (!statusId) return 'No Status';
+    const status = timesheetStatuses.find(s => s.id === statusId);
+    return status?.name || `Status ${statusId}`;
+  };
+
+  // Helper function to get activity name
+  const getActivityName = (activityId?: number): string => {
+    if (!activityId) return 'No Activity';
+    const activity = businessActivities.find(a => a.id === activityId);
+    return activity?.name || `Activity ${activityId}`;
+  };
+
+  // Helper function to format last updated
+  const formatLastUpdated = (entry: TimeEntry): string => {
+    const lastUpdated = entry.updated_at || entry.created_at;
+    if (!lastUpdated) return 'Unknown';
+    try {
+      return format(new Date(lastUpdated), "MMM dd, HH:mm");
+    } catch {
+      return 'Unknown';
+    }
+  };
+
   // Selection handlers
   const handleSelectEntry = (entryId: number, checked: boolean) => {
     setSelectedEntries(prev => 
@@ -197,7 +256,16 @@ export const TimeTrackingList = ({
   };
 
   const handleSelectAll = (checked: boolean) => {
-    setSelectedEntries(checked ? filteredTimeEntries.map(entry => entry.id) : []);
+    setSelectedEntries(checked ? filteredAndSortedTimeEntries.map(entry => entry.id) : []);
+  };
+
+  const handleSortChange = (field: 'date' | 'updated' | 'duration') => {
+    if (sortBy === field) {
+      setSortOrder(prev => prev === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortBy(field);
+      setSortOrder('desc');
+    }
   };
 
   const handleBulkUpdate = async (entries: TimeEntry[], updateData: any) => {
@@ -215,11 +283,11 @@ export const TimeTrackingList = ({
   };
 
   const getSelectedEntries = () => {
-    return filteredTimeEntries.filter(entry => selectedEntries.includes(entry.id));
+    return filteredAndSortedTimeEntries.filter(entry => selectedEntries.includes(entry.id));
   };
 
-  const isAllSelected = selectedEntries.length === filteredTimeEntries.length && filteredTimeEntries.length > 0;
-  const isIndeterminate = selectedEntries.length > 0 && selectedEntries.length < filteredTimeEntries.length;
+  const isAllSelected = selectedEntries.length === filteredAndSortedTimeEntries.length && filteredAndSortedTimeEntries.length > 0;
+  const isIndeterminate = selectedEntries.length > 0 && selectedEntries.length < filteredAndSortedTimeEntries.length;
 
   if (isLoading) {
     return (
@@ -259,13 +327,13 @@ export const TimeTrackingList = ({
 
       <Tabs value="list" className="space-y-6">
         <TabsContent value="list" className="space-y-6">
-          {/* Filters */}
+          {/* Filters and Sorting */}
           <Card className="corporate-card">
             <CardContent className="p-4">
-              <div className="flex items-center gap-4">
+              <div className="flex items-center gap-4 flex-wrap">
                 <div className="flex items-center gap-2">
                   <Filter className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm font-medium">Filters:</span>
+                  <span className="text-sm font-medium">Filters & Sort:</span>
                 </div>
                 
                 <div className="flex items-center gap-2">
@@ -303,18 +371,39 @@ export const TimeTrackingList = ({
                   </Select>
                 </div>
 
-                {(projectFilter || monthYearFilter) && (
+                <div className="flex items-center gap-2">
+                  <label className="text-sm text-muted-foreground">Sort by:</label>
+                  <Select value={`${sortBy}-${sortOrder}`} onValueChange={(value) => {
+                    const [field, order] = value.split('-') as [typeof sortBy, typeof sortOrder];
+                    setSortBy(field);
+                    setSortOrder(order);
+                  }}>
+                    <SelectTrigger className="w-40">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="updated-desc">Latest Updated</SelectItem>
+                      <SelectItem value="updated-asc">Oldest Updated</SelectItem>
+                      <SelectItem value="date-desc">Latest Date</SelectItem>
+                      <SelectItem value="date-asc">Oldest Date</SelectItem>
+                      <SelectItem value="duration-desc">Duration High</SelectItem>
+                      <SelectItem value="duration-asc">Duration Low</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {(projectFilter || monthYearFilter !== format(new Date(), "yyyy-MM")) && (
                   <Button
                     variant="ghost"
                     size="sm"
                     onClick={() => {
                       setProjectFilter("");
-                      setMonthYearFilter("");
+                      setMonthYearFilter(format(new Date(), "yyyy-MM"));
                     }}
                     className="gap-1"
                   >
                     <X className="h-3 w-3" />
-                    Clear
+                    Reset to Current Month
                   </Button>
                 )}
               </div>
@@ -322,7 +411,7 @@ export const TimeTrackingList = ({
           </Card>
 
           {/* Select All Header (only show when there are entries) */}
-          {filteredTimeEntries.length > 0 && (
+          {filteredAndSortedTimeEntries.length > 0 && (
             <div className="flex items-center justify-between p-4 border-b border-border">
               <div className="flex items-center gap-3">
                 <Checkbox
@@ -332,29 +421,34 @@ export const TimeTrackingList = ({
                 <span className="text-sm text-muted-foreground">
                   {selectedEntries.length === 0 
                     ? "Select entries" 
-                    : `${selectedEntries.length} of ${filteredTimeEntries.length} selected`
+                    : `${selectedEntries.length} of ${filteredAndSortedTimeEntries.length} selected`
                   }
                 </span>
+              </div>
+              <div className="text-sm text-muted-foreground">
+                Showing {filteredAndSortedTimeEntries.length} entries • Sorted by {sortBy === 'updated' ? 'Last Updated' : sortBy === 'date' ? 'Date' : 'Duration'} ({sortOrder === 'desc' ? 'newest' : 'oldest'} first)
               </div>
             </div>
           )}
 
           {/* Time Entries List */}
           <div className="grid gap-4">
-            {filteredTimeEntries.map((entry) => (
+            {filteredAndSortedTimeEntries.map((entry) => (
               <Card 
                 key={entry.id} 
                 className="corporate-card hover:shadow-[var(--shadow-elegant)] transition-[var(--transition-smooth)] hover:scale-[1.01] cursor-pointer group"
               >
                  <CardContent className="p-6">
-                   <div className="flex items-center justify-between">
-                     <div className="flex items-center gap-3">
+                   <div className="flex items-start justify-between">
+                     <div className="flex items-start gap-3 flex-1">
                        <Checkbox
                          checked={selectedEntries.includes(entry.id)}
                          onCheckedChange={(checked) => handleSelectEntry(entry.id, checked as boolean)}
                        />
-                       <div className="flex-1 space-y-2">
-                         <div className="flex items-center gap-3">
+                       
+                       <div className="flex-1 space-y-3">
+                         {/* Header Row */}
+                         <div className="flex items-center gap-3 flex-wrap">
                            <div className={`p-1.5 rounded-full ${entry.allowable_bill ? 'bg-success/10' : 'bg-muted'}`}>
                              {entry.allowable_bill ? (
                                <PlayCircle className="h-4 w-4 text-success" />
@@ -374,36 +468,83 @@ export const TimeTrackingList = ({
                            >
                              {entry.allowable_bill ? "Billable" : "Non-billable"}
                            </Badge>
+
+                           <Badge variant="outline" className="text-xs">
+                             {getStatusName(entry.status_id)}
+                           </Badge>
                          </div>
 
+                         {/* Description */}
                          {entry.text && (
-                           <p className="text-sm text-muted-foreground group-hover:text-foreground transition-[var(--transition-smooth)]">
-                             {entry.text}
-                           </p>
+                           <div className="bg-muted/50 p-3 rounded-md">
+                             <p className="text-sm group-hover:text-foreground transition-[var(--transition-smooth)]">
+                               {entry.text}
+                             </p>
+                           </div>
                          )}
 
-                           <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                             {entry.contact_id && (
-                               <span>Contact: {contacts.find(c => c.id === entry.contact_id)?.name_1 || `#${entry.contact_id}`}</span>
-                             )}
-                             {entry.project_id && (
-                               <span>Project: {projects.find(p => p.id === entry.project_id)?.name || `#${entry.project_id}`}</span>
-                             )}
-                             {entry.status_id && (
-                               <span>Status: {entry.status_id}</span>
-                             )}
-                             {entry.pr_package_id && (
-                               <span>Work Package: {workPackages.find(wp => wp.id === entry.pr_package_id)?.name || `#${entry.pr_package_id}`}</span>
-                             )}
-                             {entry.user_id && (
-                               <span>User: {entry.user_id}</span>
-                             )}
+                         {/* Details Grid */}
+                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 text-xs">
+                           {entry.contact_id && (
+                             <div className="flex items-center gap-2 p-2 bg-background/50 rounded border">
+                               <User className="h-3 w-3 text-muted-foreground" />
+                               <span className="text-muted-foreground">Contact:</span>
+                               <span className="font-medium">
+                                 {contacts.find(c => c.id === entry.contact_id)?.name_1 || `#${entry.contact_id}`}
+                               </span>
+                             </div>
+                           )}
+                           
+                           {entry.project_id && (
+                             <div className="flex items-center gap-2 p-2 bg-background/50 rounded border">
+                               <CalendarDays className="h-3 w-3 text-muted-foreground" />
+                               <span className="text-muted-foreground">Project:</span>
+                               <span className="font-medium">
+                                 {projects.find(p => p.id === entry.project_id)?.name || `#${entry.project_id}`}
+                               </span>
+                             </div>
+                           )}
+
+                           {entry.client_service_id && (
+                             <div className="flex items-center gap-2 p-2 bg-background/50 rounded border">
+                               <Clock className="h-3 w-3 text-muted-foreground" />
+                               <span className="text-muted-foreground">Activity:</span>
+                               <span className="font-medium">
+                                 {getActivityName(entry.client_service_id)}
+                               </span>
+                             </div>
+                           )}
+                           
+                           {entry.pr_package_id && (
+                             <div className="flex items-center gap-2 p-2 bg-background/50 rounded border">
+                               <DollarSign className="h-3 w-3 text-muted-foreground" />
+                               <span className="text-muted-foreground">Work Package:</span>
+                               <span className="font-medium">
+                                 {workPackages.find(wp => wp.id === entry.pr_package_id)?.name || `#${entry.pr_package_id}`}
+                               </span>
+                             </div>
+                           )}
+
+                           {entry.user_id && (
+                             <div className="flex items-center gap-2 p-2 bg-background/50 rounded border">
+                               <User className="h-3 w-3 text-muted-foreground" />
+                               <span className="text-muted-foreground">User:</span>
+                               <span className="font-medium">{entry.user_id}</span>
+                             </div>
+                           )}
+                           
+                           <div className="flex items-center gap-2 p-2 bg-background/50 rounded border">
+                             <Clock className="h-3 w-3 text-muted-foreground" />
+                             <span className="text-muted-foreground">Last Updated:</span>
+                             <span className="font-medium">{formatLastUpdated(entry)}</span>
                            </div>
+                         </div>
                        </div>
                      </div>
 
-                    <div className="flex items-center gap-2">
-                      <div className="text-right mr-4">
+                    {/* Right side - Duration and Actions */}
+                    <div className="flex items-center gap-2 ml-4">
+                      <div className="text-right">
                         <div className="text-2xl font-bold group-hover:text-primary transition-[var(--transition-smooth)]">
                           {formatDuration(toSeconds(entry.duration))}
                         </div>
@@ -444,19 +585,26 @@ export const TimeTrackingList = ({
       </Tabs>
 
 
-      {/* Edit Dialog */}
-      <EditTimeEntryDialog
-        entry={editingEntry}
-        contacts={contacts}
-        projects={projects}
-        workPackages={workPackages}
-        isLoadingWorkPackages={isLoadingWorkPackages}
-        onFetchWorkPackages={onFetchWorkPackages}
-        isOpen={!!editingEntry}
-        onClose={() => setEditingEntry(null)}
-        onSubmit={onUpdateTimeEntry || (async () => {})}
-        isSubmitting={isCreatingTimeEntry}
-      />
+      {/* Edit Dialog - Use EditTimeEntryDialog */}
+      {editingEntry && (
+        <EditTimeEntryDialog
+          entry={editingEntry}
+          isOpen={!!editingEntry}
+          onClose={() => setEditingEntry(null)}
+          onSubmit={async (id, data) => {
+            if (onUpdateTimeEntry) {
+              await onUpdateTimeEntry(id, data);
+              setEditingEntry(null);
+            }
+          }}
+          contacts={contacts}
+          projects={projects}
+          workPackages={workPackages}
+          isLoadingWorkPackages={isLoadingWorkPackages}
+          onFetchWorkPackages={onFetchWorkPackages}
+          isSubmitting={isCreatingTimeEntry}
+        />
+      )}
 
       {/* Bulk Action Toolbar */}
       <BulkActionToolbar
@@ -478,7 +626,7 @@ export const TimeTrackingList = ({
         projects={projects}
       />
 
-      {filteredTimeEntries.length === 0 && !isLoading && timeEntries.length > 0 && (
+      {filteredAndSortedTimeEntries.length === 0 && !isLoading && timeEntries.length > 0 && (
         <Card className="corporate-card text-center py-12">
           <CardContent>
             <Filter className="h-12 w-12 text-muted-foreground mx-auto mb-4" />

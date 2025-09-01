@@ -3,6 +3,7 @@ import { Analytics } from "@/components/Analytics";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { TimeTrackingList } from "@/components/TimeTrackingList";
 import { SimpleTimeGrid } from "@/components/SimpleTimeGrid";
 import { TimesheetCalendar } from "@/components/TimesheetCalendar";
@@ -35,6 +36,10 @@ const Index = () => {
     fetchProjects,
     fetchTimeEntries,
     fetchWorkPackages,
+    fetchLanguages,
+    languages,
+    currentLanguage,
+    setCurrentLanguage,
     createTimeEntry,
     updateTimeEntry,
     deleteTimeEntry,
@@ -44,7 +49,7 @@ const Index = () => {
     disconnect,
   } = useBexioApi();
 
-  const [activeTab, setActiveTab] = useState("analytics");
+  const [activeTab, setActiveTab] = useState("timetracking");
   const [timeTrackingView, setTimeTrackingView] = useState<'list' | 'grid' | 'calendar'>('list');
   const [isTestingConnection, setIsTestingConnection] = useState(false);
   const [editingEntry, setEditingEntry] = useState<any>(null);
@@ -69,7 +74,14 @@ const Index = () => {
         fetchProjects();
       }
       if (timeEntries.length === 0 && !isLoadingTimeEntries && !hasInitiallyLoaded.timeEntries) {
-        fetchTimeEntries(undefined, { quiet: true });
+        // Default to current month
+        const now = new Date();
+        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+        const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+        fetchTimeEntries({ from: startOfMonth, to: endOfMonth }, { quiet: true });
+      }
+      if (languages.length === 0) {
+        fetchLanguages();
       }
     }
   }, [activeTab, hasInitiallyLoaded, isLoadingContacts, isLoadingProjects, isLoadingTimeEntries, fetchContacts, fetchProjects, fetchTimeEntries]);
@@ -236,6 +248,24 @@ const Index = () => {
                     <CalendarDays className="h-4 w-4" />
                     Calendar
                   </Button>
+                </div>
+                
+                {/* Language Selector */}
+                <div className="flex items-center gap-2">
+                  <label className="text-sm text-muted-foreground">Language:</label>
+                  <Select value={currentLanguage} onValueChange={setCurrentLanguage}>
+                    <SelectTrigger className="w-32">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="en">English</SelectItem>
+                      {languages.map((lang) => (
+                        <SelectItem key={lang.id} value={lang.iso_639_1}>
+                          {lang.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
                 
                 {/* Add Time Entry button */}

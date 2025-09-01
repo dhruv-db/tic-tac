@@ -110,6 +110,9 @@ export const useBexioApi = () => {
   const [isLoadingStatuses, setIsLoadingStatuses] = useState(false);
   const [businessActivities, setBusinessActivities] = useState<{ id: number; name: string }[]>([]);
   const [isLoadingActivities, setIsLoadingActivities] = useState(false);
+  const [languages, setLanguages] = useState<{ id: number; name: string; iso_639_1: string }[]>([]);
+  const [currentLanguage, setCurrentLanguage] = useState<string>('en');
+  const [isLoadingLanguages, setIsLoadingLanguages] = useState(false);
   const [isCreatingTimeEntry, setIsCreatingTimeEntry] = useState(false);
   const [hasInitiallyLoaded, setHasInitiallyLoaded] = useState({
     contacts: false,
@@ -882,6 +885,60 @@ export const useBexioApi = () => {
     }
   }, [credentials, ensureValidToken, toast]);
 
+  const fetchLanguages = useCallback(async () => {
+    if (!credentials || isLoadingLanguages) return;
+
+    const authToken = await ensureValidToken();
+    if (!authToken) return;
+
+    setIsLoadingLanguages(true);
+    console.log('🌍 Fetching languages from Bexio');
+    
+    try {
+      const response = await fetch(`https://opcjifbdwpyttaxqlqbf.supabase.co/functions/v1/bexio-proxy`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          endpoint: '/languages',
+          apiKey: authToken,
+          companyId: credentials.companyId,
+        }),
+      });
+
+      console.log('📊 Languages response status:', response.status);
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        console.error('❌ Error fetching languages:', errorData);
+        throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      console.log('✅ Received languages:', data);
+      
+      const langs = Array.isArray(data) ? data : [];
+      setLanguages(langs);
+      
+      // Set English as default if available
+      const englishLang = langs.find((lang: any) => lang.iso_639_1 === 'en' || lang.name.toLowerCase().includes('english'));
+      if (englishLang && !currentLanguage) {
+        setCurrentLanguage('en');
+      }
+      
+    } catch (error) {
+      console.error(`❌ Error fetching languages:`, error);
+      toast({
+        title: "Failed to fetch languages",
+        description: error instanceof Error ? error.message : "An error occurred while fetching languages.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoadingLanguages(false);
+    }
+  }, [credentials, ensureValidToken, toast, isLoadingLanguages, currentLanguage]);
+
   const updateTimeEntry = useCallback(async (id: number, timeEntryData: {
     dateRange: DateRange | undefined;
     startTime?: string;
@@ -1188,11 +1245,16 @@ export const useBexioApi = () => {
     fetchTimeEntries,
     fetchWorkPackages,
     timesheetStatuses,
-    isLoadingStatuses,
-    fetchTimesheetStatuses,
     businessActivities,
+    languages,
+    currentLanguage,
+    isLoadingStatuses,
     isLoadingActivities,
+    isLoadingLanguages,
+    fetchTimesheetStatuses,
     fetchBusinessActivities,
+    fetchLanguages,
+    setCurrentLanguage,
     createTimeEntry,
     updateTimeEntry,
     deleteTimeEntry,
