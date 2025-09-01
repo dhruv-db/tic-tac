@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -50,6 +50,21 @@ export const SimpleTimeGrid = ({
   const weekEnd = endOfWeek(currentDate, { weekStartsOn: 1 });
   const weekDays = eachDayOfInterval({ start: weekStart, end: weekEnd });
 
+  // Build week date set and de-duplicate entries within this week to avoid double counting
+  const weekDateSet = useMemo(() => new Set(weekDays.map((d) => format(d, 'yyyy-MM-dd'))), [currentDate]);
+  const dedupedEntries = useMemo(() => {
+    const map = new Map<string, any>();
+    for (const e of timeEntries) {
+      const entryDate = e.date?.includes('T') ? e.date.split('T')[0] : e.date;
+      if (!weekDateSet.has(entryDate)) continue;
+      const proj = (e as any).pr_project_id ?? (e as any).project_id ?? '';
+      const pkg = (e as any).pr_package_id ?? '';
+      const key = e.id ? `id:${e.id}` : `c:${entryDate}:${proj}:${pkg}:${typeof e.duration === 'string' ? e.duration : e.duration}`;
+      if (!map.has(key)) map.set(key, e);
+    }
+    return Array.from(map.values());
+  }, [timeEntries, weekDateSet]);
+
   // Navigation
   const navigatePrevious = () => setCurrentDate(subWeeks(currentDate, 1));
   const navigateNext = () => setCurrentDate(addWeeks(currentDate, 1));
@@ -78,12 +93,14 @@ export const SimpleTimeGrid = ({
     return `${h}:${m.toString().padStart(2, '0')}`;
   };
 
-  // Get entries for specific project/date and optional work package
+  // Helper to get project id from different sources
+  const getProjId = (e: any): number | undefined => (e.pr_project_id ?? e.project_id) as number | undefined;
+
   const getProjectDayEntries = (projectId: number, date: Date, packageId?: number | string) => {
     const dateStr = format(date, 'yyyy-MM-dd');
-    return timeEntries.filter((entry: any) => {
+    return dedupedEntries.filter((entry: any) => {
       const entryDate = entry.date?.includes('T') ? entry.date.split('T')[0] : entry.date;
-      const projMatch = entry.pr_project_id === projectId || entry.project_id === projectId;
+      const projMatch = getProjId(entry) === projectId;
       const pkgMatch = packageId == null ? true : (entry.pr_package_id === packageId || entry.pr_package_id?.toString() === String(packageId));
       return projMatch && pkgMatch && entryDate === dateStr;
     });
@@ -100,9 +117,9 @@ const getActiveProjects = () => {
   const activeIds = new Set<number>();
   weekDays.forEach((date) => {
     const dateStr = format(date, 'yyyy-MM-dd');
-    timeEntries.forEach((entry: any) => {
+    dedupedEntries.forEach((entry: any) => {
       const entryDate = entry.date?.includes('T') ? entry.date.split('T')[0] : entry.date;
-      const projId = (entry.pr_project_id ?? entry.project_id) as number | undefined;
+      const projId = getProjId(entry);
       if (projId && entryDate === dateStr) activeIds.add(projId);
     });
   });
@@ -130,7 +147,7 @@ const getActiveProjects = () => {
   const getActiveWorkPackagesForProject = (projectId: number) => {
     const pkgMap = new Map<string, number>(); 
     weekDays.forEach((date) => {
-      const dayEntries = timeEntries.filter((entry: any) => {
+      const dayEntries = dedupedEntries.filter((entry: any) => {
         const entryDate = entry.date?.includes('T') ? entry.date.split('T')[0] : entry.date;
         const projMatch = (entry.pr_project_id ?? entry.project_id) === projectId;
         return projMatch && entryDate === format(date, 'yyyy-MM-dd') && entry.pr_package_id != null;
@@ -149,9 +166,10 @@ const getActiveProjects = () => {
   // Calculate totals
   const activeProjects = getActiveProjects();
   const weeklyTotal = weekDays.reduce((total, date) => {
-    const dayEntries = timeEntries.filter(entry => {
+    const dateStr = format(date, 'yyyy-MM-dd');
+    const dayEntries = dedupedEntries.filter(entry => {
       const entryDate = entry.date?.includes('T') ? entry.date.split('T')[0] : entry.date;
-      return entryDate === format(date, 'yyyy-MM-dd');
+      return entryDate === dateStr;
     });
     return total + dayEntries.reduce((sum, entry) => sum + durationToHours(entry.duration), 0);
   }, 0);
@@ -715,33 +733,11 @@ const getActiveProjects = () => {
                   <div className="p-4">Total</div>
                   {weekDays.map((date) => {
                     const dateStr = format(date, 'yyyy-MM-dd');
-                    const dayEntries = timeEntries.filter(entry => {
+                    const dayEntries = dedupedEntries.filter(entry => {
                       const entryDate = entry.date?.includes('T') ? entry.date.split('T')[0] : entry.date;
-                      const matches = entryDate === dateStr;
-                      
-                      // Debug logging for Saturday
-                      if (dateStr.includes('06')) {
-                        console.log(`Debug Saturday ${dateStr}:`, {
-                          entryDate,
-                          duration: entry.duration,
-                          durationHours: durationToHours(entry.duration),
-                          matches,
-                          entryId: entry.id
-                        });
-                      }
-                      
-                      return matches;
+                      return entryDate === dateStr;
                     });
-                    
-                    // Remove duplicates by ID to prevent double counting
-                    const uniqueEntries = dayEntries.filter((entry, index, arr) => 
-                      arr.findIndex(e => e.id === entry.id) === index
-                    );
-                    
-                    const dayTotal = uniqueEntries.reduce((sum, entry) => {
-                      const hours = durationToHours(entry.duration);
-                      return sum + hours;
-                    }, 0);
+                    const dayTotal = dayEntries.reduce((sum, entry) => sum + durationToHours(entry.duration), 0);
 
                     return (
                       <div key={date.toISOString()} className="p-4 text-center">
