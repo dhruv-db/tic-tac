@@ -132,7 +132,7 @@ export const EditTimeEntryDialog = ({
     if (!currentProjectId && lastProjectIdRef.current !== undefined) {
       lastProjectIdRef.current = undefined;
     }
-  }, [formData.project_id, onFetchWorkPackages]);
+  }, [formData.project_id]); // Removed onFetchWorkPackages from dependencies to prevent loop
 
   const getContactName = (contact: Contact) => {
     const names = [contact.name_1, contact.name_2].filter(Boolean);

@@ -74,7 +74,7 @@ export const SimpleTimeGrid = ({
     onDateRangeChange?.({ from: weekStart, to: weekEnd });
   }, [currentDate, onDateRangeChange]);
 
-  // Auto-fetch work packages for active projects
+  // Auto-fetch work packages for active projects - only when projects or timeEntries change, not when fetch function changes
   useEffect(() => {
     const activeProjectIds = getActiveProjects().map(p => p.id);
     activeProjectIds.forEach(projectId => {
@@ -82,7 +82,7 @@ export const SimpleTimeGrid = ({
         onFetchWorkPackages(projectId);
       }
     });
-  }, [timeEntries, projects, onFetchWorkPackages]);
+  }, [timeEntries, projects]); // Removed onFetchWorkPackages from dependencies to prevent loop
 
   // Convert duration to hours
   const durationToHours = (duration: string | number): number => {

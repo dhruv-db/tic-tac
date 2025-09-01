@@ -531,10 +531,13 @@ export const useBexioApi = () => {
       setWorkPackages(transformedPackages);
       setWorkPackagesByProject(prev => ({ ...prev, [projectId]: transformedPackages }));
       
-      toast({
-        title: "Work packages loaded successfully",
-        description: `Successfully fetched ${transformedPackages.length} work packages for project ${projectId}.`,
-      });
+      // Only show toast for successful fetches when not loading silently
+      if (transformedPackages.length > 0) {
+        toast({
+          title: "Work packages loaded successfully",
+          description: `Successfully fetched ${transformedPackages.length} work packages for project ${projectId}.`,
+        });
+      }
       
     } catch (error) {
       console.error(`❌ Error fetching work packages for project ${projectId}:`, error);

@@ -121,7 +121,7 @@ export const TimeEntryForm = ({
     if (!currentProjectId && lastProjectIdRef.current !== undefined) {
       lastProjectIdRef.current = undefined;
     }
-  }, [formData.project_id, onFetchWorkPackages]);
+  }, [formData.project_id]); // Removed onFetchWorkPackages from dependencies to prevent loop
 
   useEffect(() => {
     let isMounted = true;
