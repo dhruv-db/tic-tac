@@ -184,6 +184,9 @@ export const EditTimeEntryDialog = ({
         durationString = entry.duration;
       }
       
+      // Handle both project_id and pr_project_id - entry might have pr_project_id
+      const projectId = entry.project_id || (entry as any).pr_project_id;
+      
       setFormData({
         dateRange: {
           from: entryDate,
@@ -196,12 +199,17 @@ export const EditTimeEntryDialog = ({
         text: entry.text || "",
         allowable_bill: entry.allowable_bill,
         contact_id: entry.contact_id,
-        project_id: entry.project_id,
+        project_id: projectId,
         client_service_id: entry.client_service_id,
         status_id: entry.status_id,
         pr_package_id: entry.pr_package_id,
         pr_milestone_id: entry.pr_milestone_id,
       });
+      
+      // Fetch work packages if project is selected
+      if (projectId && !mountedRef.current) {
+        onFetchWorkPackages(projectId);
+      }
     }
   }, [entry?.id, isOpen]); // Only depend on entry.id to avoid loops
 

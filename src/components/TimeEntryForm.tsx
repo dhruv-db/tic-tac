@@ -262,6 +262,7 @@ export const TimeEntryForm = ({
         status_id: undefined,
         pr_package_id: undefined,
         pr_milestone_id: undefined,
+        user_id: currentBexioUserId || undefined,
       });
       setIsOpen(false);
     } catch (error) {
@@ -478,6 +479,31 @@ export const TimeEntryForm = ({
               </SelectContent>
             </Select>
           </div>
+
+          {/* User Assignment (Admin Only) */}
+          {isCurrentUserAdmin && users.length > 0 && (
+            <div className="space-y-2">
+              <Label htmlFor="user_id">Assign to User (Optional)</Label>
+              <Select
+                value={formData.user_id?.toString() || currentBexioUserId?.toString() || "none"}
+                onValueChange={(value) => setFormData(prev => ({ 
+                  ...prev, 
+                  user_id: value === "none" ? currentBexioUserId || undefined : parseInt(value) 
+                }))}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select user" />
+                </SelectTrigger>
+                <SelectContent className="z-50">
+                  {users.map((user) => (
+                    <SelectItem key={user.id} value={user.id.toString()}>
+                      {user.firstname} {user.lastname} {user.id === currentBexioUserId ? "(You)" : ""}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
           {/* Status and Work Package */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

@@ -74,7 +74,15 @@ const Index = () => {
   const [logoUrl, setLogoUrl] = useState<string>(() => localStorage.getItem('adminLogoUrl') || 'https://cdn.prod.website-files.com/644a6e413354d12887abce48/678e77dc82ed84dfe2ede9f8_db%20icon%20(1).png');
   const [isLogoDialogOpen, setIsLogoDialogOpen] = useState(false);
   const [logoUrlInput, setLogoUrlInput] = useState<string>(logoUrl);
+  const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
   const { toast } = useToast();
+
+  // Set default user filter to current user when available
+  useEffect(() => {
+    if (currentBexioUserId && selectedUserId === null) {
+      setSelectedUserId(currentBexioUserId);
+    }
+  }, [currentBexioUserId, selectedUserId]);
 
   useEffect(() => {
     loadStoredCredentials();
@@ -157,14 +165,20 @@ const Index = () => {
     }
   };
 
-  // Filter time entries based on admin status
+  // Filter time entries based on admin status and selected user
   const visibleTimeEntries = useMemo(() => {
-    if (isCurrentUserAdmin || !currentBexioUserId) {
-      return timeEntries; // Admin sees all, or fallback if user not determined
+    if (!isCurrentUserAdmin) {
+      // Non-admin users only see their own entries
+      return timeEntries.filter(entry => entry.user_id === currentBexioUserId);
     }
-    // Non-admin users only see their own entries
-    return timeEntries.filter(entry => entry.user_id === currentBexioUserId);
-  }, [timeEntries, isCurrentUserAdmin, currentBexioUserId]);
+    
+    // Admin users can see all or filter by selected user
+    if (selectedUserId) {
+      return timeEntries.filter(entry => entry.user_id === selectedUserId);
+    }
+    
+    return timeEntries; // Show all if no user selected
+  }, [timeEntries, isCurrentUserAdmin, currentBexioUserId, selectedUserId]);
 
   const isLoading = isLoadingContacts || isLoadingProjects || isLoadingTimeEntries;
 
@@ -202,6 +216,28 @@ const Index = () => {
             </div>
             
             <div className="flex items-center gap-2">
+              {/* User Filter for Admins */}
+              {isCurrentUserAdmin && users.length > 0 && (
+                <div className="flex items-center gap-2">
+                  <label className="text-sm text-muted-foreground">View user:</label>
+                  <Select 
+                    value={selectedUserId?.toString() || "all"} 
+                    onValueChange={(value) => setSelectedUserId(value === "all" ? null : parseInt(value))}
+                  >
+                    <SelectTrigger className="w-48">
+                      <SelectValue placeholder="Select user" />
+                    </SelectTrigger>
+                    <SelectContent className="z-50 bg-background">
+                      <SelectItem value="all">All Users</SelectItem>
+                      {users.map((user) => (
+                        <SelectItem key={user.id} value={user.id.toString()}>
+                          {user.firstname} {user.lastname}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
               {/* Connection status indicator */}
               <div className="group relative">
                 <div className="p-2 rounded-full bg-success/10 border border-success/20 hover:bg-success/20 transition-colors">
@@ -418,7 +454,7 @@ const Index = () => {
               projects={projects}
               users={users}
               isCurrentUserAdmin={isCurrentUserAdmin}
-              currentBexioUserId={currentBexioUserId}
+              currentBexioUserId={selectedUserId || currentBexioUserId}
               isLoading={isLoadingTimeEntries}
             />
           </TabsContent>
