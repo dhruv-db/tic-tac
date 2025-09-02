@@ -1292,73 +1292,6 @@ export const useBexioApi = () => {
     }
   }, [credentials, toast, deleteTimeEntry, fetchTimeEntries]);
 
-  const disconnect = useCallback(() => {
-    localStorage.removeItem('bexio_credentials');
-    setCredentials(null);
-    setContacts([]);
-    setProjects([]);
-    setTimeEntries([]);
-    setWorkPackages([]);
-    toast({
-      title: "Disconnected",
-      description: "You have been disconnected from Bexio.",
-    });
-  }, [toast]);
-
-  return {
-    credentials,
-    contacts,
-    projects,
-    timeEntries,
-    workPackages,
-    isLoadingContacts,
-    isLoadingProjects,
-    isLoadingTimeEntries,
-    isLoadingWorkPackages,
-    isCreatingTimeEntry,
-    isConnected: !!credentials,
-    hasInitiallyLoaded,
-    users,
-    isLoadingUsers,
-    currentBexioUserId,
-    isCurrentUserAdmin,
-    fetchUsers,
-    connect,
-    connectWithOAuth,
-    fetchContacts,
-    fetchProjects,
-    fetchTimeEntries,
-    fetchWorkPackages,
-    timesheetStatuses,
-    businessActivities,
-    languages,
-    currentLanguage,
-    isLoadingStatuses,
-    isLoadingActivities,
-    isLoadingLanguages,
-    fetchTimesheetStatuses,
-    fetchBusinessActivities,
-    fetchLanguages,
-    setCurrentLanguage,
-    createTimeEntry,
-    updateTimeEntry,
-    deleteTimeEntry,
-    bulkUpdateTimeEntries,
-    bulkDeleteTimeEntries,
-    loadStoredCredentials,
-    disconnect,
-    workPackagesByProject,
-    getWorkPackageName,
-  };
-    if (!credentials) {
-      console.error('No credentials available');
-      if (!options?.quiet) {
-        toast({
-          title: "Error",
-          description: "API key not configured. Please connect to Bexio first.",
-          variant: "destructive",
-        });
-      }
   const fetchUsers = useCallback(async (options?: { quiet?: boolean }) => {
     if (!credentials) {
       console.error('No credentials available');
@@ -1446,6 +1379,39 @@ export const useBexioApi = () => {
       setIsLoadingUsers(false);
     }
   }, [credentials, ensureValidToken, toast]);
+
+  const disconnect = useCallback(() => {
+    localStorage.removeItem('bexio_credentials');
+    setCredentials(null);
+    setContacts([]);
+    setProjects([]);
+    setTimeEntries([]);
+    setWorkPackages([]);
+    toast({
+      title: "Disconnected",
+      description: "You have been disconnected from Bexio.",
+    });
+  }, [toast]);
+
+  return {
+    credentials,
+    contacts,
+    projects,
+    timeEntries,
+    workPackages,
+    isLoadingContacts,
+    isLoadingProjects,
+    isLoadingTimeEntries,
+    isLoadingWorkPackages,
+    isCreatingTimeEntry,
+    isConnected: !!credentials,
+    hasInitiallyLoaded,
+    users,
+    isLoadingUsers,
+    currentBexioUserId,
+    isCurrentUserAdmin,
+    fetchUsers,
+    connect,
     connectWithOAuth,
     fetchContacts,
     fetchProjects,

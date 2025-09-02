@@ -82,7 +82,10 @@ export const TimeEntryDialog = ({
   buttonSize = "lg",
   buttonVariant = "default",
   timesheetStatuses,
-  businessActivities
+  businessActivities,
+  users = [],
+  isCurrentUserAdmin = false,
+  currentBexioUserId
 }: TimeEntryDialogProps) => {
   const [isOpen, setIsOpen] = useState(false);
 
@@ -124,6 +127,9 @@ export const TimeEntryDialog = ({
             hideFormWrapper={true}
             timesheetStatuses={timesheetStatuses}
             businessActivities={businessActivities}
+            users={users}
+            isCurrentUserAdmin={isCurrentUserAdmin}
+            currentBexioUserId={currentBexioUserId}
           />
         </DialogContent>
       </Dialog>

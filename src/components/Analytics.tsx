@@ -305,6 +305,26 @@ export const Analytics = ({ timeEntries, contacts, projects, users, isCurrentUse
               </Select>
             </div>
 
+            {/* User Filter - Show for admins or hide if only one user */}
+            {(isCurrentUserAdmin && users.length > 1) && (
+              <div className="space-y-2">
+                <label className="text-sm font-medium">User</label>
+                <Select value={selectedUser} onValueChange={setSelectedUser}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Users</SelectItem>
+                    {users.map(user => (
+                      <SelectItem key={user.id} value={user.id.toString()}>
+                        {user.firstname} {user.lastname}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
             {/* Contact Filter */}
             <div className="space-y-2">
               <label className="text-sm font-medium">Contact</label>
