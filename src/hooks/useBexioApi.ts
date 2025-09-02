@@ -79,6 +79,16 @@ interface WorkPackage {
   pr_milestone_id?: number;
 }
 
+interface BexioUser {
+  id: number;
+  salutation_type?: string;
+  firstname: string;
+  lastname: string;
+  email: string;
+  is_superadmin: boolean;
+  is_accountant: boolean;
+}
+
 interface BexioCredentials {
   apiKey?: string;
   companyId: string;
@@ -112,6 +122,10 @@ export const useBexioApi = () => {
   const [businessActivities, setBusinessActivities] = useState<{ id: number; name: string }[]>([]);
   const [isLoadingActivities, setIsLoadingActivities] = useState(false);
   const [languages, setLanguages] = useState<{ id: number; name: string; iso_639_1: string }[]>([]);
+  const [users, setUsers] = useState<BexioUser[]>([]);
+  const [isLoadingUsers, setIsLoadingUsers] = useState(false);
+  const [currentBexioUserId, setCurrentBexioUserId] = useState<number | null>(null);
+  const [isCurrentUserAdmin, setIsCurrentUserAdmin] = useState(false);
   
   // Guards to avoid duplicate or spammy work package fetches
   const workPackageInFlightRef = useRef<Record<number, boolean>>({});
@@ -122,7 +136,8 @@ export const useBexioApi = () => {
   const [hasInitiallyLoaded, setHasInitiallyLoaded] = useState({
     contacts: false,
     projects: false,
-    timeEntries: false
+    timeEntries: false,
+    users: false
   });
   const fetchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const { toast } = useToast();
@@ -591,6 +606,7 @@ export const useBexioApi = () => {
     status_id?: number;
     pr_package_id?: string;
     pr_milestone_id?: number;
+    user_id?: number; // Add user_id for admin assignment
   }) => {
     if (!credentials) {
       toast({
@@ -668,7 +684,7 @@ export const useBexioApi = () => {
 
       const createWithRetry = async (date: Date) => {
         const bexioData = {
-          user_id: 1,
+          user_id: timeEntryData.user_id || currentBexioUserId || 1, // Use specified, current user, or fallback
           client_service_id: timeEntryData.client_service_id ?? (businessActivities[0]?.id),
           text: timeEntryData.text || "",
           allowable_bill: timeEntryData.allowable_bill,
@@ -772,7 +788,7 @@ export const useBexioApi = () => {
     } finally {
       setIsCreatingTimeEntry(false);
     }
-  }, [credentials, ensureValidToken, toast, fetchTimeEntries]);
+  }, [credentials, ensureValidToken, toast, fetchTimeEntries, businessActivities, currentBexioUserId]);
 
   const fetchTimesheetStatuses = useCallback(async (options?: { quiet?: boolean }) => {
     if (!credentials) {
@@ -994,6 +1010,7 @@ export const useBexioApi = () => {
     status_id?: number;
     pr_package_id?: string;
     pr_milestone_id?: number;
+    user_id?: number; // Add user_id for admin assignment
   }) => {
     if (!credentials) {
       toast({
@@ -1037,7 +1054,7 @@ export const useBexioApi = () => {
       }
 
       const bexioData = {
-        user_id: 1,
+        user_id: timeEntryData.user_id || currentBexioUserId || 1, // Use specified, current user, or fallback
         ...(timeEntryData.client_service_id !== undefined && { client_service_id: timeEntryData.client_service_id }),
         text: timeEntryData.text || "",
         allowable_bill: timeEntryData.allowable_bill,
@@ -1092,7 +1109,7 @@ export const useBexioApi = () => {
 
       // Re-create with new data (reuse computed durationString)
       const recreateData = {
-        user_id: 1,
+        user_id: timeEntryData.user_id || currentBexioUserId || 1, // Use specified, current user, or fallback
         ...(timeEntryData.client_service_id !== undefined && { client_service_id: timeEntryData.client_service_id }),
         text: timeEntryData.text || "",
         allowable_bill: timeEntryData.allowable_bill,
@@ -1301,6 +1318,11 @@ export const useBexioApi = () => {
     isCreatingTimeEntry,
     isConnected: !!credentials,
     hasInitiallyLoaded,
+    users,
+    isLoadingUsers,
+    currentBexioUserId,
+    isCurrentUserAdmin,
+    fetchUsers,
     connect,
     connectWithOAuth,
     fetchContacts,
@@ -1328,4 +1350,128 @@ export const useBexioApi = () => {
     workPackagesByProject,
     getWorkPackageName,
   };
+    if (!credentials) {
+      console.error('No credentials available');
+      if (!options?.quiet) {
+        toast({
+          title: "Error",
+          description: "API key not configured. Please connect to Bexio first.",
+          variant: "destructive",
+        });
+      }
+  const fetchUsers = useCallback(async (options?: { quiet?: boolean }) => {
+    if (!credentials) {
+      console.error('No credentials available');
+      if (!options?.quiet) {
+        toast({
+          title: "Error",
+          description: "API key not configured. Please connect to Bexio first.",
+          variant: "destructive",
+        });
+      }
+      return;
+    }
+
+    const authToken = await ensureValidToken();
+    if (!authToken) return;
+
+    setIsLoadingUsers(true);
+    console.log('🔍 Fetching users from Bexio');
+
+    try {
+      const response = await fetch(`https://opcjifbdwpyttaxqlqbf.supabase.co/functions/v1/bexio-proxy`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          endpoint: '/3.0/users',
+          apiKey: authToken,
+          companyId: credentials.companyId,
+          acceptLanguage: 'en',
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      const fetchedUsers = Array.isArray(data) ? data.map((u: any) => ({
+        id: u.id,
+        salutation_type: u.salutation_type,
+        firstname: u.firstname || 'Unknown',
+        lastname: u.lastname || 'User',
+        email: u.email || '',
+        is_superadmin: u.is_superadmin || false,
+        is_accountant: u.is_accountant || false,
+      })) : [];
+
+      setUsers(fetchedUsers);
+      setHasInitiallyLoaded(prev => ({ ...prev, users: true }));
+
+      let currentUser: BexioUser | null = null;
+      if (credentials.authType === 'oauth' && credentials.userEmail) {
+        currentUser = fetchedUsers.find(u => u.email === credentials.userEmail) || null;
+      } else if (fetchedUsers.length === 1) {
+        currentUser = fetchedUsers[0];
+      }
+
+      if (currentUser) {
+        setCurrentBexioUserId(currentUser.id);
+        setIsCurrentUserAdmin(currentUser.is_superadmin);
+      } else {
+        setCurrentBexioUserId(null);
+        setIsCurrentUserAdmin(false);
+      }
+
+      if (!options?.quiet) {
+        toast({
+          title: "Users loaded",
+          description: `Fetched ${fetchedUsers.length} users.`,
+        });
+      }
+    } catch (error) {
+      console.error('❌ Error fetching users:', error);
+      setUsers([]);
+      setCurrentBexioUserId(null);
+      setIsCurrentUserAdmin(false);
+      if (!options?.quiet) {
+        toast({
+          title: "Failed to load users",
+          description: "Please try again later.",
+          variant: "destructive",
+        });
+      }
+    } finally {
+      setIsLoadingUsers(false);
+    }
+  }, [credentials, ensureValidToken, toast]);
+    connectWithOAuth,
+    fetchContacts,
+    fetchProjects,
+    fetchTimeEntries,
+    fetchWorkPackages,
+    timesheetStatuses,
+    businessActivities,
+    languages,
+    currentLanguage,
+    isLoadingStatuses,
+    isLoadingActivities,
+    isLoadingLanguages,
+    fetchTimesheetStatuses,
+    fetchBusinessActivities,
+    fetchLanguages,
+    setCurrentLanguage,
+    createTimeEntry,
+    updateTimeEntry,
+    deleteTimeEntry,
+    bulkUpdateTimeEntries,
+    bulkDeleteTimeEntries,
+    loadStoredCredentials,
+    disconnect,
+    workPackagesByProject,
+    getWorkPackageName,
+  };
 };
+
+export type { BexioUser, Contact, Project, TimeEntry, WorkPackage };

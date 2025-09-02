@@ -26,6 +26,15 @@ interface WorkPackage {
   pr_project_id?: number;
 }
 
+interface BexioUser {
+  id: number;
+  firstname: string;
+  lastname: string;
+  email: string;
+  is_superadmin: boolean;
+  is_accountant: boolean;
+}
+
 interface TimeEntryDialogProps {
   onSubmit: (data: {
     dateRange: DateRange | undefined;
@@ -41,6 +50,7 @@ interface TimeEntryDialogProps {
     status_id?: number;
     pr_package_id?: string;
     pr_milestone_id?: number;
+    user_id?: number;
   }) => Promise<void>;
   isSubmitting: boolean;
   contacts: Contact[];
@@ -54,6 +64,9 @@ interface TimeEntryDialogProps {
   buttonVariant?: "default" | "destructive" | "outline" | "secondary" | "ghost" | "link";
   timesheetStatuses: { id: number; name: string }[];
   businessActivities: { id: number; name: string }[];
+  users?: BexioUser[];
+  isCurrentUserAdmin?: boolean;
+  currentBexioUserId?: number | null;
 }
 
 export const TimeEntryDialog = ({

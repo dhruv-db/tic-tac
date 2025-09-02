@@ -66,20 +66,34 @@ interface Project {
   name: string;
 }
 
+interface BexioUser {
+  id: number;
+  firstname: string;
+  lastname: string;
+  email: string;
+  is_superadmin: boolean;
+  is_accountant: boolean;
+}
+
 interface AnalyticsProps {
   timeEntries: TimeEntry[];
   contacts: Contact[];
   projects: Project[];
+  users: BexioUser[];
+  isCurrentUserAdmin: boolean;
+  currentBexioUserId: number | null;
   isLoading: boolean;
 }
 
 const CHART_COLORS = ['hsl(var(--primary))', 'hsl(var(--secondary))', '#8884d8', '#82ca9d', '#ffc658', '#ff7300', '#00ff00'];
 
-export const Analytics = ({ timeEntries, contacts, projects, isLoading }: AnalyticsProps) => {
+export const Analytics = ({ timeEntries, contacts, projects, users, isCurrentUserAdmin, currentBexioUserId, isLoading }: AnalyticsProps) => {
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
   const [selectedContact, setSelectedContact] = useState<string>("all");
   const [selectedProject, setSelectedProject] = useState<string>("all");
+  const [selectedUser, setSelectedUser] = useState<string>("all");
   const [timeFilter, setTimeFilter] = useState<string>("all");
+  const [usersChartView, setUsersChartView] = useState<'hours' | 'billability'>('hours');
 
   // Helper function to parse duration
   const parseDurationToMinutes = (duration: string | number): number => {
@@ -115,6 +129,14 @@ export const Analytics = ({ timeEntries, contacts, projects, isLoading }: Analyt
   // Filter time entries
   const filteredEntries = useMemo(() => {
     return timeEntries.filter(entry => {
+      // User filter - admin can see all or filter by user, non-admin only sees their own
+      if (!isCurrentUserAdmin && currentBexioUserId && entry.user_id !== currentBexioUserId) {
+        return false;
+      }
+      if (isCurrentUserAdmin && selectedUser !== "all" && entry.user_id?.toString() !== selectedUser) {
+        return false;
+      }
+      
       // Date filter
       if (dateRange?.from && dateRange?.to) {
         const entryDate = new Date(entry.date);
@@ -135,7 +157,7 @@ export const Analytics = ({ timeEntries, contacts, projects, isLoading }: Analyt
       
       return true;
     });
-  }, [timeEntries, dateRange, selectedContact, selectedProject]);
+  }, [timeEntries, dateRange, selectedContact, selectedProject, selectedUser, isCurrentUserAdmin, currentBexioUserId]);
 
   // Calculate KPIs
   const kpiData = useMemo(() => {

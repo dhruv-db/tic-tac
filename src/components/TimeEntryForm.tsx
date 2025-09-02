@@ -28,6 +28,7 @@ interface TimeEntryFormData {
   status_id?: number;
   pr_package_id?: string;
   pr_milestone_id?: number;
+  user_id?: number; // Add for admin assignment
 }
 
 interface Contact {
@@ -51,6 +52,15 @@ interface WorkPackage {
   pr_project_id?: number;
 }
 
+interface BexioUser {
+  id: number;
+  firstname: string;
+  lastname: string;
+  email: string;
+  is_superadmin: boolean;
+  is_accountant: boolean;
+}
+
 interface TimeEntryFormProps {
   onSubmit: (data: TimeEntryFormData) => Promise<void>;
   isSubmitting: boolean;
@@ -63,6 +73,9 @@ interface TimeEntryFormProps {
   hideFormWrapper?: boolean;
   timesheetStatuses: { id: number; name: string }[];
   businessActivities: { id: number; name: string }[];
+  users?: BexioUser[];
+  isCurrentUserAdmin?: boolean;
+  currentBexioUserId?: number | null;
 }
 
 import { useBexioApi } from "@/hooks/useBexioApi";
@@ -78,7 +91,10 @@ export const TimeEntryForm = ({
   initialData,
   hideFormWrapper = false,
   timesheetStatuses,
-  businessActivities
+  businessActivities,
+  users = [],
+  isCurrentUserAdmin = false,
+  currentBexioUserId
 }: TimeEntryFormProps) => {
   // Removed useBexioApi hook - using props instead
   

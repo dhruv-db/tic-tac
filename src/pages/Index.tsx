@@ -1,6 +1,6 @@
 
 import { Analytics } from "@/components/Analytics";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
@@ -29,19 +29,24 @@ const Index = () => {
     projects,
     timeEntries,
     workPackages,
+    users,
     isLoadingContacts,
     isLoadingProjects,
     isLoadingTimeEntries,
     isLoadingWorkPackages,
+    isLoadingUsers,
     isCreatingTimeEntry,
     isConnected,
     hasInitiallyLoaded,
+    currentBexioUserId,
+    isCurrentUserAdmin,
     connect,
     connectWithOAuth,
     fetchContacts,
     fetchProjects,
     fetchTimeEntries,
     fetchWorkPackages,
+    fetchUsers,
     fetchLanguages,
     fetchTimesheetStatuses,
     fetchBusinessActivities,
@@ -76,7 +81,7 @@ const Index = () => {
   }, [loadStoredCredentials]);
 
   useEffect(() => {
-    // Auto-fetch contacts and projects when switching to Time Tracking or Analytics
+    // Auto-fetch contacts, projects, and users when switching to Time Tracking or Analytics
     // Only fetch if we haven't loaded initially and not currently loading
     if (activeTab === "timetracking" || activeTab === "analytics") {
       if (contacts.length === 0 && !isLoadingContacts && !hasInitiallyLoaded.contacts) {
@@ -84,6 +89,9 @@ const Index = () => {
       }
       if (projects.length === 0 && !isLoadingProjects && !hasInitiallyLoaded.projects) {
         fetchProjects();
+      }
+      if (users.length === 0 && !isLoadingUsers && !hasInitiallyLoaded.users) {
+        fetchUsers();
       }
       if (timeEntries.length === 0 && !isLoadingTimeEntries && !hasInitiallyLoaded.timeEntries) {
         // Default to current month
@@ -96,7 +104,7 @@ const Index = () => {
         fetchLanguages();
       }
     }
-  }, [activeTab, hasInitiallyLoaded, isLoadingContacts, isLoadingProjects, isLoadingTimeEntries, fetchContacts, fetchProjects, fetchTimeEntries, languages.length]);
+  }, [activeTab, hasInitiallyLoaded, isLoadingContacts, isLoadingProjects, isLoadingTimeEntries, isLoadingUsers, fetchContacts, fetchProjects, fetchTimeEntries, fetchUsers, languages.length]);
 
   const handleRefresh = () => {
     if (activeTab === "analytics" || activeTab === "timetracking") {
@@ -148,6 +156,15 @@ const Index = () => {
       setIsTestingConnection(false);
     }
   };
+
+  // Filter time entries based on admin status
+  const visibleTimeEntries = useMemo(() => {
+    if (isCurrentUserAdmin || !currentBexioUserId) {
+      return timeEntries; // Admin sees all, or fallback if user not determined
+    }
+    // Non-admin users only see their own entries
+    return timeEntries.filter(entry => entry.user_id === currentBexioUserId);
+  }, [timeEntries, isCurrentUserAdmin, currentBexioUserId]);
 
   const isLoading = isLoadingContacts || isLoadingProjects || isLoadingTimeEntries;
 
@@ -306,6 +323,9 @@ const Index = () => {
                   buttonSize="sm"
                   timesheetStatuses={timesheetStatuses}
                   businessActivities={businessActivities}
+                  users={users}
+                  isCurrentUserAdmin={isCurrentUserAdmin}
+                  currentBexioUserId={currentBexioUserId}
                 />
               </div>
             )}
@@ -314,7 +334,7 @@ const Index = () => {
           <TabsContent value="timetracking" className="space-y-6">
             {timeTrackingView === 'list' ? (
               <TimeTrackingList 
-                timeEntries={timeEntries} 
+                timeEntries={visibleTimeEntries} 
                 isLoading={isLoadingTimeEntries}
                 onCreateTimeEntry={createTimeEntry}
                 onUpdateTimeEntry={updateTimeEntry}
@@ -334,7 +354,7 @@ const Index = () => {
               />
             ) : timeTrackingView === 'grid' ? (
               <SimpleTimeGrid
-                timeEntries={timeEntries}
+                timeEntries={visibleTimeEntries}
                 projects={projects}
                 onCreateTimeEntry={createTimeEntry}
                 onUpdateTimeEntry={updateTimeEntry}
@@ -347,7 +367,7 @@ const Index = () => {
               />
             ) : (
               <TimesheetCalendar
-                timeEntries={timeEntries}
+                timeEntries={visibleTimeEntries}
                 isLoading={isLoadingTimeEntries}
                 onEditEntry={setEditingEntry}
                 onCreateEntry={(date) => {
@@ -393,9 +413,12 @@ const Index = () => {
 
           <TabsContent value="analytics" className="space-y-6">
             <Analytics 
-              timeEntries={timeEntries}
+              timeEntries={visibleTimeEntries}
               contacts={contacts}
               projects={projects}
+              users={users}
+              isCurrentUserAdmin={isCurrentUserAdmin}
+              currentBexioUserId={currentBexioUserId}
               isLoading={isLoadingTimeEntries}
             />
           </TabsContent>
