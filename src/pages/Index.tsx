@@ -55,6 +55,10 @@ const Index = () => {
     bulkDeleteTimeEntries,
     loadStoredCredentials,
     disconnect,
+    timesheetStatuses,
+    businessActivities,
+    workPackagesByProject,
+    getWorkPackageName,
   } = useBexioApi();
 
   const [activeTab, setActiveTab] = useState("timetracking");
@@ -150,15 +154,15 @@ const Index = () => {
   // Re-fetch translatable resources when language changes
   useEffect(() => {
     if (currentLanguage) {
-      fetchTimesheetStatuses?.();
-      fetchBusinessActivities?.();
+      fetchTimesheetStatuses?.({ quiet: true });
+      fetchBusinessActivities?.({ quiet: true });
       // Also re-fetch work packages to get localized names
       const projectIds = Array.from(new Set(
         timeEntries.map(e => (e as any).pr_project_id || e.project_id).filter((id): id is number => !!id)
       ));
       projectIds.forEach(pid => fetchWorkPackages?.(pid));
     }
-  }, [currentLanguage, fetchTimesheetStatuses, fetchBusinessActivities, timeEntries, fetchWorkPackages]);
+  }, [currentLanguage, fetchTimesheetStatuses, fetchBusinessActivities, fetchWorkPackages]); // Removed timeEntries dependency to prevent loop
 
   if (!isConnected) {
     return (
@@ -300,6 +304,8 @@ const Index = () => {
                   initialData={calendarInitialData}
                   buttonText="Add Time Entry"
                   buttonSize="sm"
+                  timesheetStatuses={timesheetStatuses}
+                  businessActivities={businessActivities}
                 />
               </div>
             )}
@@ -321,6 +327,10 @@ const Index = () => {
                 workPackages={workPackages}
                 isLoadingWorkPackages={isLoadingWorkPackages}
                 onFetchWorkPackages={fetchWorkPackages}
+                timesheetStatuses={timesheetStatuses}
+                businessActivities={businessActivities}
+                workPackagesByProject={workPackagesByProject}
+                getWorkPackageName={getWorkPackageName}
               />
             ) : timeTrackingView === 'grid' ? (
               <SimpleTimeGrid
@@ -373,6 +383,10 @@ const Index = () => {
                 isLoadingWorkPackages={isLoadingWorkPackages}
                 onFetchWorkPackages={fetchWorkPackages}
                 isSubmitting={false}
+                timesheetStatuses={timesheetStatuses}
+                businessActivities={businessActivities}
+                workPackagesByProject={workPackagesByProject}
+                getWorkPackageName={getWorkPackageName}
               />
             )}
           </TabsContent>

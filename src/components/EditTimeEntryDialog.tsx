@@ -77,9 +77,13 @@ interface EditTimeEntryDialogProps {
   onClose: () => void;
   onSubmit: (id: number, data: TimeEntryFormData) => Promise<void>;
   isSubmitting: boolean;
+  timesheetStatuses: { id: number; name: string }[];
+  businessActivities: { id: number; name: string }[];
+  workPackagesByProject: Record<number, WorkPackage[]>;
+  getWorkPackageName: (projectId: number | undefined, packageId: string | undefined) => string;
 }
 
-import { useBexioApi } from "@/hooks/useBexioApi";
+
 
 export const EditTimeEntryDialog = ({
   entry,
@@ -91,16 +95,13 @@ export const EditTimeEntryDialog = ({
   isOpen,
   onClose,
   onSubmit,
-  isSubmitting
+  isSubmitting,
+  timesheetStatuses,
+  businessActivities,
+  workPackagesByProject,
+  getWorkPackageName: getWpName
 }: EditTimeEntryDialogProps) => {
-  const { 
-    timesheetStatuses, 
-    isLoadingStatuses, 
-    fetchTimesheetStatuses,
-    businessActivities,
-    isLoadingActivities,
-    fetchBusinessActivities
-  } = useBexioApi();
+  // Removed useBexioApi hook - using props instead
   
   const [formData, setFormData] = useState<TimeEntryFormData>({
     dateRange: undefined,
@@ -204,12 +205,7 @@ export const EditTimeEntryDialog = ({
     }
   }, [entry?.id, isOpen]); // Only depend on entry.id to avoid loops
 
-  useEffect(() => {
-    if (isOpen && fetchTimesheetStatuses && fetchBusinessActivities) {
-      fetchTimesheetStatuses();
-      fetchBusinessActivities();
-    }
-  }, [isOpen]); // Only fetch when dialog opens
+  // Removed effects that fetched statuses and activities - now using props
 
   const calculateDuration = (start: string, end: string): number => {
     const [startHours, startMinutes] = start.split(':').map(Number);
@@ -479,9 +475,7 @@ export const EditTimeEntryDialog = ({
               </SelectTrigger>
               <SelectContent className="bg-background border shadow-md z-50">
                 <SelectItem value="none">No activity</SelectItem>
-                {isLoadingActivities ? (
-                  <SelectItem value="loading" disabled>Loading activities...</SelectItem>
-                ) : businessActivities.length > 0 ? (
+                {businessActivities.length > 0 ? (
                   businessActivities.map((activity) => (
                     <SelectItem key={activity.id} value={activity.id.toString()}>
                       {activity.name}
@@ -511,21 +505,14 @@ export const EditTimeEntryDialog = ({
                 </SelectTrigger>
                 <SelectContent className="bg-background border shadow-md z-50">
                   <SelectItem value="none">No status</SelectItem>
-                  {isLoadingStatuses ? (
-                    <SelectItem value="loading" disabled>Loading statuses...</SelectItem>
-                  ) : timesheetStatuses.length > 0 ? (
+                  {timesheetStatuses.length > 0 ? (
                     timesheetStatuses.map((status) => (
                       <SelectItem key={status.id} value={status.id.toString()}>
                         {status.name}
                       </SelectItem>
                     ))
                   ) : (
-                    <>
-                      <SelectItem value="1">Draft</SelectItem>
-                      <SelectItem value="2">In Progress</SelectItem>
-                      <SelectItem value="3">Completed</SelectItem>
-                      <SelectItem value="4">Approved</SelectItem>
-                    </>
+                    <SelectItem value="1">Draft</SelectItem>
                   )}
                 </SelectContent>
               </Select>

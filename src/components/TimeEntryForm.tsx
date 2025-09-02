@@ -61,6 +61,8 @@ interface TimeEntryFormProps {
   onFetchWorkPackages: (projectId: number) => Promise<void>;
   initialData?: Partial<TimeEntryFormData>;
   hideFormWrapper?: boolean;
+  timesheetStatuses: { id: number; name: string }[];
+  businessActivities: { id: number; name: string }[];
 }
 
 import { useBexioApi } from "@/hooks/useBexioApi";
@@ -74,16 +76,11 @@ export const TimeEntryForm = ({
   isLoadingWorkPackages,
   onFetchWorkPackages,
   initialData,
-  hideFormWrapper = false
+  hideFormWrapper = false,
+  timesheetStatuses,
+  businessActivities
 }: TimeEntryFormProps) => {
-  const { 
-    timesheetStatuses, 
-    isLoadingStatuses, 
-    fetchTimesheetStatuses,
-    businessActivities,
-    isLoadingActivities,
-    fetchBusinessActivities
-  } = useBexioApi();
+  // Removed useBexioApi hook - using props instead
   
   const getContactName = (contact: Contact) => {
     const names = [contact.name_1, contact.name_2].filter(Boolean);
@@ -123,16 +120,7 @@ export const TimeEntryForm = ({
     }
   }, [formData.project_id]); // Removed onFetchWorkPackages from dependencies to prevent loop
 
-  useEffect(() => {
-    let isMounted = true;
-    if (fetchTimesheetStatuses && fetchBusinessActivities) {
-      if (isMounted) {
-        fetchTimesheetStatuses();
-        fetchBusinessActivities();
-      }
-    }
-    return () => { isMounted = false; };
-  }, []); // Only fetch once on mount
+  // Removed useEffect that was fetching statuses and activities - now using props
 
   // Watch for initial data changes (from calendar clicks)
   useEffect(() => {
@@ -462,9 +450,7 @@ export const TimeEntryForm = ({
               </SelectTrigger>
               <SelectContent className="bg-background border shadow-md z-50">
                 <SelectItem value="none">No activity</SelectItem>
-                {isLoadingActivities ? (
-                  <SelectItem value="loading" disabled>Loading activities...</SelectItem>
-                ) : businessActivities.length > 0 ? (
+                {businessActivities.length > 0 ? (
                   businessActivities.map((activity) => (
                     <SelectItem key={activity.id} value={activity.id.toString()}>
                       {activity.name}
@@ -494,21 +480,14 @@ export const TimeEntryForm = ({
                 </SelectTrigger>
                 <SelectContent className="bg-background border shadow-md z-50">
                   <SelectItem value="none">No status</SelectItem>
-                  {isLoadingStatuses ? (
-                    <SelectItem value="loading" disabled>Loading statuses...</SelectItem>
-                  ) : timesheetStatuses.length > 0 ? (
+                  {timesheetStatuses.length > 0 ? (
                     timesheetStatuses.map((status) => (
                       <SelectItem key={status.id} value={status.id.toString()}>
                         {status.name}
                       </SelectItem>
                     ))
                   ) : (
-                    <>
-                      <SelectItem value="1">Draft</SelectItem>
-                      <SelectItem value="2">In Progress</SelectItem>
-                      <SelectItem value="3">Completed</SelectItem>
-                      <SelectItem value="4">Approved</SelectItem>
-                    </>
+                    <SelectItem value="1">Draft</SelectItem>
                   )}
                 </SelectContent>
               </Select>

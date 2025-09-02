@@ -52,6 +52,8 @@ interface TimeEntryDialogProps {
   buttonText?: string;
   buttonSize?: "default" | "sm" | "lg" | "icon";
   buttonVariant?: "default" | "destructive" | "outline" | "secondary" | "ghost" | "link";
+  timesheetStatuses: { id: number; name: string }[];
+  businessActivities: { id: number; name: string }[];
 }
 
 export const TimeEntryDialog = ({
@@ -65,7 +67,9 @@ export const TimeEntryDialog = ({
   initialData,
   buttonText = "Add Time Entry",
   buttonSize = "lg",
-  buttonVariant = "default"
+  buttonVariant = "default",
+  timesheetStatuses,
+  businessActivities
 }: TimeEntryDialogProps) => {
   const [isOpen, setIsOpen] = useState(false);
 
@@ -105,6 +109,8 @@ export const TimeEntryDialog = ({
             onFetchWorkPackages={onFetchWorkPackages}
             initialData={initialData}
             hideFormWrapper={true}
+            timesheetStatuses={timesheetStatuses}
+            businessActivities={businessActivities}
           />
         </DialogContent>
       </Dialog>

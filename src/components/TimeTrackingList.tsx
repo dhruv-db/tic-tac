@@ -76,6 +76,10 @@ interface TimeTrackingListProps {
   isLoadingWorkPackages: boolean;
   onFetchWorkPackages: (projectId: number) => Promise<void>;
   onScrollToForm?: () => void;
+  timesheetStatuses: { id: number; name: string }[];
+  businessActivities: { id: number; name: string }[];
+  workPackagesByProject: Record<number, WorkPackage[]>;
+  getWorkPackageName: (projectId: number | undefined, packageId: string | undefined) => string;
 }
 
 interface WorkPackage {
@@ -100,7 +104,11 @@ export const TimeTrackingList = ({
   workPackages,
   isLoadingWorkPackages,
   onFetchWorkPackages,
-  onScrollToForm
+  onScrollToForm,
+  timesheetStatuses,
+  businessActivities,
+  workPackagesByProject,
+  getWorkPackageName: getWpName
 }: TimeTrackingListProps) => {
   const [editingEntry, setEditingEntry] = useState<TimeEntry | null>(null);
   const [activeView, setActiveView] = useState<'list' | 'calendar'>('list');
@@ -116,7 +124,7 @@ export const TimeTrackingList = ({
   const [sortBy, setSortBy] = useState<'date' | 'updated' | 'duration'>('updated');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const { toast } = useToast();
-  const { timesheetStatuses, businessActivities, fetchWorkPackages, workPackagesByProject, getWorkPackageName: getWpName } = useBexioApi();
+  // Removed useBexioApi hook - using props instead
   
   // Prefetch work packages for visible projects - handle both project_id and pr_project_id
   useEffect(() => {
@@ -125,10 +133,10 @@ export const TimeTrackingList = ({
     ));
     projectIds.forEach(pid => {
       if (!workPackagesByProject[pid]) {
-        fetchWorkPackages(pid);
+        onFetchWorkPackages(pid);
       }
     });
-  }, [timeEntries, workPackagesByProject, fetchWorkPackages]);
+  }, [timeEntries, workPackagesByProject, onFetchWorkPackages]);
   useEffect(() => {
     if (!isCreatingTimeEntry && calendarInitialData) {
       // Small delay to allow form submission to complete
@@ -588,6 +596,10 @@ export const TimeTrackingList = ({
           isLoadingWorkPackages={isLoadingWorkPackages}
           onFetchWorkPackages={onFetchWorkPackages}
           isSubmitting={isCreatingTimeEntry}
+          timesheetStatuses={timesheetStatuses}
+          businessActivities={businessActivities}
+          workPackagesByProject={workPackagesByProject}
+          getWorkPackageName={getWpName}
         />
       )}
 

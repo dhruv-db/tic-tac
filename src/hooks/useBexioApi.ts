@@ -774,10 +774,12 @@ export const useBexioApi = () => {
     }
   }, [credentials, ensureValidToken, toast, fetchTimeEntries]);
 
-  const fetchTimesheetStatuses = useCallback(async () => {
+  const fetchTimesheetStatuses = useCallback(async (options?: { quiet?: boolean }) => {
     if (!credentials) {
       console.error('No credentials available');
-      toast({ title: "Error", description: "API key not configured. Please connect to Bexio first.", variant: "destructive" });
+      if (!options?.quiet) {
+        toast({ title: "Error", description: "API key not configured. Please connect to Bexio first.", variant: "destructive" });
+      }
       return;
     }
 
@@ -815,24 +817,30 @@ export const useBexioApi = () => {
       })) : [];
 
       setTimesheetStatuses(statuses);
-      toast({ title: "Timesheet statuses loaded", description: `Successfully fetched ${statuses.length} timesheet statuses.` });
+      if (!options?.quiet) {
+        toast({ title: "Timesheet statuses loaded", description: `Successfully fetched ${statuses.length} timesheet statuses.` });
+      }
     } catch (error) {
       console.error('❌ Error fetching timesheet statuses:', error);
       setTimesheetStatuses([]);
-      toast({ title: "Failed to load timesheet statuses", description: "Please try again later.", variant: "destructive" });
+      if (!options?.quiet) {
+        toast({ title: "Failed to load timesheet statuses", description: "Please try again later.", variant: "destructive" });
+      }
     } finally {
       setIsLoadingStatuses(false);
     }
   }, [credentials, ensureValidToken, toast, currentLanguage]);
 
-  const fetchBusinessActivities = useCallback(async () => {
+  const fetchBusinessActivities = useCallback(async (options?: { quiet?: boolean }) => {
     if (!credentials) {
       console.error('No credentials available');
-      toast({
-        title: "Error",
-        description: "API key not configured. Please connect to Bexio first.",
-        variant: "destructive",
-      });
+      if (!options?.quiet) {
+        toast({
+          title: "Error",
+          description: "API key not configured. Please connect to Bexio first.",
+          variant: "destructive",
+        });
+      }
       return;
     }
 
@@ -870,22 +878,26 @@ export const useBexioApi = () => {
       })) : [];
 
       setBusinessActivities(activities);
-      toast({
-        title: "Activities loaded",
-        description: `Fetched ${activities.length} activities.`,
-      });
+      if (!options?.quiet) {
+        toast({
+          title: "Activities loaded",
+          description: `Fetched ${activities.length} activities.`,
+        });
+      }
     } catch (error) {
       console.error('❌ Error fetching business activities:', error);
       setBusinessActivities([]);
-      toast({
-        title: "Failed to load activities",
-        description: "Please try again later.",
-        variant: "destructive",
-      });
+      if (!options?.quiet) {
+        toast({
+          title: "Failed to load activities",
+          description: "Please try again later.",
+          variant: "destructive",
+        });
+      }
     } finally {
       setIsLoadingActivities(false);
     }
-  }, [credentials, ensureValidToken, toast]);
+  }, [credentials, ensureValidToken, toast, currentLanguage]);
 
   const fetchLanguages = useCallback(async () => {
     if (!credentials) return;
