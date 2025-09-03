@@ -129,7 +129,7 @@ export const TimeTrackingList = ({
   // Prefetch work packages for visible projects - handle both project_id and pr_project_id
   useEffect(() => {
     const projectIds = Array.from(new Set(
-      timeEntries.map(e => (e as any).pr_project_id || e.project_id).filter((id): id is number => !!id)
+      (timeEntries || []).map(e => (e as any).pr_project_id || e.project_id).filter((id): id is number => !!id)
     ));
     projectIds.forEach(pid => {
       if (!workPackagesByProject[pid]) {
@@ -180,7 +180,7 @@ export const TimeTrackingList = ({
   };
 
   // Filter and sort time entries
-  const filteredAndSortedTimeEntries = timeEntries
+  const filteredAndSortedTimeEntries = (timeEntries || [])
     .filter(entry => {
       // Project filter
       if (projectFilter && projectFilter !== "all") {
@@ -229,7 +229,7 @@ export const TimeTrackingList = ({
   // Get unique month/year options from time entries
   const getMonthYearOptions = () => {
     const monthYears = new Set<string>();
-    timeEntries.forEach(entry => {
+    (timeEntries || []).forEach(entry => {
       try {
         const date = new Date(entry.date);
         const monthYear = format(date, "yyyy-MM");
