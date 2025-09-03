@@ -403,20 +403,25 @@ export const TimeEntryForm = ({
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Contact Selection */}
+            {/* Contact Selection - Clear project and work package when changed */}
             <div className="space-y-2">
               <Label htmlFor="contact_id">Contact (Optional)</Label>
               <Select
                 value={formData.contact_id?.toString() || "none"}
-                onValueChange={(value) => setFormData(prev => ({ 
-                  ...prev, 
-                  contact_id: value === "none" ? undefined : parseInt(value) 
-                }))}
+                onValueChange={(value) => {
+                  const newContactId = value === "none" ? undefined : parseInt(value);
+                  setFormData(prev => ({ 
+                    ...prev, 
+                    contact_id: newContactId,
+                    project_id: undefined, // Clear project when contact changes
+                    pr_package_id: undefined, // Clear work package when contact changes
+                  }));
+                }}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select a contact" />
                 </SelectTrigger>
-                <SelectContent className="z-50">
+                <SelectContent className="z-[1000] bg-popover border border-border shadow-lg">
                   <SelectItem value="none">No contact</SelectItem>
                   {contacts.map((contact) => (
                     <SelectItem key={contact.id} value={contact.id.toString()}>
@@ -427,21 +432,26 @@ export const TimeEntryForm = ({
               </Select>
             </div>
 
-            {/* Project Selection */}
+            {/* Project Selection - Clear work package when project changes */}
             <div className="space-y-2">
               <Label htmlFor="project_id">Project (Optional)</Label>
               <Select
                 value={formData.project_id?.toString() || "none"}
-                onValueChange={(value) => setFormData(prev => ({ 
-                  ...prev, 
-                  project_id: value === "none" ? undefined : parseInt(value) 
-                }))}
+                onValueChange={(value) => {
+                  const newProjectId = value === "none" ? undefined : parseInt(value);
+                  setFormData(prev => ({ 
+                    ...prev, 
+                    project_id: newProjectId,
+                    pr_package_id: undefined, // Clear work package when project changes
+                  }));
+                }}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select a project" />
                 </SelectTrigger>
-                <SelectContent className="z-50">
+                <SelectContent className="z-[1000] bg-popover border border-border shadow-lg">
                   <SelectItem value="none">No project</SelectItem>
+                  {/* Remove the contact filtering since projects don't have contact_id */}
                   {projects.map((project) => (
                     <SelectItem key={project.id} value={project.id.toString()}>
                       {project.name} (#{project.nr})
@@ -465,18 +475,18 @@ export const TimeEntryForm = ({
               <SelectTrigger>
                 <SelectValue placeholder="Select activity" />
               </SelectTrigger>
-              <SelectContent className="bg-background border shadow-md z-50">
-                <SelectItem value="none">No activity</SelectItem>
-                {businessActivities.length > 0 ? (
-                  businessActivities.map((activity) => (
-                    <SelectItem key={activity.id} value={activity.id.toString()}>
-                      {activity.name}
-                    </SelectItem>
-                  ))
-                ) : (
-                  <SelectItem value="5">Default Activity</SelectItem>
-                )}
-              </SelectContent>
+                <SelectContent className="z-[1000] bg-popover border border-border shadow-lg">
+                  <SelectItem value="none">No activity</SelectItem>
+                  {businessActivities.length > 0 ? (
+                    businessActivities.map((activity) => (
+                      <SelectItem key={activity.id} value={activity.id.toString()}>
+                        {activity.name}
+                      </SelectItem>
+                    ))
+                  ) : (
+                    <SelectItem value="5">Default Activity</SelectItem>
+                  )}
+                </SelectContent>
             </Select>
           </div>
 
@@ -494,7 +504,7 @@ export const TimeEntryForm = ({
                 <SelectTrigger>
                   <SelectValue placeholder="Select user" />
                 </SelectTrigger>
-                <SelectContent className="z-50">
+                <SelectContent className="z-[1000] bg-popover border border-border shadow-lg">
                   {users.map((user) => (
                     <SelectItem key={user.id} value={user.id.toString()}>
                       {user.firstname} {user.lastname} {user.id === currentBexioUserId ? "(You)" : ""}
@@ -520,7 +530,7 @@ export const TimeEntryForm = ({
                 <SelectTrigger>
                   <SelectValue placeholder="Select status" />
                 </SelectTrigger>
-                <SelectContent className="bg-background border shadow-md z-50">
+                <SelectContent className="z-[1000] bg-popover border border-border shadow-lg">
                   <SelectItem value="none">No status</SelectItem>
                   {timesheetStatuses.length > 0 ? (
                     timesheetStatuses.map((status) => (
@@ -552,7 +562,7 @@ export const TimeEntryForm = ({
                 <SelectTrigger>
                   <SelectValue placeholder="Select work package" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="z-[1000] bg-popover border border-border shadow-lg">
                   <SelectItem value="none">No work package</SelectItem>
                   {isLoadingWorkPackages ? (
                     <SelectItem value="__loading" disabled>Loading...</SelectItem>

@@ -74,7 +74,7 @@ const Index = () => {
   const [logoUrl, setLogoUrl] = useState<string>(() => localStorage.getItem('adminLogoUrl') || 'https://cdn.prod.website-files.com/644a6e413354d12887abce48/678e77dc82ed84dfe2ede9f8_db%20icon%20(1).png');
   const [isLogoDialogOpen, setIsLogoDialogOpen] = useState(false);
   const [logoUrlInput, setLogoUrlInput] = useState<string>(logoUrl);
-  const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
+  const [selectedUserId, setSelectedUserId] = useState<number | "all" | null>(null);
   const { toast } = useToast();
 
   // Set default user filter to current user when available
@@ -172,12 +172,15 @@ const Index = () => {
       return timeEntries.filter(entry => entry.user_id === currentBexioUserId);
     }
     
-    // Admin users can see all or filter by selected user
-    if (selectedUserId) {
-      return timeEntries.filter(entry => entry.user_id === selectedUserId);
+    // Admin users - fix "All users" filtering
+    if (selectedUserId && selectedUserId !== "all") {
+      // Specific user selected - show only their entries
+      const userId = parseInt(selectedUserId.toString());
+      return timeEntries.filter(entry => entry.user_id === userId);
+    } else {
+      // "All users" or no selection - show all entries
+      return timeEntries;
     }
-    
-    return timeEntries; // Show all if no user selected
   }, [timeEntries, isCurrentUserAdmin, currentBexioUserId, selectedUserId]);
 
   const isLoading = isLoadingContacts || isLoadingProjects || isLoadingTimeEntries;
@@ -222,19 +225,19 @@ const Index = () => {
                   <label className="text-sm text-muted-foreground">View user:</label>
                   <Select 
                     value={selectedUserId?.toString() || "all"} 
-                    onValueChange={(value) => setSelectedUserId(value === "all" ? null : parseInt(value))}
+                    onValueChange={(value) => setSelectedUserId(value === "all" ? "all" : parseInt(value))}
                   >
                     <SelectTrigger className="w-48">
                       <SelectValue placeholder="Select user" />
                     </SelectTrigger>
-                    <SelectContent className="z-50 bg-background">
-                      <SelectItem value="all">All Users</SelectItem>
-                      {users.map((user) => (
-                        <SelectItem key={user.id} value={user.id.toString()}>
-                          {user.firstname} {user.lastname}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
+                <SelectContent className="z-[1000] bg-popover border border-border shadow-lg">
+                  <SelectItem value="all">All Users</SelectItem>
+                  {users.map((user) => (
+                    <SelectItem key={user.id} value={user.id.toString()}>
+                      {user.firstname} {user.lastname}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
                   </Select>
                 </div>
               )}
@@ -335,7 +338,7 @@ const Index = () => {
                     <SelectTrigger className="w-40">
                       <SelectValue placeholder="Language" />
                     </SelectTrigger>
-                    <SelectContent className="z-50 bg-background">
+                    <SelectContent className="z-[1000] bg-popover border border-border shadow-lg">
                       {languages.map((lang) => (
                         <SelectItem key={lang.id} value={lang.iso_639_1}>
                           {lang.name}
@@ -454,7 +457,7 @@ const Index = () => {
               projects={projects}
               users={users}
               isCurrentUserAdmin={isCurrentUserAdmin}
-              currentBexioUserId={selectedUserId || currentBexioUserId}
+              currentBexioUserId={typeof selectedUserId === "number" ? selectedUserId : currentBexioUserId}
               isLoading={isLoadingTimeEntries}
             />
           </TabsContent>

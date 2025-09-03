@@ -91,7 +91,6 @@ export const Analytics = ({ timeEntries, contacts, projects, users, isCurrentUse
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
   const [selectedContact, setSelectedContact] = useState<string>("all");
   const [selectedProject, setSelectedProject] = useState<string>("all");
-  const [selectedUser, setSelectedUser] = useState<string>("all");
   const [timeFilter, setTimeFilter] = useState<string>("all");
   const [usersChartView, setUsersChartView] = useState<'hours' | 'billability'>('hours');
 
@@ -126,17 +125,9 @@ export const Analytics = ({ timeEntries, contacts, projects, users, isCurrentUse
     }
   }, [timeFilter]);
 
-  // Filter time entries
+  // Filter time entries - Analytics gets pre-filtered data from parent, no user filtering here
   const filteredEntries = useMemo(() => {
     return timeEntries.filter(entry => {
-      // User filter - admin can see all or filter by user, non-admin only sees their own
-      if (!isCurrentUserAdmin && currentBexioUserId && entry.user_id !== currentBexioUserId) {
-        return false;
-      }
-      if (isCurrentUserAdmin && selectedUser !== "all" && entry.user_id?.toString() !== selectedUser) {
-        return false;
-      }
-      
       // Date filter
       if (dateRange?.from && dateRange?.to) {
         const entryDate = new Date(entry.date);
@@ -157,7 +148,7 @@ export const Analytics = ({ timeEntries, contacts, projects, users, isCurrentUse
       
       return true;
     });
-  }, [timeEntries, dateRange, selectedContact, selectedProject, selectedUser, isCurrentUserAdmin, currentBexioUserId]);
+  }, [timeEntries, dateRange, selectedContact, selectedProject]);
 
   // Calculate KPIs
   const kpiData = useMemo(() => {
@@ -254,28 +245,44 @@ export const Analytics = ({ timeEntries, contacts, projects, users, isCurrentUse
       }));
   }, [filteredEntries, projects]);
 
-  // Contact breakdown data
-  const contactChartData = useMemo(() => {
-    const contactData: Record<string, number> = {};
+  // User breakdown data
+  const userChartData = useMemo(() => {
+    const userData: Record<string, { name: string; totalMinutes: number; billableMinutes: number }> = {};
     
     filteredEntries.forEach(entry => {
-      const contactId = entry.contact_id;
-      const contact = contacts.find(c => c.id === contactId);
-      const contactName = contact ? `${contact.name_1} ${contact.name_2 || ''}`.trim() : 'No Contact';
+      const userId = entry.user_id;
+      const user = users.find(u => u.id === userId);
+      const userName = user ? `${user.firstname} ${user.lastname}` : 'Unknown User';
       const minutes = parseDurationToMinutes(entry.duration);
       
-      contactData[contactName] = (contactData[contactName] || 0) + minutes;
+      if (!userData[userName]) {
+        userData[userName] = { name: userName, totalMinutes: 0, billableMinutes: 0 };
+      }
+      
+      userData[userName].totalMinutes += minutes;
+      if (entry.allowable_bill) {
+        userData[userName].billableMinutes += minutes;
+      }
     });
     
-    return Object.entries(contactData)
-      .map(([name, minutes], index) => ({
-        name,
-        hours: Math.round(minutes / 60 * 100) / 100,
-        fill: CHART_COLORS[index % CHART_COLORS.length]
-      }))
-      .sort((a, b) => b.hours - a.hours)
-      .slice(0, 10); // Top 10 contacts
-  }, [filteredEntries, contacts]);
+    if (usersChartView === 'hours') {
+      return Object.values(userData)
+        .map((item, index) => ({
+          name: item.name,
+          hours: Math.round(item.totalMinutes / 60 * 100) / 100,
+          fill: CHART_COLORS[index % CHART_COLORS.length]
+        }))
+        .sort((a, b) => b.hours - a.hours);
+    } else {
+      return Object.values(userData)
+        .map((item, index) => ({
+          name: item.name,
+          billableRate: item.totalMinutes > 0 ? Math.round((item.billableMinutes / item.totalMinutes) * 100) : 0,
+          fill: CHART_COLORS[index % CHART_COLORS.length]
+        }))
+        .sort((a, b) => b.billableRate - a.billableRate);
+    }
+  }, [filteredEntries, users, usersChartView]);
 
   return (
     <div className="space-y-6">
@@ -288,7 +295,7 @@ export const Analytics = ({ timeEntries, contacts, projects, users, isCurrentUse
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {/* Time Range Filter */}
             <div className="space-y-2">
               <label className="text-sm font-medium">Time Period</label>
@@ -304,26 +311,6 @@ export const Analytics = ({ timeEntries, contacts, projects, users, isCurrentUse
                 </SelectContent>
               </Select>
             </div>
-
-            {/* User Filter - Show for admins or hide if only one user */}
-            {(isCurrentUserAdmin && users.length > 1) && (
-              <div className="space-y-2">
-                <label className="text-sm font-medium">User</label>
-                <Select value={selectedUser} onValueChange={setSelectedUser}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Users</SelectItem>
-                    {users.map(user => (
-                      <SelectItem key={user.id} value={user.id.toString()}>
-                        {user.firstname} {user.lastname}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
 
             {/* Contact Filter */}
             <div className="space-y-2">
@@ -547,24 +534,59 @@ export const Analytics = ({ timeEntries, contacts, projects, users, isCurrentUse
           </CardContent>
         </Card>
 
-        {/* Contact Distribution */}
+        {/* User Hours/Billability Chart */}
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Users className="h-4 w-4" />
-              Time by Contact
-            </CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle className="flex items-center gap-2">
+                <Users className="h-4 w-4" />
+                {usersChartView === 'hours' ? 'Hours by User' : 'Billability by User'}
+              </CardTitle>
+              <div className="flex gap-2">
+                <Button 
+                  variant={usersChartView === 'hours' ? 'default' : 'outline'} 
+                  size="sm" 
+                  onClick={() => setUsersChartView('hours')}
+                >
+                  Hours
+                </Button>
+                <Button 
+                  variant={usersChartView === 'billability' ? 'default' : 'outline'} 
+                  size="sm" 
+                  onClick={() => setUsersChartView('billability')}
+                >
+                  Billability
+                </Button>
+              </div>
+            </div>
           </CardHeader>
           <CardContent>
             <div className="h-[300px]">
               <ResponsiveContainer width="100%" height="100%">
                 <RechartsPieChart>
-                  <Tooltip formatter={(value: any) => [`${value}h`, 'Hours']} />
-                  <RechartsPieChart dataKey="hours" data={contactChartData} cx="50%" cy="50%" outerRadius={80}>
-                    {contactChartData.map((entry, index) => (
+                  <Pie
+                    data={userChartData}
+                    cx="50%"
+                    cy="50%"
+                    outerRadius={80}
+                    dataKey={usersChartView === 'hours' ? 'hours' : 'billableRate'}
+                    label={({ name, hours, billableRate }) => 
+                      usersChartView === 'hours' 
+                        ? `${name}: ${hours}h` 
+                        : `${name}: ${billableRate}%`
+                    }
+                    labelLine={false}
+                  >
+                    {userChartData.map((entry, index) => (
                       <Cell key={`cell-${index}`} fill={entry.fill} />
                     ))}
-                  </RechartsPieChart>
+                  </Pie>
+                  <Tooltip 
+                    formatter={(value: any, name: any) => [
+                      usersChartView === 'hours' ? `${value}h` : `${value}%`, 
+                      usersChartView === 'hours' ? 'Hours' : 'Billable Rate'
+                    ]}
+                  />
                 </RechartsPieChart>
               </ResponsiveContainer>
             </div>

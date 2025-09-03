@@ -419,53 +419,66 @@ export const EditTimeEntryDialog = ({
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Contact Selection */}
-            <div className="space-y-2">
-              <Label htmlFor="contact_id">Contact (Optional)</Label>
-              <Select
-                value={formData.contact_id?.toString() || "none"}
-                onValueChange={(value) => setFormData(prev => ({ 
-                  ...prev, 
-                  contact_id: value === "none" ? undefined : parseInt(value) 
-                }))}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select a contact" />
-                </SelectTrigger>
-                <SelectContent className="z-50">
-                  <SelectItem value="none">No contact</SelectItem>
-                  {contacts.map((contact) => (
-                    <SelectItem key={contact.id} value={contact.id.toString()}>
-                      {getContactName(contact)} (#{contact.nr})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+              {/* Contact Selection - Clear project and work package when changed */}
+              <div className="space-y-2">
+                <Label htmlFor="contact_id">Contact (Optional)</Label>
+                <Select
+                  value={formData.contact_id?.toString() || "none"}
+                  onValueChange={(value) => {
+                    const newContactId = value === "none" ? undefined : parseInt(value);
+                    setFormData(prev => ({ 
+                      ...prev, 
+                      contact_id: newContactId,
+                      project_id: undefined, // Clear project when contact changes
+                      pr_package_id: undefined, // Clear work package when contact changes
+                    }));
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a contact" />
+                  </SelectTrigger>
+                  <SelectContent className="z-[1000] bg-popover border border-border shadow-lg">
+                    <SelectItem value="none">No contact</SelectItem>
+                    {contacts.map((contact) => (
+                      <SelectItem key={contact.id} value={contact.id.toString()}>
+                        {getContactName(contact)} (#{contact.nr})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
 
-            {/* Project Selection */}
-            <div className="space-y-2">
-              <Label htmlFor="project_id">Project (Optional)</Label>
-              <Select
-                value={formData.project_id?.toString() || "none"}
-                onValueChange={(value) => setFormData(prev => ({ 
-                  ...prev, 
-                  project_id: value === "none" ? undefined : parseInt(value) 
-                }))}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select a project" />
-                </SelectTrigger>
-                <SelectContent className="z-50">
-                  <SelectItem value="none">No project</SelectItem>
-                  {projects.map((project) => (
-                    <SelectItem key={project.id} value={project.id.toString()}>
-                      {project.name} (#{project.nr})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+              {/* Project Selection - Clear work package when project changes and apply filtering */}
+              <div className="space-y-2">
+                <Label htmlFor="project_id">Project (Optional)</Label>
+                <Select
+                  value={formData.project_id?.toString() || "none"}
+                  onValueChange={(value) => {
+                    const newProjectId = value === "none" ? undefined : parseInt(value);
+                    setFormData(prev => ({ 
+                      ...prev, 
+                      project_id: newProjectId,
+                      pr_package_id: undefined, // Clear work package when project changes
+                    }));
+                    // Fetch work packages for new project
+                    if (newProjectId) {
+                      onFetchWorkPackages(newProjectId);
+                    }
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a project" />
+                  </SelectTrigger>
+                  <SelectContent className="z-[1000] bg-popover border border-border shadow-lg">
+                    <SelectItem value="none">No project</SelectItem>
+                    {projects.map((project) => (
+                      <SelectItem key={project.id} value={project.id.toString()}>
+                        {project.name} (#{project.nr})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
           </div>
 
           {/* Activity Selection */}
@@ -481,18 +494,18 @@ export const EditTimeEntryDialog = ({
               <SelectTrigger>
                 <SelectValue placeholder="Select activity" />
               </SelectTrigger>
-              <SelectContent className="bg-background border shadow-md z-50">
-                <SelectItem value="none">No activity</SelectItem>
-                {businessActivities.length > 0 ? (
-                  businessActivities.map((activity) => (
-                    <SelectItem key={activity.id} value={activity.id.toString()}>
-                      {activity.name}
-                    </SelectItem>
-                  ))
-                ) : (
-                  <SelectItem value="5">Default Activity</SelectItem>
-                )}
-              </SelectContent>
+                <SelectContent className="z-[1000] bg-popover border border-border shadow-lg">
+                  <SelectItem value="none">No activity</SelectItem>
+                  {businessActivities.length > 0 ? (
+                    businessActivities.map((activity) => (
+                      <SelectItem key={activity.id} value={activity.id.toString()}>
+                        {activity.name}
+                      </SelectItem>
+                    ))
+                  ) : (
+                    <SelectItem value="5">Default Activity</SelectItem>
+                  )}
+                </SelectContent>
             </Select>
           </div>
 
@@ -511,7 +524,7 @@ export const EditTimeEntryDialog = ({
                 <SelectTrigger>
                   <SelectValue placeholder="Select status" />
                 </SelectTrigger>
-                <SelectContent className="bg-background border shadow-md z-50">
+                <SelectContent className="z-[1000] bg-popover border border-border shadow-lg">
                   <SelectItem value="none">No status</SelectItem>
                   {timesheetStatuses.length > 0 ? (
                     timesheetStatuses.map((status) => (
@@ -540,7 +553,7 @@ export const EditTimeEntryDialog = ({
                 <SelectTrigger>
                   <SelectValue placeholder="Select work package" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="z-[1000] bg-popover border border-border shadow-lg">
                   <SelectItem value="none">No work package</SelectItem>
                   {isLoadingWorkPackages ? (
                     <SelectItem value="__loading" disabled>Loading...</SelectItem>
