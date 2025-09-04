@@ -203,62 +203,6 @@ export const useBexioApi = () => {
     return found?.name || `WP ${packageId}`;
   };
 
-  const connect = useCallback(async (apiKey: string, companyId: string) => {
-    try {
-      // Store credentials in localStorage
-      const creds: BexioCredentials = { 
-        apiKey, 
-        companyId, 
-        authType: 'api' 
-      };
-      localStorage.setItem('bexio_credentials', JSON.stringify(creds));
-      setCredentials(creds);
-      
-      toast({
-        title: "Connected successfully",
-        description: "You can now fetch data from Bexio.",
-      });
-    } catch (error) {
-      toast({
-        title: "Connection failed",
-        description: "Please check your credentials and try again.",
-        variant: "destructive",
-      });
-      throw error;
-    }
-  }, [toast]);
-
-  const connectWithOAuth = useCallback(async (accessToken: string, refreshToken: string, companyId: string, userEmail: string) => {
-    console.log('🔗 connectWithOAuth called with:', { hasAccessToken: !!accessToken, hasRefreshToken: !!refreshToken, companyId, userEmail });
-    try {
-      const expiresAt = Date.now() + (3600 * 1000); // 1 hour from now
-      const creds: BexioCredentials = {
-        accessToken,
-        refreshToken,
-        companyId: companyId || 'unknown', // Fallback for missing company ID
-        userEmail: userEmail || 'OAuth User', // Fallback for missing email
-        authType: 'oauth',
-        expiresAt
-      };
-      
-      console.log('💾 Storing credentials in localStorage:', creds);
-      localStorage.setItem('bexio_credentials', JSON.stringify(creds));
-      console.log('🎯 Setting credentials state...');
-      setCredentials(creds);
-      console.log('✅ Credentials set! App should now be connected. isConnected will be:', !!creds);
-      logTokenClaims(accessToken);
-      
-      // No toast notification - seamless authentication
-    } catch (error) {
-      console.error('❌ OAuth connection error:', error);
-      toast({
-        title: "OAuth connection failed",
-        description: "Please try again.",
-        variant: "destructive",
-      });
-      throw error;
-    }
-  }, [toast]);
 
   // Helper function to refresh OAuth token if needed
   const ensureValidToken = useCallback(async (): Promise<string | null> => {
@@ -318,6 +262,173 @@ export const useBexioApi = () => {
     
     return null;
   }, [credentials, toast]);
+
+  const fetchCurrentUser = useCallback(async () => {
+    if (!credentials) return null;
+
+    const authToken = await ensureValidToken();
+    if (!authToken) return null;
+
+    try {
+      // Try /3.0/users/me first (OAuth preferred)
+      const meResponse = await fetch(`https://opcjifbdwpyttaxqlqbf.supabase.co/functions/v1/bexio-proxy`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          endpoint: '/3.0/users/me',
+          apiKey: authToken,
+          companyId: credentials.companyId,
+          acceptLanguage: 'en',
+        }),
+      });
+
+      if (meResponse.ok) {
+        const userData = await meResponse.json();
+        const currentUser: BexioUser = {
+          id: userData.id,
+          salutation_type: userData.salutation_type,
+          firstname: userData.firstname || 'Unknown',
+          lastname: userData.lastname || 'User',
+          email: userData.email || '',
+          is_superadmin: userData.is_superadmin || false,
+          is_accountant: userData.is_accountant || false,
+        };
+
+        setCurrentBexioUserId(currentUser.id);
+        setIsCurrentUserAdmin(currentUser.is_superadmin || currentUser.is_accountant);
+        
+        console.log(`🔐 Current user identified via /me: ${currentUser.firstname} ${currentUser.lastname} (${currentUser.email})`);
+        return currentUser;
+      }
+    } catch (error) {
+      console.warn('Failed to fetch current user via /me endpoint:', error);
+    }
+
+    // Fallback: Try to identify via email matching if OAuth user
+    if (credentials.authType === 'oauth' && credentials.userEmail) {
+      try {
+        const usersResponse = await fetch(`https://opcjifbdwpyttaxqlqbf.supabase.co/functions/v1/bexio-proxy`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            endpoint: '/3.0/users',
+            apiKey: authToken,
+            companyId: credentials.companyId,
+            acceptLanguage: 'en',
+          }),
+        });
+
+        if (usersResponse.ok) {
+          const usersData = await usersResponse.json();
+          const currentUser = Array.isArray(usersData) 
+            ? usersData.find(u => u.email === credentials.userEmail)
+            : null;
+            
+          if (currentUser) {
+            const user: BexioUser = {
+              id: currentUser.id,
+              salutation_type: currentUser.salutation_type,
+              firstname: currentUser.firstname || 'Unknown',
+              lastname: currentUser.lastname || 'User',
+              email: currentUser.email || '',
+              is_superadmin: currentUser.is_superadmin || false,
+              is_accountant: currentUser.is_accountant || false,
+            };
+
+            setCurrentBexioUserId(user.id);
+            setIsCurrentUserAdmin(user.is_superadmin || user.is_accountant);
+            
+            console.log(`🔐 Current user identified via email match: ${user.firstname} ${user.lastname}`);
+            return user;
+          }
+        }
+      } catch (error) {
+        console.warn('Failed to fetch users for email matching:', error);
+      }
+    }
+
+    // Final fallback: check localStorage
+    const storedUserId = localStorage.getItem('selectedBexioUserId');
+    if (storedUserId) {
+      const userId = parseInt(storedUserId);
+      const isAdmin = localStorage.getItem('isCurrentUserAdmin') === 'true';
+      setCurrentBexioUserId(userId);
+      setIsCurrentUserAdmin(isAdmin);
+      console.log(`🔐 Using stored user ID: ${userId} (admin: ${isAdmin})`);
+      return { id: userId, is_superadmin: isAdmin, is_accountant: false } as BexioUser;
+    }
+
+    console.warn('❌ Could not identify current user');
+    return null;
+  }, [credentials, ensureValidToken]);
+
+  const connect = useCallback(async (apiKey: string, companyId: string) => {
+    try {
+      // Store credentials in localStorage
+      const creds: BexioCredentials = { 
+        apiKey, 
+        companyId, 
+        authType: 'api' 
+      };
+      localStorage.setItem('bexio_credentials', JSON.stringify(creds));
+      setCredentials(creds);
+      
+      // Auto-identify current user after connection
+      setTimeout(async () => {
+        await fetchCurrentUser();
+      }, 100);
+      
+      toast({
+        title: "Connected successfully",
+        description: "You can now fetch data from Bexio.",
+      });
+    } catch (error) {
+      toast({
+        title: "Connection failed",
+        description: "Please check your credentials and try again.",
+        variant: "destructive",
+      });
+      throw error;
+    }
+  }, [toast, fetchCurrentUser]);
+
+  const connectWithOAuth = useCallback(async (accessToken: string, refreshToken: string, companyId: string, userEmail: string) => {
+    console.log('🔗 connectWithOAuth called with:', { hasAccessToken: !!accessToken, hasRefreshToken: !!refreshToken, companyId, userEmail });
+    try {
+      const expiresAt = Date.now() + (3600 * 1000); // 1 hour from now
+      const creds: BexioCredentials = {
+        accessToken,
+        refreshToken,
+        companyId: companyId || 'unknown', // Fallback for missing company ID
+        userEmail: userEmail || 'OAuth User', // Fallback for missing email
+        authType: 'oauth',
+        expiresAt
+      };
+      
+      console.log('💾 Storing credentials in localStorage:', creds);
+      localStorage.setItem('bexio_credentials', JSON.stringify(creds));
+      console.log('🎯 Setting credentials state...');
+      setCredentials(creds);
+      console.log('✅ Credentials set! App should now be connected. isConnected will be:', !!creds);
+      logTokenClaims(accessToken);
+      
+      // Auto-identify current user after OAuth connection
+      setTimeout(async () => {
+        await fetchCurrentUser();
+      }, 100);
+      
+      // No toast notification - seamless authentication
+    } catch (error) {
+      console.error('❌ OAuth connection error:', error);
+      toast({
+        title: "OAuth connection failed",
+        description: "Please try again.",
+        variant: "destructive",
+      });
+      throw error;
+    }
+  }, [toast, fetchCurrentUser]);
+
 
   const fetchContacts = useCallback(async () => {
     if (!credentials || isLoadingContacts) return;
@@ -725,7 +836,11 @@ export const useBexioApi = () => {
       const createWithRetry = async (date: Date) => {
         // Ensure we have a valid user ID
         if (!timeEntryData.user_id && !currentBexioUserId) {
-          throw new Error("Couldn't identify your Bexio user. Please reconnect.");
+          console.log("🔍 No user ID found, attempting to fetch current user...");
+          await fetchCurrentUser();
+          if (!currentBexioUserId) {
+            throw new Error("Couldn't identify your Bexio user. Please reconnect.");
+          }
         }
         
         const bexioData = {
@@ -1047,7 +1162,11 @@ export const useBexioApi = () => {
 
       // Ensure we have a valid user ID
       if (!timeEntryData.user_id && !currentBexioUserId) {
-        throw new Error("Couldn't identify your Bexio user. Please reconnect.");
+        console.log("🔍 No user ID found, attempting to fetch current user...");
+        await fetchCurrentUser();
+        if (!currentBexioUserId) {
+          throw new Error("Couldn't identify your Bexio user. Please reconnect.");
+        }
       }
       
       const bexioData = {
@@ -1352,103 +1471,6 @@ export const useBexioApi = () => {
     }
   }, [credentials, toast, deleteTimeEntry, fetchTimeEntries]);
 
-  const fetchCurrentUser = useCallback(async () => {
-    if (!credentials) return null;
-
-    const authToken = await ensureValidToken();
-    if (!authToken) return null;
-
-    try {
-      // Try /3.0/users/me first (OAuth preferred)
-      const meResponse = await fetch(`https://opcjifbdwpyttaxqlqbf.supabase.co/functions/v1/bexio-proxy`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          endpoint: '/3.0/users/me',
-          apiKey: authToken,
-          companyId: credentials.companyId,
-          acceptLanguage: 'en',
-        }),
-      });
-
-      if (meResponse.ok) {
-        const userData = await meResponse.json();
-        const currentUser: BexioUser = {
-          id: userData.id,
-          salutation_type: userData.salutation_type,
-          firstname: userData.firstname || 'Unknown',
-          lastname: userData.lastname || 'User',
-          email: userData.email || '',
-          is_superadmin: userData.is_superadmin || false,
-          is_accountant: userData.is_accountant || false,
-        };
-
-        setCurrentBexioUserId(currentUser.id);
-        setIsCurrentUserAdmin(currentUser.is_superadmin || currentUser.is_accountant);
-        
-        console.log(`🔐 Current user identified via /me: ${currentUser.firstname} ${currentUser.lastname} (${currentUser.email})`);
-        return currentUser;
-      }
-    } catch (error) {
-      console.warn('Failed to fetch current user via /me endpoint:', error);
-    }
-
-    // Fallback: try finding by email in users list
-    if (credentials.authType === 'oauth' && credentials.userEmail) {
-      try {
-        const response = await fetch(`https://opcjifbdwpyttaxqlqbf.supabase.co/functions/v1/bexio-proxy`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            endpoint: '/3.0/users',
-            apiKey: authToken,
-            companyId: credentials.companyId,
-            acceptLanguage: 'en',
-          }),
-        });
-
-        if (response.ok) {
-          const data = await response.json();
-          const fetchedUsers = Array.isArray(data) ? data : [];
-          const currentUser = fetchedUsers.find((u: any) => u.email === credentials.userEmail);
-          
-          if (currentUser) {
-            const user: BexioUser = {
-              id: currentUser.id,
-              salutation_type: currentUser.salutation_type,
-              firstname: currentUser.firstname || 'Unknown',
-              lastname: currentUser.lastname || 'User',
-              email: currentUser.email || '',
-              is_superadmin: currentUser.is_superadmin || false,
-              is_accountant: currentUser.is_accountant || false,
-            };
-
-            setCurrentBexioUserId(user.id);
-            setIsCurrentUserAdmin(user.is_superadmin || user.is_accountant);
-            
-            console.log(`🔐 Current user identified via email match: ${user.firstname} ${user.lastname}`);
-            return user;
-          }
-        }
-      } catch (error) {
-        console.warn('Failed to fetch users for email matching:', error);
-      }
-    }
-
-    // Final fallback: check localStorage
-    const storedUserId = localStorage.getItem('selectedBexioUserId');
-    if (storedUserId) {
-      const userId = parseInt(storedUserId);
-      const isAdmin = localStorage.getItem('isCurrentUserAdmin') === 'true';
-      setCurrentBexioUserId(userId);
-      setIsCurrentUserAdmin(isAdmin);
-      console.log(`🔐 Using stored user ID: ${userId} (admin: ${isAdmin})`);
-      return { id: userId, is_superadmin: isAdmin, is_accountant: false } as BexioUser;
-    }
-
-    console.warn('❌ Could not identify current user');
-    return null;
-  }, [credentials, ensureValidToken]);
 
   const fetchUsers = useCallback(async (options?: { quiet?: boolean }) => {
     if (!credentials) {
@@ -1557,6 +1579,7 @@ export const useBexioApi = () => {
     currentBexioUserId,
     isCurrentUserAdmin,
     fetchUsers,
+    fetchCurrentUser,
     connect,
     connectWithOAuth,
     fetchContacts,
