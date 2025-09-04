@@ -955,83 +955,30 @@ export const useBexioApi = () => {
   const fetchLanguages = useCallback(async () => {
     if (!credentials) return;
 
-    const authToken = await ensureValidToken();
-    if (!authToken) return;
-
+    // Skip API call since languages endpoint doesn't exist in Bexio API
+    // Use hardcoded language list directly
+    console.log('🌍 Setting up language list (no API call needed)');
+    
     setIsLoadingLanguages(true);
-    console.log('🌍 Fetching languages from Bexio API');
     
     try {
-      // Try multiple language endpoints as fallback
-      const endpoints = ['/languages', '/2.0/languages', '/3.0/languages'];
-      let response: Response | null = null;
-      
-      for (const endpoint of endpoints) {
-        try {
-          response = await fetch(`https://opcjifbdwpyttaxqlqbf.supabase.co/functions/v1/bexio-proxy`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              endpoint,
-              apiKey: authToken,
-              companyId: credentials.companyId,
-              acceptLanguage: currentLanguage,
-            }),
-          });
-
-          if (response.ok) {
-            console.log(`✅ Languages loaded from ${endpoint}`);
-            break;
-          }
-        } catch (error) {
-          console.warn(`Failed to fetch languages from ${endpoint}:`, error);
-        }
-      }
-
-      if (!response || !response.ok) {
-        // If all language APIs fail, use fallback list
-        console.warn('All language APIs failed, using fallback list');
-        const fallbackLanguages = [
-          { id: 1, name: 'English', iso_639_1: 'en' },
-          { id: 2, name: 'Deutsch', iso_639_1: 'de' },
-          { id: 3, name: 'Français', iso_639_1: 'fr' },
-          { id: 4, name: 'Italiano', iso_639_1: 'it' },
-        ];
-        setLanguages(fallbackLanguages);
-        setCurrentLanguage('en');
-        return;
-      }
-
-      const data = await response.json();
-      console.log('✅ Received languages:', data);
-      
-      const languages = Array.isArray(data) ? data.map((lang: any) => ({
-        id: lang.id,
-        name: lang.name,
-        iso_639_1: lang.iso_639_1,
-      })) : [];
-
-      setLanguages(languages);
-      
-      // Set English as default if available, otherwise first language
-      const defaultLang = languages.find(l => l.iso_639_1 === 'en') || languages[0];
-      if (defaultLang && !currentLanguage) {
-        setCurrentLanguage(defaultLang.iso_639_1);
-      }
-      
-    } catch (error) {
-      console.error('❌ Error loading languages:', error);
-      // Use fallback on error
       const fallbackLanguages = [
         { id: 1, name: 'English', iso_639_1: 'en' },
         { id: 2, name: 'Deutsch', iso_639_1: 'de' },
+        { id: 3, name: 'Français', iso_639_1: 'fr' },
+        { id: 4, name: 'Italiano', iso_639_1: 'it' },
       ];
       setLanguages(fallbackLanguages);
-      setCurrentLanguage('en');
+      if (!currentLanguage) {
+        setCurrentLanguage('en');
+      }
+      console.log('✅ Languages initialized');
+    } catch (error) {
+      console.error('❌ Error setting up languages:', error);
     } finally {
       setIsLoadingLanguages(false);
     }
-  }, [credentials, ensureValidToken, toast, currentLanguage]);
+  }, [credentials, currentLanguage]);
 
   const updateTimeEntry = useCallback(async (id: number, timeEntryData: {
     dateRange: DateRange | undefined;
