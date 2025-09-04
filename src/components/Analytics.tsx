@@ -578,16 +578,17 @@ export const Analytics = ({ timeEntries, contacts, projects, users, isCurrentUse
            <CardContent>
              <div className="h-[300px]">
                <ResponsiveContainer width="100%" height="100%">
-                 {usersChartView === 'hours' ? (
-                   <BarChart data={userChartData} layout="horizontal">
-                     <CartesianGrid strokeDasharray="3 3" />
-                     <XAxis type="number" />
-                     <YAxis type="category" dataKey="name" width={120} />
-                     <Tooltip 
-                       formatter={(value: any) => [`${value}h`, 'Hours']}
-                     />
-                     <Bar dataKey="hours" fill="hsl(var(--primary))" />
-                   </BarChart>
+                  {usersChartView === 'hours' ? (
+                    <BarChart data={userChartData}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="name" />
+                      <YAxis />
+                      <Tooltip 
+                        formatter={(value: any) => [`${value}h`, 'Hours']}
+                        labelFormatter={(label) => `User: ${label}`}
+                      />
+                      <Bar dataKey="hours" fill="hsl(var(--primary))" />
+                    </BarChart>
                  ) : (
                    <RechartsPieChart>
                      <Pie
