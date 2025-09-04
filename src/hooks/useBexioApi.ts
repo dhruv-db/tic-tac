@@ -1073,7 +1073,7 @@ export const useBexioApi = () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           endpoint: `/2.0/timesheet/${id}`,
-          method: 'PUT',
+          method: 'POST',
           apiKey: authToken,
           companyId: credentials.companyId,
           data: bexioData,
@@ -1262,7 +1262,7 @@ export const useBexioApi = () => {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               endpoint: `/2.0/timesheet/${entry.id}`,
-              method: 'PUT',
+              method: 'POST',
               apiKey: authToken,
               companyId: credentials.companyId,
               data: mergedData,
@@ -1274,35 +1274,9 @@ export const useBexioApi = () => {
             continue;
           }
 
-          // Check if it's a method not allowed error (405 or 501)
           const putError = await putResponse.json().catch(() => ({}));
-          if (putResponse.status === 405 || putResponse.status === 501) {
-            // Fallback: delete and recreate for APIs that don't support PUT
-            await deleteTimeEntry(entry.id, true);
-            
-            // Recreate with merged data
-            const createResponse = await fetch(`https://opcjifbdwpyttaxqlqbf.supabase.co/functions/v1/bexio-proxy`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                endpoint: '/timesheet',
-                method: 'POST',
-                apiKey: authToken,
-                companyId: credentials.companyId,
-                data: mergedData,
-              }),
-            });
-
-            if (createResponse.ok) {
-              successCount++;
-            } else {
-              console.error(`Failed to recreate entry ${entry.id}`);
-              failureCount++;
-            }
-          } else {
-            console.error(`Failed to update entry ${entry.id}:`, putError);
-            failureCount++;
-          }
+          console.error(`Failed to update entry ${entry.id}:`, putError);
+          failureCount++;
         } catch (error) {
           console.error(`Error updating entry ${entry.id}:`, error);
           failureCount++;
