@@ -143,8 +143,11 @@ export const Analytics = ({ timeEntries, contacts, projects, users, isCurrentUse
       }
       
       // Project filter
-      if (selectedProject !== "all" && entry.project_id?.toString() !== selectedProject) {
-        return false;
+      if (selectedProject !== "all") {
+        const entryProjectId = (entry as any).pr_project_id || entry.project_id;
+        if (entryProjectId?.toString() !== selectedProject) {
+          return false;
+        }
       }
       
       return true;
@@ -219,7 +222,7 @@ export const Analytics = ({ timeEntries, contacts, projects, users, isCurrentUse
     const projectData: Record<string, { name: string; minutes: number; billable: number }> = {};
     
     filteredEntries.forEach(entry => {
-      const projectId = entry.project_id;
+      const projectId = (entry as any).pr_project_id || entry.project_id;
       const project = projects.find(p => p.id === projectId);
       const projectName = project ? project.name : 'No Project';
       const minutes = parseDurationToMinutes(entry.duration);
