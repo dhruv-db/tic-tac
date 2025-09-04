@@ -1159,18 +1159,10 @@ export const useBexioApi = () => {
         const minutes = durationMinutes % 60;
         durationString = `${hours}:${minutes.toString().padStart(2, '0')}`;
       }
-
-      // Ensure we have a valid user ID
-      if (!timeEntryData.user_id && !currentBexioUserId) {
-        console.log("🔍 No user ID found, attempting to fetch current user...");
-        await fetchCurrentUser();
-        if (!currentBexioUserId) {
-          throw new Error("Couldn't identify your Bexio user. Please reconnect.");
-        }
-      }
       
       const bexioData = {
-        user_id: timeEntryData.user_id || currentBexioUserId, // Use specified or current user
+        // Use existing user_id if not specified (don't require currentBexioUserId for updates)
+        ...(timeEntryData.user_id !== undefined && { user_id: timeEntryData.user_id }),
         ...(timeEntryData.client_service_id !== undefined && { client_service_id: timeEntryData.client_service_id }),
         text: timeEntryData.text || "",
         allowable_bill: timeEntryData.allowable_bill,
@@ -1186,13 +1178,15 @@ export const useBexioApi = () => {
         ...(timeEntryData.pr_milestone_id !== undefined && { pr_milestone_id: timeEntryData.pr_milestone_id }),
       } as Record<string, any>;
 
-      // Try updating via PUT first using 2.0 API
+      console.log('Updating time entry with data:', { id, data: bexioData });
+
+      // Use PUT method with 2.0 API
       const putResponse = await fetch(`https://opcjifbdwpyttaxqlqbf.supabase.co/functions/v1/bexio-proxy`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           endpoint: `/2.0/timesheet/${id}`,
-          method: 'POST',
+          method: 'PUT',
           apiKey: authToken,
           companyId: credentials.companyId,
           data: bexioData,
@@ -1200,82 +1194,20 @@ export const useBexioApi = () => {
       });
 
       if (putResponse.ok) {
+        const result = await putResponse.json();
+        console.log('✅ Time entry updated successfully:', result);
         toast({ title: "Time entry updated", description: "The time entry has been successfully updated." });
         await fetchTimeEntries(lastRangeRef.current || undefined, { quiet: true });
         return;
       }
 
-      // Check if it's a method not allowed error before fallback
+      // Handle PUT errors with detailed information
       const putError = await putResponse.json().catch(() => ({}));
-      if (putResponse.status !== 405 && putResponse.status !== 501) {
-        // It's a real error, not just unsupported method
-        throw new Error(`Failed to update entry: ${putError.error || putResponse.status}`);
-      }
-
-      // Fallback for APIs that don't allow PUT on timesheets: delete + recreate
-      // Delete existing
-      const deleteResponse = await fetch(`https://opcjifbdwpyttaxqlqbf.supabase.co/functions/v1/bexio-proxy`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          endpoint: `/timesheet/${id}`,
-          method: 'DELETE',
-          apiKey: authToken,
-          companyId: credentials.companyId,
-        }),
-      });
-
-      if (!deleteResponse.ok) {
-        const errorData = await deleteResponse.json().catch(() => ({}));
-        throw new Error(`Failed to delete existing entry: ${errorData.error || deleteResponse.status}`);
-      }
-
-      // Re-create with new data (reuse computed durationString)
-      const recreateData = {
-        user_id: timeEntryData.user_id || currentBexioUserId, // Use specified or current user
-        ...(timeEntryData.client_service_id !== undefined && { client_service_id: timeEntryData.client_service_id }),
-        text: timeEntryData.text || "",
-        allowable_bill: timeEntryData.allowable_bill,
-        tracking: {
-          type: "duration",
-          date: format(timeEntryData.dateRange.from, 'yyyy-MM-dd'),
-          duration: durationString,
-        },
-        ...(timeEntryData.contact_id !== undefined && { contact_id: timeEntryData.contact_id }),
-        ...(timeEntryData.project_id !== undefined && { pr_project_id: timeEntryData.project_id }),
-        ...(timeEntryData.status_id !== undefined && { status_id: timeEntryData.status_id }),
-        ...(timeEntryData.pr_package_id !== undefined && { pr_package_id: timeEntryData.pr_package_id }),
-        ...(timeEntryData.pr_milestone_id !== undefined && { pr_milestone_id: timeEntryData.pr_milestone_id }),
-      } as Record<string, any>;
-
-      console.log('Updating time entry with data (recreate):', {
-        originalId: id,
-        data: recreateData,
-      });
-
-      const createResponse = await fetch(`https://opcjifbdwpyttaxqlqbf.supabase.co/functions/v1/bexio-proxy`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          endpoint: '/timesheet',
-          method: 'POST',
-          apiKey: authToken,
-          companyId: credentials.companyId,
-          data: recreateData,
-        }),
-      });
-
-      if (!createResponse.ok) {
-        const errorData = await createResponse.json().catch(() => ({}));
-        throw new Error(errorData.error || `HTTP error! status: ${createResponse.status}`);
-      }
-
-      toast({
-        title: "Time entry updated",
-        description: "The time entry has been successfully updated.",
-      });
-
-      await fetchTimeEntries(lastRangeRef.current || undefined, { quiet: true });
+      console.error('❌ PUT update failed:', { status: putResponse.status, error: putError });
+      
+      // Provide detailed error message
+      const errorMessage = putError.error || putError.message || `HTTP ${putResponse.status}`;
+      throw new Error(`Failed to update time entry: ${errorMessage}`);
     } catch (error) {
       console.error('Error updating time entry:', error);
       toast({
@@ -1352,15 +1284,19 @@ export const useBexioApi = () => {
     
     let successCount = 0;
     let failureCount = 0;
+    const errors: string[] = [];
     
     try {
       const authToken = await ensureValidToken();
       if (!authToken) return;
 
+      console.log(`🔄 Starting bulk update of ${entries.length} entries`);
+
       for (const entry of entries) {
         try {
-          // Merge existing entry data with updates
+          // Merge existing entry data with updates, preserving existing user_id
           const mergedData = {
+            // Always preserve the existing user_id from the entry
             user_id: entry.user_id,
             client_service_id: updateData.client_service_id !== undefined ? updateData.client_service_id : entry.client_service_id,
             text: updateData.text !== undefined ? updateData.text : entry.text,
@@ -1371,17 +1307,20 @@ export const useBexioApi = () => {
               duration: entry.duration,
             },
             contact_id: updateData.contact_id !== undefined ? updateData.contact_id : entry.contact_id,
-            pr_project_id: updateData.project_id !== undefined ? updateData.project_id : entry.project_id,
+            pr_project_id: updateData.project_id !== undefined ? updateData.project_id : entry.pr_project_id,
             status_id: updateData.status_id !== undefined ? updateData.status_id : entry.status_id,
+            pr_package_id: updateData.pr_package_id !== undefined ? updateData.pr_package_id : entry.pr_package_id,
           };
 
-          // Try updating via PUT first using 2.0 API
+          console.log(`📝 Updating entry ${entry.id} with:`, mergedData);
+
+          // Use PUT method with 2.0 API
           const putResponse = await fetch(`https://opcjifbdwpyttaxqlqbf.supabase.co/functions/v1/bexio-proxy`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               endpoint: `/2.0/timesheet/${entry.id}`,
-              method: 'POST',
+              method: 'PUT',
               apiKey: authToken,
               companyId: credentials.companyId,
               data: mergedData,
@@ -1389,35 +1328,53 @@ export const useBexioApi = () => {
           });
 
           if (putResponse.ok) {
+            const result = await putResponse.json();
+            console.log(`✅ Successfully updated entry ${entry.id}:`, result);
             successCount++;
             continue;
           }
 
           const putError = await putResponse.json().catch(() => ({}));
-          console.error(`Failed to update entry ${entry.id}:`, putError);
+          console.error(`❌ Failed to update entry ${entry.id}:`, { status: putResponse.status, error: putError });
+          
+          const errorMsg = putError.error || putError.message || `HTTP ${putResponse.status}`;
+          errors.push(`Entry ${entry.id}: ${errorMsg}`);
           failureCount++;
         } catch (error) {
-          console.error(`Error updating entry ${entry.id}:`, error);
+          console.error(`💥 Error updating entry ${entry.id}:`, error);
+          const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+          errors.push(`Entry ${entry.id}: ${errorMsg}`);
           failureCount++;
         }
       }
 
       if (failureCount === 0) {
-        toast({ title: `Successfully updated ${successCount} entries` });
+        toast({ 
+          title: `Successfully updated ${successCount} entries`,
+          description: "All time entries have been updated successfully."
+        });
       } else {
+        const description = errors.length > 0 ? `First error: ${errors[0]}` : undefined;
         toast({ 
           title: `Updated ${successCount} entries, ${failureCount} failed`,
+          description,
           variant: failureCount === entries.length ? "destructive" : "default"
         });
       }
       
       await fetchTimeEntries(lastRangeRef.current || undefined, { quiet: true });
     } catch (error) {
-      toast({ title: "Bulk update failed", variant: "destructive" });
+      console.error('💥 Bulk update failed:', error);
+      const errorMsg = error instanceof Error ? error.message : 'Unknown error occurred';
+      toast({ 
+        title: "Bulk update failed", 
+        description: errorMsg,
+        variant: "destructive" 
+      });
     } finally {
       setIsCreatingTimeEntry(false);
     }
-  }, [credentials, toast, fetchTimeEntries, deleteTimeEntry, ensureValidToken]);
+  }, [credentials, toast, fetchTimeEntries, ensureValidToken]);
 
   const bulkDeleteTimeEntries = useCallback(async (entryIds: number[]) => {
     if (!credentials) return;
