@@ -11,7 +11,6 @@ import {
   SelectTrigger, 
   SelectValue 
 } from "@/components/ui/select";
-import { DateRangePicker } from "@/components/DateRangePicker";
 import { TimeTrackingList } from "@/components/TimeTrackingList";
 import { SimpleTimeGrid } from "@/components/SimpleTimeGrid";
 import { TimesheetCalendar } from "@/components/TimesheetCalendar";
@@ -357,18 +356,6 @@ const Index = () => {
                 </div>
                 
                 <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
-                  {/* Date Range Picker - only show for list view */}
-                  {timeTrackingView === 'list' && (
-                    <DateRangePicker
-                      onDateRangeChange={(range) => {
-                        if (range) {
-                          fetchTimeEntries(range, { quiet: true }, currentBexioUserId || undefined);
-                        }
-                      }}
-                      className="hidden lg:flex"
-                    />
-                  )}
-                  
                   {/* Add Time Entry button */}
                   <TimeEntryDialog
                     onSubmit={createTimeEntry}
