@@ -1,6 +1,6 @@
 
 import { Analytics } from "@/components/Analytics";
-import { UserIdentityModal } from "@/components/UserIdentityModal";
+import { LanguageFlag } from "@/components/LanguageFlag";
 import { useEffect, useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -78,46 +78,8 @@ const Index = () => {
   const [isLogoDialogOpen, setIsLogoDialogOpen] = useState(false);
   const [logoUrlInput, setLogoUrlInput] = useState<string>(logoUrl);
   const [selectedUserId, setSelectedUserId] = useState<number | "all" | null>(null);
-  const [showUserIdentityModal, setShowUserIdentityModal] = useState(false);
   const { toast } = useToast();
 
-  // Show user identity modal when users are loaded but no identity is selected
-  useEffect(() => {
-    if (users.length > 0 && !currentBexioUserId && !showUserIdentityModal) {
-      setShowUserIdentityModal(true);
-    }
-  }, [users.length, currentBexioUserId, showUserIdentityModal]);
-
-  const handleUserIdentitySelect = (userId: number, isAdmin: boolean) => {
-    // Store the selected user identity in localStorage for persistence
-    localStorage.setItem('selectedBexioUserId', userId.toString());
-    localStorage.setItem('isCurrentUserAdmin', isAdmin.toString());
-    
-    // Update the API hook's state
-    setCurrentBexioUserId(userId);
-    setIsCurrentUserAdmin(isAdmin);
-    setSelectedUserId(userId);
-    setShowUserIdentityModal(false);
-    
-    toast({
-      title: "User identity selected",
-      description: `Logged in as ${users.find(u => u.id === userId)?.firstname} ${users.find(u => u.id === userId)?.lastname}`,
-    });
-  };
-
-  // Load stored user identity on mount
-  useEffect(() => {
-    const storedUserId = localStorage.getItem('selectedBexioUserId');
-    const storedIsAdmin = localStorage.getItem('isCurrentUserAdmin');
-    
-    if (storedUserId && storedIsAdmin) {
-      const userId = parseInt(storedUserId);
-      const isAdmin = storedIsAdmin === 'true';
-      setCurrentBexioUserId(userId);
-      setIsCurrentUserAdmin(isAdmin);
-      setSelectedUserId(userId);
-    }
-  }, []);
 
   // Set default user filter to current user when available
   useEffect(() => {
@@ -252,13 +214,6 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* User Identity Modal */}
-      <UserIdentityModal
-        isOpen={showUserIdentityModal}
-        users={users}
-        onUserSelect={handleUserIdentitySelect}
-        currentBexioUserId={currentBexioUserId}
-      />
 
       {/* Header */}
       <header className="border-b bg-card/50 backdrop-blur-sm sticky top-0 z-50">
@@ -266,9 +221,17 @@ const Index = () => {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <img src={logoUrl} alt="App logo" className="h-8 w-8 rounded-md" />
+              <div className="text-sm text-muted-foreground">
+                {currentBexioUserId && users.length > 0 && (
+                  <span>
+                    {users.find(u => u.id === currentBexioUserId)?.firstname} {users.find(u => u.id === currentBexioUserId)?.lastname}
+                    {isCurrentUserAdmin && <span className="ml-1 text-warning">(Admin)</span>}
+                  </span>
+                )}
+              </div>
             </div>
             
-            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-4">
+            <div className="flex flex-col sm:flex-row items-end sm:items-center gap-2 sm:gap-4">
               {/* User Filter for Admins */}
               {isCurrentUserAdmin && users.length > 0 && (
                 <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2">
@@ -293,6 +256,13 @@ const Index = () => {
               )}
               
               <div className="flex items-center gap-2">
+                {/* Language Flag */}
+                <LanguageFlag
+                  languages={languages}
+                  currentLanguage={currentLanguage}
+                  onLanguageChange={setCurrentLanguage}
+                />
+                
                 {/* Connection status indicator */}
                 <div className="group relative">
                   <div className="p-2 rounded-full bg-success/10 border border-success/20 hover:bg-success/20 transition-colors">
@@ -336,10 +306,10 @@ const Index = () => {
         </div>
       </header>
 
-      <main className="container mx-auto px-4 py-8">
+      <main className="container mx-auto px-2 sm:px-4 py-4 sm:py-8">
 
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <div className="flex items-center justify-between">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4 sm:space-y-6">
+          <div className="flex flex-col space-y-4 sm:space-y-0 sm:flex-row sm:items-center sm:justify-between">
             <TabsList className="grid w-full max-w-md grid-cols-2">
               <TabsTrigger value="analytics" className="gap-2">
                 <BarChart3 className="h-4 w-4" />
@@ -353,8 +323,8 @@ const Index = () => {
             
             {/* View Toggle - only show when on timetracking tab */}
             {activeTab === "timetracking" && (
-              <div className="flex flex-col lg:flex-row items-start lg:items-center gap-3">
-                <div className="flex flex-wrap items-center gap-2">
+              <div className="flex flex-col space-y-3 lg:space-y-0 lg:flex-row lg:items-center lg:gap-3">
+                <div className="flex flex-wrap gap-2">
                   <Button
                     variant={timeTrackingView === 'list' ? 'default' : 'outline'}
                     size="sm"
@@ -362,7 +332,7 @@ const Index = () => {
                     className="gap-2"
                   >
                     <List className="h-4 w-4" />
-                    <span className="hidden sm:inline">List View</span>
+                    <span className="hidden sm:inline">List</span>
                   </Button>
                   <Button
                     variant={timeTrackingView === 'grid' ? 'default' : 'outline'}
@@ -371,7 +341,7 @@ const Index = () => {
                     className="gap-2"
                   >
                     <Grid className="h-4 w-4" />
-                    <span className="hidden sm:inline">Grid View</span>
+                    <span className="hidden sm:inline">Grid</span>
                   </Button>
                   <Button
                     variant={timeTrackingView === 'calendar' ? 'default' : 'outline'}
@@ -385,23 +355,6 @@ const Index = () => {
                 </div>
                 
                 <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
-                  {/* Language Selector */}
-                  <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2">
-                    <label className="text-sm text-muted-foreground whitespace-nowrap">Language:</label>
-                    <Select value={currentLanguage} onValueChange={setCurrentLanguage}>
-                      <SelectTrigger className="w-full sm:w-40">
-                        <SelectValue placeholder="Language" />
-                      </SelectTrigger>
-                      <SelectContent className="z-[1000] bg-popover border border-border shadow-lg">
-                        {languages.map((lang) => (
-                          <SelectItem key={lang.id} value={lang.iso_639_1}>
-                            {lang.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  
                   {/* Add Time Entry button */}
                   <TimeEntryDialog
                     onSubmit={createTimeEntry}

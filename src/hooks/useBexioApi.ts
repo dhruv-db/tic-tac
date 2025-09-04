@@ -832,7 +832,7 @@ export const useBexioApi = () => {
           endpoint: '/timesheet_status',
           apiKey: authToken,
           companyId: credentials.companyId,
-          acceptLanguage: currentLanguage,
+          acceptLanguage: 'en', // Always fetch in English
         }),
       });
 
@@ -893,7 +893,7 @@ export const useBexioApi = () => {
           endpoint: '/client_service',
           apiKey: authToken,
           companyId: credentials.companyId,
-          acceptLanguage: currentLanguage,
+          acceptLanguage: 'en', // Always fetch in English
         }),
       });
 
@@ -1370,10 +1370,30 @@ export const useBexioApi = () => {
 
       if (currentUser) {
         setCurrentBexioUserId(currentUser.id);
-        setIsCurrentUserAdmin(currentUser.is_superadmin);
+        setIsCurrentUserAdmin(currentUser.is_superadmin || currentUser.is_accountant);
+        
+        // Store user identity for persistence
+        localStorage.setItem('selectedBexioUserId', currentUser.id.toString());
+        localStorage.setItem('isCurrentUserAdmin', (currentUser.is_superadmin || currentUser.is_accountant).toString());
+        
+        if (!options?.quiet) {
+          console.log(`🔐 Auto-identified user: ${currentUser.firstname} ${currentUser.lastname} (${currentUser.email})`);
+        }
       } else {
         setCurrentBexioUserId(null);
         setIsCurrentUserAdmin(false);
+        
+        // Clear stored identity if no user found
+        localStorage.removeItem('selectedBexioUserId');
+        localStorage.removeItem('isCurrentUserAdmin');
+        
+        if (!options?.quiet && credentials.authType === 'oauth') {
+          toast({
+            title: "User not found",
+            description: `No user found with email ${credentials.userEmail}. Please contact your administrator.`,
+            variant: "destructive",
+          });
+        }
       }
 
       if (!options?.quiet) {
