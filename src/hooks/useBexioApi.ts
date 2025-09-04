@@ -419,17 +419,30 @@ export const useBexioApi = () => {
 
   const fetchTimeEntries = useCallback(async (
     dateRange?: { from: Date; to: Date },
-    options?: { quiet?: boolean }
+    options?: { quiet?: boolean },
+    userId?: number
   ) => {
     if (!credentials || isLoadingTimeEntries) return;
 
     // Build endpoint with optional date filtering
     let endpoint = '/timesheet';
+    const params: string[] = [];
+    
     if (dateRange) {
       const fromDate = format(dateRange.from, 'yyyy-MM-dd');
       const toDate = format(dateRange.to, 'yyyy-MM-dd');
-      endpoint += `?date_from=${fromDate}&date_to=${toDate}`;
+      params.push(`date_from=${fromDate}&date_to=${toDate}`);
     }
+    
+    // For non-admins, filter by current user ID
+    if (userId && !isCurrentUserAdmin) {
+      params.push(`user_id=${userId}`);
+    }
+    
+    if (params.length > 0) {
+      endpoint += `?${params.join('&')}`;
+    }
+    
     // Remember last requested range for consistent refreshes across views
     lastRangeRef.current = dateRange ?? null;
 
@@ -702,8 +715,13 @@ export const useBexioApi = () => {
       });
 
       const createWithRetry = async (date: Date) => {
+        // Ensure we have a valid user ID
+        if (!timeEntryData.user_id && !currentBexioUserId) {
+          throw new Error("Couldn't identify your Bexio user. Please reconnect.");
+        }
+        
         const bexioData = {
-          user_id: timeEntryData.user_id || currentBexioUserId || 1, // Use specified, current user, or fallback
+          user_id: timeEntryData.user_id || currentBexioUserId, // Use specified or current user
           client_service_id: timeEntryData.client_service_id ?? (businessActivities[0]?.id),
           text: timeEntryData.text || "",
           allowable_bill: timeEntryData.allowable_bill,
@@ -1072,8 +1090,13 @@ export const useBexioApi = () => {
         durationString = `${hours}:${minutes.toString().padStart(2, '0')}`;
       }
 
+      // Ensure we have a valid user ID
+      if (!timeEntryData.user_id && !currentBexioUserId) {
+        throw new Error("Couldn't identify your Bexio user. Please reconnect.");
+      }
+      
       const bexioData = {
-        user_id: timeEntryData.user_id || currentBexioUserId || 1, // Use specified, current user, or fallback
+        user_id: timeEntryData.user_id || currentBexioUserId, // Use specified or current user
         ...(timeEntryData.client_service_id !== undefined && { client_service_id: timeEntryData.client_service_id }),
         text: timeEntryData.text || "",
         allowable_bill: timeEntryData.allowable_bill,
@@ -1128,7 +1151,7 @@ export const useBexioApi = () => {
 
       // Re-create with new data (reuse computed durationString)
       const recreateData = {
-        user_id: timeEntryData.user_id || currentBexioUserId || 1, // Use specified, current user, or fallback
+        user_id: timeEntryData.user_id || currentBexioUserId, // Use specified or current user
         ...(timeEntryData.client_service_id !== undefined && { client_service_id: timeEntryData.client_service_id }),
         text: timeEntryData.text || "",
         allowable_bill: timeEntryData.allowable_bill,
@@ -1311,6 +1334,104 @@ export const useBexioApi = () => {
     }
   }, [credentials, toast, deleteTimeEntry, fetchTimeEntries]);
 
+  const fetchCurrentUser = useCallback(async () => {
+    if (!credentials) return null;
+
+    const authToken = await ensureValidToken();
+    if (!authToken) return null;
+
+    try {
+      // Try /3.0/users/me first (OAuth preferred)
+      const meResponse = await fetch(`https://opcjifbdwpyttaxqlqbf.supabase.co/functions/v1/bexio-proxy`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          endpoint: '/3.0/users/me',
+          apiKey: authToken,
+          companyId: credentials.companyId,
+          acceptLanguage: 'en',
+        }),
+      });
+
+      if (meResponse.ok) {
+        const userData = await meResponse.json();
+        const currentUser: BexioUser = {
+          id: userData.id,
+          salutation_type: userData.salutation_type,
+          firstname: userData.firstname || 'Unknown',
+          lastname: userData.lastname || 'User',
+          email: userData.email || '',
+          is_superadmin: userData.is_superadmin || false,
+          is_accountant: userData.is_accountant || false,
+        };
+
+        setCurrentBexioUserId(currentUser.id);
+        setIsCurrentUserAdmin(currentUser.is_superadmin || currentUser.is_accountant);
+        
+        console.log(`🔐 Current user identified via /me: ${currentUser.firstname} ${currentUser.lastname} (${currentUser.email})`);
+        return currentUser;
+      }
+    } catch (error) {
+      console.warn('Failed to fetch current user via /me endpoint:', error);
+    }
+
+    // Fallback: try finding by email in users list
+    if (credentials.authType === 'oauth' && credentials.userEmail) {
+      try {
+        const response = await fetch(`https://opcjifbdwpyttaxqlqbf.supabase.co/functions/v1/bexio-proxy`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            endpoint: '/3.0/users',
+            apiKey: authToken,
+            companyId: credentials.companyId,
+            acceptLanguage: 'en',
+          }),
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          const fetchedUsers = Array.isArray(data) ? data : [];
+          const currentUser = fetchedUsers.find((u: any) => u.email === credentials.userEmail);
+          
+          if (currentUser) {
+            const user: BexioUser = {
+              id: currentUser.id,
+              salutation_type: currentUser.salutation_type,
+              firstname: currentUser.firstname || 'Unknown',
+              lastname: currentUser.lastname || 'User',
+              email: currentUser.email || '',
+              is_superadmin: currentUser.is_superadmin || false,
+              is_accountant: currentUser.is_accountant || false,
+            };
+
+            setCurrentBexioUserId(user.id);
+            setIsCurrentUserAdmin(user.is_superadmin || user.is_accountant);
+            
+            console.log(`🔐 Current user identified via email match: ${user.firstname} ${user.lastname}`);
+            return user;
+          }
+        }
+      } catch (error) {
+        console.warn('Failed to fetch users for email matching:', error);
+      }
+    }
+
+    // Final fallback: check localStorage
+    const storedUserId = localStorage.getItem('selectedBexioUserId');
+    if (storedUserId) {
+      const userId = parseInt(storedUserId);
+      const isAdmin = localStorage.getItem('isCurrentUserAdmin') === 'true';
+      setCurrentBexioUserId(userId);
+      setIsCurrentUserAdmin(isAdmin);
+      console.log(`🔐 Using stored user ID: ${userId} (admin: ${isAdmin})`);
+      return { id: userId, is_superadmin: isAdmin, is_accountant: false } as BexioUser;
+    }
+
+    console.warn('❌ Could not identify current user');
+    return null;
+  }, [credentials, ensureValidToken]);
+
   const fetchUsers = useCallback(async (options?: { quiet?: boolean }) => {
     if (!credentials) {
       console.error('No credentials available');
@@ -1361,39 +1482,9 @@ export const useBexioApi = () => {
       setUsers(fetchedUsers);
       setHasInitiallyLoaded(prev => ({ ...prev, users: true }));
 
-      let currentUser: BexioUser | null = null;
-      if (credentials.authType === 'oauth' && credentials.userEmail) {
-        currentUser = fetchedUsers.find(u => u.email === credentials.userEmail) || null;
-      } else if (fetchedUsers.length === 1) {
-        currentUser = fetchedUsers[0];
-      }
-
-      if (currentUser) {
-        setCurrentBexioUserId(currentUser.id);
-        setIsCurrentUserAdmin(currentUser.is_superadmin || currentUser.is_accountant);
-        
-        // Store user identity for persistence
-        localStorage.setItem('selectedBexioUserId', currentUser.id.toString());
-        localStorage.setItem('isCurrentUserAdmin', (currentUser.is_superadmin || currentUser.is_accountant).toString());
-        
-        if (!options?.quiet) {
-          console.log(`🔐 Auto-identified user: ${currentUser.firstname} ${currentUser.lastname} (${currentUser.email})`);
-        }
-      } else {
-        setCurrentBexioUserId(null);
-        setIsCurrentUserAdmin(false);
-        
-        // Clear stored identity if no user found
-        localStorage.removeItem('selectedBexioUserId');
-        localStorage.removeItem('isCurrentUserAdmin');
-        
-        if (!options?.quiet && credentials.authType === 'oauth') {
-          toast({
-            title: "User not found",
-            description: `No user found with email ${credentials.userEmail}. Please contact your administrator.`,
-            variant: "destructive",
-          });
-        }
+      // Try to identify current user via fetchCurrentUser
+      if (!currentBexioUserId) {
+        await fetchCurrentUser();
       }
 
       if (!options?.quiet) {
@@ -1405,8 +1496,6 @@ export const useBexioApi = () => {
     } catch (error) {
       console.error('❌ Error fetching users:', error);
       setUsers([]);
-      setCurrentBexioUserId(null);
-      setIsCurrentUserAdmin(false);
       if (!options?.quiet) {
         toast({
           title: "Failed to load users",
@@ -1417,7 +1506,7 @@ export const useBexioApi = () => {
     } finally {
       setIsLoadingUsers(false);
     }
-  }, [credentials, ensureValidToken, toast]);
+  }, [credentials, ensureValidToken, toast, currentBexioUserId, fetchCurrentUser]);
 
   const disconnect = useCallback(() => {
     localStorage.removeItem('bexio_credentials');

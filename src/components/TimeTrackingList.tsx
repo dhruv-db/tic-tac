@@ -359,16 +359,16 @@ export const TimeTrackingList = ({
           {/* Filters and Sorting */}
           <Card className="corporate-card">
             <CardContent className="p-4">
-              <div className="flex items-center gap-4 flex-wrap">
-                <div className="flex items-center gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:flex xl:flex-wrap gap-4 items-start xl:items-center">
+                <div className="flex items-center gap-2 col-span-full xl:col-span-1">
                   <Filter className="h-4 w-4 text-muted-foreground" />
                   <span className="text-sm font-medium">Filters & Sort:</span>
                 </div>
                 
-                <div className="flex items-center gap-2">
+                <div className="flex flex-col gap-1">
                   <label className="text-sm text-muted-foreground">Project:</label>
                   <Select value={projectFilter} onValueChange={setProjectFilter}>
-                    <SelectTrigger className="w-48">
+                    <SelectTrigger className="w-full min-w-[200px]">
                       <SelectValue placeholder="All projects" />
                     </SelectTrigger>
                     <SelectContent>
@@ -383,10 +383,10 @@ export const TimeTrackingList = ({
                   </Select>
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex flex-col gap-1">
                   <label className="text-sm text-muted-foreground">Month:</label>
                   <Select value={monthYearFilter} onValueChange={setMonthYearFilter}>
-                    <SelectTrigger className="w-36">
+                    <SelectTrigger className="w-full min-w-[140px]">
                       <SelectValue placeholder="All months" />
                     </SelectTrigger>
                     <SelectContent>
@@ -400,14 +400,14 @@ export const TimeTrackingList = ({
                   </Select>
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex flex-col gap-1">
                   <label className="text-sm text-muted-foreground">Sort by:</label>
                   <Select value={`${sortBy}-${sortOrder}`} onValueChange={(value) => {
                     const [field, order] = value.split('-') as [typeof sortBy, typeof sortOrder];
                     setSortBy(field);
                     setSortOrder(order);
                   }}>
-                    <SelectTrigger className="w-40">
+                    <SelectTrigger className="w-full min-w-[160px]">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -422,18 +422,21 @@ export const TimeTrackingList = ({
                 </div>
 
                 {(projectFilter || monthYearFilter !== format(new Date(), "yyyy-MM")) && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => {
-                      setProjectFilter("");
-                      setMonthYearFilter(format(new Date(), "yyyy-MM"));
-                    }}
-                    className="gap-1"
-                  >
-                    <X className="h-3 w-3" />
-                    Reset to Current Month
-                  </Button>
+                  <div className="flex flex-col gap-1 sm:col-span-2 lg:col-span-1">
+                    <div className="h-5"></div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setProjectFilter("");
+                        setMonthYearFilter(format(new Date(), "yyyy-MM"));
+                      }}
+                      className="gap-1 justify-start"
+                    >
+                      <X className="h-3 w-3" />
+                      Reset to Current Month
+                    </Button>
+                  </div>
                 )}
               </div>
             </CardContent>

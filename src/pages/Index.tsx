@@ -11,6 +11,7 @@ import {
   SelectTrigger, 
   SelectValue 
 } from "@/components/ui/select";
+import { DateRangePicker } from "@/components/DateRangePicker";
 import { TimeTrackingList } from "@/components/TimeTrackingList";
 import { SimpleTimeGrid } from "@/components/SimpleTimeGrid";
 import { TimesheetCalendar } from "@/components/TimesheetCalendar";
@@ -106,11 +107,11 @@ const Index = () => {
         fetchUsers();
       }
       if (timeEntries.length === 0 && !isLoadingTimeEntries && !hasInitiallyLoaded.timeEntries) {
-        // Default to current month
+        // Default to last 6 months for better visibility of past entries
         const now = new Date();
-        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-        const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-        fetchTimeEntries({ from: startOfMonth, to: endOfMonth }, { quiet: true });
+        const sixMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 6, 1);
+        const endOfCurrentMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+        fetchTimeEntries({ from: sixMonthsAgo, to: endOfCurrentMonth }, { quiet: true }, currentBexioUserId || undefined);
       }
       if (languages.length === 0) {
         fetchLanguages();
@@ -120,9 +121,10 @@ const Index = () => {
 
   const handleRefresh = () => {
     if (activeTab === "analytics" || activeTab === "timetracking") {
-      fetchTimeEntries(undefined, { quiet: false });
+      fetchTimeEntries(undefined, { quiet: false }, currentBexioUserId || undefined);
       fetchContacts();
       fetchProjects();
+      fetchUsers();
     }
   };
 
@@ -355,6 +357,18 @@ const Index = () => {
                 </div>
                 
                 <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+                  {/* Date Range Picker - only show for list view */}
+                  {timeTrackingView === 'list' && (
+                    <DateRangePicker
+                      onDateRangeChange={(range) => {
+                        if (range) {
+                          fetchTimeEntries(range, { quiet: true }, currentBexioUserId || undefined);
+                        }
+                      }}
+                      className="hidden lg:flex"
+                    />
+                  )}
+                  
                   {/* Add Time Entry button */}
                   <TimeEntryDialog
                     onSubmit={createTimeEntry}
