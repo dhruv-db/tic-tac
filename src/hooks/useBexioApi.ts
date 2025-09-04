@@ -632,6 +632,7 @@ export const useBexioApi = () => {
     useDuration?: boolean;
     text: string;
     allowable_bill: boolean;
+    excludeWeekends?: boolean;
     contact_id?: number;
     project_id?: number;
     client_service_id?: number;
@@ -696,7 +697,14 @@ export const useBexioApi = () => {
       let currentDate = new Date(startDate);
       
       while (currentDate <= endDate) {
-        dates.push(new Date(currentDate));
+        // Skip weekends if excludeWeekends is true
+        const dayOfWeek = currentDate.getDay(); // 0 = Sunday, 6 = Saturday
+        const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+        
+        if (!timeEntryData.excludeWeekends || !isWeekend) {
+          dates.push(new Date(currentDate));
+        }
+        
         currentDate.setDate(currentDate.getDate() + 1);
       }
 
@@ -1059,12 +1067,12 @@ export const useBexioApi = () => {
         ...(timeEntryData.pr_milestone_id !== undefined && { pr_milestone_id: timeEntryData.pr_milestone_id }),
       } as Record<string, any>;
 
-      // Try updating via PUT first
+      // Try updating via PUT first using 2.0 API
       const putResponse = await fetch(`https://opcjifbdwpyttaxqlqbf.supabase.co/functions/v1/bexio-proxy`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          endpoint: `/timesheet/${id}`,
+          endpoint: `/2.0/timesheet/${id}`,
           method: 'PUT',
           apiKey: authToken,
           companyId: credentials.companyId,
@@ -1248,12 +1256,12 @@ export const useBexioApi = () => {
             status_id: updateData.status_id !== undefined ? updateData.status_id : entry.status_id,
           };
 
-          // Try updating via PUT first
+          // Try updating via PUT first using 2.0 API
           const putResponse = await fetch(`https://opcjifbdwpyttaxqlqbf.supabase.co/functions/v1/bexio-proxy`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              endpoint: `/timesheet/${entry.id}`,
+              endpoint: `/2.0/timesheet/${entry.id}`,
               method: 'PUT',
               apiKey: authToken,
               companyId: credentials.companyId,

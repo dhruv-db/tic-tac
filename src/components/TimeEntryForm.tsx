@@ -22,6 +22,7 @@ interface TimeEntryFormData {
   useDuration: boolean;
   text: string;
   allowable_bill: boolean;
+  excludeWeekends: boolean;
   contact_id?: number;
   project_id?: number;
   client_service_id?: number;
@@ -110,6 +111,7 @@ export const TimeEntryForm = ({
     useDuration: initialData?.useDuration || false,
     text: initialData?.text || "",
     allowable_bill: initialData?.allowable_bill ?? true,
+    excludeWeekends: true, // Default to excluding weekends
     contact_id: initialData?.contact_id,
     project_id: initialData?.project_id,
     client_service_id: initialData?.client_service_id,
@@ -256,6 +258,7 @@ export const TimeEntryForm = ({
         useDuration: false,
         text: "",
         allowable_bill: true,
+        excludeWeekends: true,
         contact_id: undefined,
         project_id: undefined,
         client_service_id: undefined,
@@ -387,6 +390,16 @@ export const TimeEntryForm = ({
                 </span>
               )}
             </div>
+          </div>
+
+          {/* Weekend Exclusion */}
+          <div className="flex items-center space-x-2">
+            <Switch
+              id="excludeWeekends"
+              checked={formData.excludeWeekends}
+              onCheckedChange={(checked) => setFormData(prev => ({ ...prev, excludeWeekends: checked }))}
+            />
+            <Label htmlFor="excludeWeekends">Skip weekends (recommended)</Label>
           </div>
 
           {/* Description */}
