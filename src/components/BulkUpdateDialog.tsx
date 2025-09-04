@@ -38,9 +38,6 @@ interface BulkUpdateDialogProps {
 }
 
 interface BulkUpdateData {
-  dateRange?: DateRange;
-  startTime?: string;
-  endTime?: string;
   text?: string;
   allowable_bill?: boolean;
   contact_id?: number;
@@ -69,9 +66,6 @@ export const BulkUpdateDialog = ({
     
     // Only pass data for fields that are selected for update
     const updateData: BulkUpdateData = {};
-    if (updateFields.dateRange && formData.dateRange) updateData.dateRange = formData.dateRange;
-    if (updateFields.startTime && formData.startTime) updateData.startTime = formData.startTime;
-    if (updateFields.endTime && formData.endTime) updateData.endTime = formData.endTime;
     if (updateFields.text && formData.text !== undefined) updateData.text = formData.text;
     if (updateFields.allowable_bill && formData.allowable_bill !== undefined) updateData.allowable_bill = formData.allowable_bill;
     if (updateFields.contact_id && formData.contact_id !== undefined) updateData.contact_id = formData.contact_id;
@@ -111,92 +105,6 @@ export const BulkUpdateDialog = ({
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Date Range */}
-          <div className="flex items-center gap-4">
-            <Switch
-              checked={updateFields.dateRange || false}
-              onCheckedChange={(checked) => handleFieldToggle('dateRange', checked)}
-            />
-            <div className="flex-1 space-y-2">
-              <Label>Date Range</Label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className={cn(
-                      "w-full justify-start text-left font-normal",
-                      !formData.dateRange && "text-muted-foreground",
-                      !updateFields.dateRange && "opacity-50"
-                    )}
-                    disabled={!updateFields.dateRange}
-                  >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {formData.dateRange?.from ? (
-                      formData.dateRange.to ? (
-                        <>
-                          {format(formData.dateRange.from, "LLL dd, y")} -{" "}
-                          {format(formData.dateRange.to, "LLL dd, y")}
-                        </>
-                      ) : (
-                        format(formData.dateRange.from, "LLL dd, y")
-                      )
-                    ) : (
-                      <span>Pick date range</span>
-                    )}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    initialFocus
-                    mode="range"
-                    defaultMonth={formData.dateRange?.from}
-                    selected={formData.dateRange}
-                    onSelect={(range) => setFormData(prev => ({ ...prev, dateRange: range }))}
-                    numberOfMonths={2}
-                    className="p-3 pointer-events-auto"
-                  />
-                </PopoverContent>
-              </Popover>
-            </div>
-          </div>
-
-          {/* Time Range */}
-          <div className="grid grid-cols-2 gap-4">
-            <div className="flex items-center gap-4">
-              <Switch
-                checked={updateFields.startTime || false}
-                onCheckedChange={(checked) => handleFieldToggle('startTime', checked)}
-              />
-              <div className="flex-1 space-y-2">
-                <Label>Start Time</Label>
-                <Input
-                  type="time"
-                  value={formData.startTime || "09:00"}
-                  onChange={(e) => setFormData(prev => ({ ...prev, startTime: e.target.value }))}
-                  disabled={!updateFields.startTime}
-                  className={!updateFields.startTime ? "opacity-50" : ""}
-                />
-              </div>
-            </div>
-
-            <div className="flex items-center gap-4">
-              <Switch
-                checked={updateFields.endTime || false}
-                onCheckedChange={(checked) => handleFieldToggle('endTime', checked)}
-              />
-              <div className="flex-1 space-y-2">
-                <Label>End Time</Label>
-                <Input
-                  type="time"
-                  value={formData.endTime || "17:00"}
-                  onChange={(e) => setFormData(prev => ({ ...prev, endTime: e.target.value }))}
-                  disabled={!updateFields.endTime}
-                  className={!updateFields.endTime ? "opacity-50" : ""}
-                />
-              </div>
-            </div>
-          </div>
-
           {/* Description */}
           <div className="flex items-center gap-4">
             <Switch

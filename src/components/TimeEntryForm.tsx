@@ -539,7 +539,12 @@ export const TimeEntryForm = ({
                       </SelectItem>
                     ))
                   ) : (
-                    <SelectItem value="1">Draft</SelectItem>
+                    <>
+                      <SelectItem value="1">Draft</SelectItem>
+                      <SelectItem value="2">Open</SelectItem>
+                      <SelectItem value="3">Confirmed</SelectItem>
+                      <SelectItem value="4">Partially invoiced</SelectItem>
+                    </>
                   )}
                 </SelectContent>
               </Select>

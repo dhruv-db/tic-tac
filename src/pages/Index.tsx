@@ -268,66 +268,69 @@ const Index = () => {
               <img src={logoUrl} alt="App logo" className="h-8 w-8 rounded-md" />
             </div>
             
-            <div className="flex items-center gap-2">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-4">
               {/* User Filter for Admins */}
               {isCurrentUserAdmin && users.length > 0 && (
-                <div className="flex items-center gap-2">
-                  <label className="text-sm text-muted-foreground">View user:</label>
+                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2">
+                  <label className="text-sm text-muted-foreground whitespace-nowrap">View user:</label>
                   <Select 
                     value={selectedUserId?.toString() || "all"} 
                     onValueChange={(value) => setSelectedUserId(value === "all" ? "all" : parseInt(value))}
                   >
-                    <SelectTrigger className="w-48">
+                    <SelectTrigger className="w-full sm:w-48">
                       <SelectValue placeholder="Select user" />
                     </SelectTrigger>
-                <SelectContent className="z-[1000] bg-popover border border-border shadow-lg">
-                  <SelectItem value="all">All Users</SelectItem>
-                  {users.map((user) => (
-                    <SelectItem key={user.id} value={user.id.toString()}>
-                      {user.firstname} {user.lastname}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
+                    <SelectContent className="z-[1000] bg-popover border border-border shadow-lg">
+                      <SelectItem value="all">All Users</SelectItem>
+                      {users.map((user) => (
+                        <SelectItem key={user.id} value={user.id.toString()}>
+                          {user.firstname} {user.lastname}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
                   </Select>
                 </div>
               )}
-              {/* Connection status indicator */}
-              <div className="group relative">
-                <div className="p-2 rounded-full bg-success/10 border border-success/20 hover:bg-success/20 transition-colors">
-                  <CheckCircle2 className="h-4 w-4 text-success" />
-                </div>
-                <div className="absolute right-0 top-full mt-2 w-64 p-3 bg-background border border-border rounded-lg shadow-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none group-hover:pointer-events-auto">
-                  <div className="text-sm">
-                    <p className="font-medium text-title mb-1">Connected to Bexio</p>
-                    <p className="text-muted-foreground">
-                      {credentials?.authType === 'oauth' ? 'OAuth Connection' : 'API Key Connection'}
-                    </p>
-                    <p className="text-muted-foreground">
-                      Company ID: {credentials?.companyId}
-                    </p>
+              
+              <div className="flex items-center gap-2">
+                {/* Connection status indicator */}
+                <div className="group relative">
+                  <div className="p-2 rounded-full bg-success/10 border border-success/20 hover:bg-success/20 transition-colors">
+                    <CheckCircle2 className="h-4 w-4 text-success" />
+                  </div>
+                  <div className="absolute right-0 top-full mt-2 w-64 p-3 bg-background border border-border rounded-lg shadow-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none group-hover:pointer-events-auto z-50">
+                    <div className="text-sm">
+                      <p className="font-medium text-title mb-1">Connected to Bexio</p>
+                      <p className="text-muted-foreground">
+                        {credentials?.authType === 'oauth' ? 'OAuth Connection' : 'API Key Connection'}
+                      </p>
+                      <p className="text-muted-foreground">
+                        Company ID: {credentials?.companyId}
+                      </p>
+                    </div>
                   </div>
                 </div>
+                
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleRefresh}
+                  disabled={isLoading}
+                  className="gap-2"
+                >
+                  <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+                  <span className="hidden sm:inline">Refresh</span>
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={disconnect}
+                  className="gap-2 text-destructive hover:text-destructive"
+                >
+                  <LogOut className="h-4 w-4" />
+                  <span className="hidden sm:inline">Disconnect</span>
+                </Button>
               </div>
-              
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleRefresh}
-                disabled={isLoading}
-                className="gap-2"
-              >
-                <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
-                Refresh
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={disconnect}
-                className="gap-2 text-destructive hover:text-destructive"
-              >
-                <LogOut className="h-4 w-4" />
-                Disconnect
-              </Button>
             </div>
           </div>
         </div>
@@ -350,8 +353,8 @@ const Index = () => {
             
             {/* View Toggle - only show when on timetracking tab */}
             {activeTab === "timetracking" && (
-              <div className="flex items-center gap-3">
-                <div className="flex items-center gap-2">
+              <div className="flex flex-col lg:flex-row items-start lg:items-center gap-3">
+                <div className="flex flex-wrap items-center gap-2">
                   <Button
                     variant={timeTrackingView === 'list' ? 'default' : 'outline'}
                     size="sm"
@@ -359,7 +362,7 @@ const Index = () => {
                     className="gap-2"
                   >
                     <List className="h-4 w-4" />
-                    List View
+                    <span className="hidden sm:inline">List View</span>
                   </Button>
                   <Button
                     variant={timeTrackingView === 'grid' ? 'default' : 'outline'}
@@ -368,7 +371,7 @@ const Index = () => {
                     className="gap-2"
                   >
                     <Grid className="h-4 w-4" />
-                    Grid View
+                    <span className="hidden sm:inline">Grid View</span>
                   </Button>
                   <Button
                     variant={timeTrackingView === 'calendar' ? 'default' : 'outline'}
@@ -377,45 +380,47 @@ const Index = () => {
                     className="gap-2"
                   >
                     <CalendarDays className="h-4 w-4" />
-                    Calendar
+                    <span className="hidden sm:inline">Calendar</span>
                   </Button>
                 </div>
                 
-                {/* Language Selector */}
-                <div className="flex items-center gap-2">
-                  <label className="text-sm text-muted-foreground">Language:</label>
-                  <Select value={currentLanguage} onValueChange={setCurrentLanguage}>
-                    <SelectTrigger className="w-40">
-                      <SelectValue placeholder="Language" />
-                    </SelectTrigger>
-                    <SelectContent className="z-[1000] bg-popover border border-border shadow-lg">
-                      {languages.map((lang) => (
-                        <SelectItem key={lang.id} value={lang.iso_639_1}>
-                          {lang.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+                  {/* Language Selector */}
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2">
+                    <label className="text-sm text-muted-foreground whitespace-nowrap">Language:</label>
+                    <Select value={currentLanguage} onValueChange={setCurrentLanguage}>
+                      <SelectTrigger className="w-full sm:w-40">
+                        <SelectValue placeholder="Language" />
+                      </SelectTrigger>
+                      <SelectContent className="z-[1000] bg-popover border border-border shadow-lg">
+                        {languages.map((lang) => (
+                          <SelectItem key={lang.id} value={lang.iso_639_1}>
+                            {lang.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  {/* Add Time Entry button */}
+                  <TimeEntryDialog
+                    onSubmit={createTimeEntry}
+                    isSubmitting={isCreatingTimeEntry}
+                    contacts={contacts}
+                    projects={projects}
+                    workPackages={workPackages}
+                    isLoadingWorkPackages={isLoadingWorkPackages}
+                    onFetchWorkPackages={fetchWorkPackages}
+                    initialData={calendarInitialData}
+                    buttonText="Add Entry"
+                    buttonSize="sm"
+                    timesheetStatuses={timesheetStatuses}
+                    businessActivities={businessActivities}
+                    users={users}
+                    isCurrentUserAdmin={isCurrentUserAdmin}
+                    currentBexioUserId={currentBexioUserId}
+                  />
                 </div>
-                
-                {/* Add Time Entry button */}
-                <TimeEntryDialog
-                  onSubmit={createTimeEntry}
-                  isSubmitting={isCreatingTimeEntry}
-                  contacts={contacts}
-                  projects={projects}
-                  workPackages={workPackages}
-                  isLoadingWorkPackages={isLoadingWorkPackages}
-                  onFetchWorkPackages={fetchWorkPackages}
-                  initialData={calendarInitialData}
-                  buttonText="Add Time Entry"
-                  buttonSize="sm"
-                  timesheetStatuses={timesheetStatuses}
-                  businessActivities={businessActivities}
-                  users={users}
-                  isCurrentUserAdmin={isCurrentUserAdmin}
-                  currentBexioUserId={currentBexioUserId}
-                />
               </div>
             )}
           </div>
