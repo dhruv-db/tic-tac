@@ -60,6 +60,7 @@ export const BulkTimeEntryDialog = ({
     date: selectedDate ? format(selectedDate, "yyyy-MM-dd") : format(new Date(), "yyyy-MM-dd"),
     billable: true,
     description: "",
+    excludeWeekends: true,
     applyTo: {
       MON: false,
       TUE: false,
@@ -219,6 +220,12 @@ export const BulkTimeEntryDialog = ({
         
         for (const date of dates) {
           const dayName = dayNames[date.getDay() === 0 ? 6 : date.getDay() - 1]; // Convert to our day format
+          
+          // Skip weekends if exclude weekends is enabled
+          if (formData.excludeWeekends && (date.getDay() === 0 || date.getDay() === 6)) {
+            continue;
+          }
+          
           if (selectedDays.includes(dayName)) {
             entries.push({
               dateRange: { from: date, to: date },
@@ -521,6 +528,16 @@ export const BulkTimeEntryDialog = ({
                       );
                     })}
                   </div>
+                </div>
+
+                {/* Exclude Weekends Toggle */}
+                <div className="flex items-center space-x-2">
+                  <Switch
+                    id="excludeWeekends"
+                    checked={formData.excludeWeekends}
+                    onCheckedChange={(checked) => setFormData(prev => ({ ...prev, excludeWeekends: checked }))}
+                  />
+                  <Label htmlFor="excludeWeekends">Exclude weekends</Label>
                 </div>
 
                 {/* Billable Toggle */}

@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { DateRange } from "react-day-picker";
 import { format } from "date-fns";
@@ -130,7 +130,26 @@ export const useBexioApi = () => {
   // Guards to avoid duplicate or spammy work package fetches
   const workPackageInFlightRef = useRef<Record<number, boolean>>({});
   const workPackageLastFetchedRef = useRef<Record<number, number>>({});
-  const [currentLanguage, setCurrentLanguage] = useState<string>('en');
+  const [currentLanguage, setCurrentLanguage] = useState<string>(() => {
+    return localStorage.getItem('bexioLanguage') || 'en';
+  });
+
+  // Enhanced setCurrentLanguage with persistence
+  const setCurrentLanguageWithPersistence = useCallback((language: string) => {
+    setCurrentLanguage(language);
+    localStorage.setItem('bexioLanguage', language);
+  }, []);
+
+  // Load stored language preference on mount
+  useEffect(() => {
+    const storedLanguage = localStorage.getItem('bexioLanguage');
+    if (storedLanguage && languages.length > 0) {
+      const langExists = languages.find(lang => lang.iso_639_1 === storedLanguage);
+      if (langExists) {
+        setCurrentLanguage(storedLanguage);
+      }
+    }
+  }, [languages]);
   const [isLoadingLanguages, setIsLoadingLanguages] = useState(false);
   const [isCreatingTimeEntry, setIsCreatingTimeEntry] = useState(false);
   const [hasInitiallyLoaded, setHasInitiallyLoaded] = useState({
@@ -1427,7 +1446,7 @@ export const useBexioApi = () => {
     fetchTimesheetStatuses,
     fetchBusinessActivities,
     fetchLanguages,
-    setCurrentLanguage,
+    setCurrentLanguage: setCurrentLanguageWithPersistence,
     createTimeEntry,
     updateTimeEntry,
     deleteTimeEntry,
@@ -1437,6 +1456,8 @@ export const useBexioApi = () => {
     disconnect,
     workPackagesByProject,
     getWorkPackageName,
+    setCurrentBexioUserId,
+    setIsCurrentUserAdmin,
   };
 };
 

@@ -1,5 +1,6 @@
 
 import { Analytics } from "@/components/Analytics";
+import { UserIdentityModal } from "@/components/UserIdentityModal";
 import { useEffect, useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -53,6 +54,8 @@ const Index = () => {
     languages,
     currentLanguage,
     setCurrentLanguage,
+    setCurrentBexioUserId,
+    setIsCurrentUserAdmin,
     createTimeEntry,
     updateTimeEntry,
     deleteTimeEntry,
@@ -75,7 +78,46 @@ const Index = () => {
   const [isLogoDialogOpen, setIsLogoDialogOpen] = useState(false);
   const [logoUrlInput, setLogoUrlInput] = useState<string>(logoUrl);
   const [selectedUserId, setSelectedUserId] = useState<number | "all" | null>(null);
+  const [showUserIdentityModal, setShowUserIdentityModal] = useState(false);
   const { toast } = useToast();
+
+  // Show user identity modal when users are loaded but no identity is selected
+  useEffect(() => {
+    if (users.length > 0 && !currentBexioUserId && !showUserIdentityModal) {
+      setShowUserIdentityModal(true);
+    }
+  }, [users.length, currentBexioUserId, showUserIdentityModal]);
+
+  const handleUserIdentitySelect = (userId: number, isAdmin: boolean) => {
+    // Store the selected user identity in localStorage for persistence
+    localStorage.setItem('selectedBexioUserId', userId.toString());
+    localStorage.setItem('isCurrentUserAdmin', isAdmin.toString());
+    
+    // Update the API hook's state
+    setCurrentBexioUserId(userId);
+    setIsCurrentUserAdmin(isAdmin);
+    setSelectedUserId(userId);
+    setShowUserIdentityModal(false);
+    
+    toast({
+      title: "User identity selected",
+      description: `Logged in as ${users.find(u => u.id === userId)?.firstname} ${users.find(u => u.id === userId)?.lastname}`,
+    });
+  };
+
+  // Load stored user identity on mount
+  useEffect(() => {
+    const storedUserId = localStorage.getItem('selectedBexioUserId');
+    const storedIsAdmin = localStorage.getItem('isCurrentUserAdmin');
+    
+    if (storedUserId && storedIsAdmin) {
+      const userId = parseInt(storedUserId);
+      const isAdmin = storedIsAdmin === 'true';
+      setCurrentBexioUserId(userId);
+      setIsCurrentUserAdmin(isAdmin);
+      setSelectedUserId(userId);
+    }
+  }, []);
 
   // Set default user filter to current user when available
   useEffect(() => {
@@ -169,17 +211,17 @@ const Index = () => {
   const visibleTimeEntries = useMemo(() => {
     if (!isCurrentUserAdmin) {
       // Non-admin users only see their own entries
-      return timeEntries.filter(entry => entry.user_id === currentBexioUserId);
+      return (timeEntries || []).filter(entry => entry.user_id === currentBexioUserId);
     }
     
     // Admin users - fix "All users" filtering
     if (selectedUserId && selectedUserId !== "all") {
       // Specific user selected - show only their entries
       const userId = parseInt(selectedUserId.toString());
-      return timeEntries.filter(entry => entry.user_id === userId);
+      return (timeEntries || []).filter(entry => entry.user_id === userId);
     } else {
       // "All users" or no selection - show all entries
-      return timeEntries;
+      return timeEntries || [];
     }
   }, [timeEntries, isCurrentUserAdmin, currentBexioUserId, selectedUserId]);
 
@@ -210,6 +252,14 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-background">
+      {/* User Identity Modal */}
+      <UserIdentityModal
+        isOpen={showUserIdentityModal}
+        users={users}
+        onUserSelect={handleUserIdentitySelect}
+        currentBexioUserId={currentBexioUserId}
+      />
+
       {/* Header */}
       <header className="border-b bg-card/50 backdrop-blur-sm sticky top-0 z-50">
         <div className="container mx-auto px-4 py-4">

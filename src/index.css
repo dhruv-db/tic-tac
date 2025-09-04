@@ -5,7 +5,7 @@
 @tailwind utilities;
 
 /* Corporate Design System. All colors, gradients, fonts, etc defined here.
-All colors MUST be HSL for consistency. */
+All colors MUST be HSL for consistency. Mobile-first responsive design. */
 
 @layer base {
   :root {
@@ -173,6 +173,23 @@ All colors MUST be HSL for consistency. */
     letter-spacing: -0.01em;
   }
   
+  /* Mobile-first responsive utilities */
+  .mobile-container {
+    @apply px-4 py-3 sm:px-6 sm:py-4;
+  }
+  
+  .mobile-grid {
+    @apply grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4;
+  }
+  
+  .mobile-text {
+    @apply text-sm sm:text-base;
+  }
+  
+  .mobile-button {
+    @apply px-3 py-2 text-sm sm:px-4 sm:py-2 sm:text-base;
+  }
+  
   /* Corporate utility classes */
   .corporate-card {
     @apply bg-card border border-border rounded-lg shadow-[var(--shadow-corporate)];
@@ -188,5 +205,24 @@ All colors MUST be HSL for consistency. */
   
   .corporate-header {
     @apply bg-card/80 backdrop-blur-sm border-b border-border;
+  }
+  
+  /* Mobile responsive overrides */
+  @media (max-width: 640px) {
+    .container {
+      @apply px-4;
+    }
+    
+    .mobile-hide {
+      @apply hidden;
+    }
+    
+    .mobile-stack {
+      @apply flex-col;
+    }
+    
+    .mobile-full {
+      @apply w-full;
+    }
   }
 }

@@ -35,7 +35,8 @@ import {
   Pie,
   Cell,
   Area,
-  AreaChart
+  AreaChart,
+  ComposedChart
 } from 'recharts';
 
 export interface TimeEntry {
@@ -181,16 +182,16 @@ export const Analytics = ({ timeEntries, contacts, projects, users, isCurrentUse
     return `${hours}h ${mins}m`;
   };
 
-  // Monthly chart data
+  // Monthly chart data with billability rate
   const monthlyChartData = useMemo(() => {
-    const monthlyData: Record<string, { month: string; total: number; billable: number; nonBillable: number }> = {};
+    const monthlyData: Record<string, { month: string; total: number; billable: number; nonBillable: number; billabilityRate: number }> = {};
     
     filteredEntries.forEach(entry => {
       const monthKey = format(new Date(entry.date), 'yyyy-MM');
       const minutes = parseDurationToMinutes(entry.duration);
       
       if (!monthlyData[monthKey]) {
-        monthlyData[monthKey] = { month: monthKey, total: 0, billable: 0, nonBillable: 0 };
+        monthlyData[monthKey] = { month: monthKey, total: 0, billable: 0, nonBillable: 0, billabilityRate: 0 };
       }
       
       monthlyData[monthKey].total += minutes;
@@ -208,7 +209,8 @@ export const Analytics = ({ timeEntries, contacts, projects, users, isCurrentUse
         month: format(new Date(item.month), 'MMM yyyy'),
         total: Math.round(item.total / 60 * 100) / 100,
         billable: Math.round(item.billable / 60 * 100) / 100,
-        nonBillable: Math.round(item.nonBillable / 60 * 100) / 100
+        nonBillable: Math.round(item.nonBillable / 60 * 100) / 100,
+        billabilityRate: item.total > 0 ? Math.round((item.billable / item.total) * 100) : 0
       }));
   }, [filteredEntries]);
 
@@ -270,6 +272,7 @@ export const Analytics = ({ timeEntries, contacts, projects, users, isCurrentUse
         .map((item, index) => ({
           name: item.name,
           hours: Math.round(item.totalMinutes / 60 * 100) / 100,
+          billableHours: Math.round(item.billableMinutes / 60 * 100) / 100,
           fill: CHART_COLORS[index % CHART_COLORS.length]
         }))
         .sort((a, b) => b.hours - a.hours);
@@ -454,44 +457,55 @@ export const Analytics = ({ timeEntries, contacts, projects, users, isCurrentUse
 
       {/* Charts Section */}
       <div className="grid gap-6 lg:grid-cols-2">
-        {/* Monthly Time Trend */}
+        {/* Monthly Time Trend with Billability */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <TrendingUp className="h-4 w-4" />
-              Monthly Time Trend
+              Monthly Time Trend & Billability
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="h-[300px]">
               <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={monthlyChartData}>
+                <ComposedChart data={monthlyChartData}>
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="month" />
-                  <YAxis />
+                  <YAxis yAxisId="left" />
+                  <YAxis yAxisId="right" orientation="right" domain={[0, 100]} />
                   <Tooltip 
-                    formatter={(value: any, name: any) => [
-                      `${value}h`, 
-                      name === 'billable' ? 'Billable' : name === 'nonBillable' ? 'Non-Billable' : 'Total'
-                    ]}
+                    formatter={(value: any, name: any) => {
+                      if (name === 'billabilityRate') return [`${value}%`, 'Billability Rate'];
+                      return [`${value}h`, name === 'billable' ? 'Billable Hours' : 'Non-Billable Hours'];
+                    }}
                   />
                   <Area
+                    yAxisId="left"
                     type="monotone"
                     dataKey="billable"
                     stackId="1"
-                    stroke="hsl(var(--primary))"
-                    fill="hsl(var(--primary))"
+                    stroke="hsl(var(--success))"
+                    fill="hsl(var(--success))"
                     fillOpacity={0.6}
                   />
                   <Area
+                    yAxisId="left"
                     type="monotone"
                     dataKey="nonBillable"
                     stackId="1"
-                    stroke="hsl(var(--muted))"
-                    fill="hsl(var(--muted))"
-                    fillOpacity={0.6}
+                    stroke="hsl(var(--muted-foreground))"
+                    fill="hsl(var(--muted-foreground))"
+                    fillOpacity={0.4}
                   />
-                </AreaChart>
+                  <Line
+                    yAxisId="right"
+                    type="monotone"
+                    dataKey="billabilityRate"
+                    stroke="hsl(var(--warning))"
+                    strokeWidth={3}
+                    dot={{ fill: 'hsl(var(--warning))', strokeWidth: 2, r: 4 }}
+                  />
+                </ComposedChart>
               </ResponsiveContainer>
             </div>
           </CardContent>
@@ -508,27 +522,28 @@ export const Analytics = ({ timeEntries, contacts, projects, users, isCurrentUse
           <CardContent>
             <div className="h-[300px]">
               <ResponsiveContainer width="100%" height="100%">
-                <RechartsPieChart>
-                  <Pie
-                    data={projectChartData}
-                    cx="50%"
-                    cy="50%"
-                    outerRadius={80}
-                    dataKey="hours"
-                    label={({ name, hours, percentage }) => `${name}: ${hours}h (${percentage}%)`}
-                    labelLine={false}
-                  >
-                    {projectChartData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.fill} />
-                    ))}
-                  </Pie>
-                  <Tooltip 
-                    formatter={(value: any, name: any, props: any) => [
-                      `${value}h (${props.payload.percentage}%)`, 
-                      'Hours'
-                    ]}
-                  />
-                </RechartsPieChart>
+                 <RechartsPieChart>
+                   <Pie
+                     data={projectChartData}
+                     cx="50%"
+                     cy="50%"
+                     innerRadius={40}
+                     outerRadius={80}
+                     dataKey="hours"
+                     label={({ name, hours, percentage }) => `${name}: ${hours}h (${percentage}%)`}
+                     labelLine={false}
+                   >
+                     {projectChartData.map((entry, index) => (
+                       <Cell key={`cell-${index}`} fill={entry.fill} />
+                     ))}
+                   </Pie>
+                   <Tooltip 
+                     formatter={(value: any, name: any, props: any) => [
+                       `${value}h (${props.payload.percentage}%)`, 
+                       'Hours'
+                     ]}
+                   />
+                 </RechartsPieChart>
               </ResponsiveContainer>
             </div>
           </CardContent>
@@ -560,37 +575,43 @@ export const Analytics = ({ timeEntries, contacts, projects, users, isCurrentUse
               </div>
             </div>
           </CardHeader>
-          <CardContent>
-            <div className="h-[300px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <RechartsPieChart>
-                  <Pie
-                    data={userChartData}
-                    cx="50%"
-                    cy="50%"
-                    outerRadius={80}
-                    dataKey={usersChartView === 'hours' ? 'hours' : 'billableRate'}
-                    label={({ name, hours, billableRate }) => 
-                      usersChartView === 'hours' 
-                        ? `${name}: ${hours}h` 
-                        : `${name}: ${billableRate}%`
-                    }
-                    labelLine={false}
-                  >
-                    {userChartData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.fill} />
-                    ))}
-                  </Pie>
-                  <Tooltip 
-                    formatter={(value: any, name: any) => [
-                      usersChartView === 'hours' ? `${value}h` : `${value}%`, 
-                      usersChartView === 'hours' ? 'Hours' : 'Billable Rate'
-                    ]}
-                  />
-                </RechartsPieChart>
-              </ResponsiveContainer>
-            </div>
-          </CardContent>
+           <CardContent>
+             <div className="h-[300px]">
+               <ResponsiveContainer width="100%" height="100%">
+                 {usersChartView === 'hours' ? (
+                   <BarChart data={userChartData} layout="horizontal">
+                     <CartesianGrid strokeDasharray="3 3" />
+                     <XAxis type="number" />
+                     <YAxis type="category" dataKey="name" width={120} />
+                     <Tooltip 
+                       formatter={(value: any) => [`${value}h`, 'Hours']}
+                     />
+                     <Bar dataKey="hours" fill="hsl(var(--primary))" />
+                   </BarChart>
+                 ) : (
+                   <RechartsPieChart>
+                     <Pie
+                       data={userChartData}
+                       cx="50%"
+                       cy="50%"
+                       innerRadius={40}
+                       outerRadius={80}
+                       dataKey="billableRate"
+                       label={({ name, billableRate }) => `${name}: ${billableRate}%`}
+                       labelLine={false}
+                     >
+                       {userChartData.map((entry, index) => (
+                         <Cell key={`cell-${index}`} fill={entry.fill} />
+                       ))}
+                     </Pie>
+                     <Tooltip 
+                       formatter={(value: any) => [`${value}%`, 'Billable Rate']}
+                     />
+                   </RechartsPieChart>
+                 )}
+               </ResponsiveContainer>
+             </div>
+           </CardContent>
         </Card>
 
         {/* Summary Stats */}
