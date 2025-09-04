@@ -340,14 +340,14 @@ export const Analytics = ({ timeEntries, contacts, projects, users, isCurrentUse
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Projects</SelectItem>
-                  {projects.map(project => (
-                    <SelectItem key={project.id} value={project.id.toString()}>
-                      {project.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
+                 <SelectContent className="bg-card border border-border shadow-lg z-50">
+                   <SelectItem value="all">All Projects</SelectItem>
+                   {projects.map(project => (
+                     <SelectItem key={project.id} value={project.id.toString()}>
+                       {project.name}
+                     </SelectItem>
+                   ))}
+                 </SelectContent>
               </Select>
             </div>
 

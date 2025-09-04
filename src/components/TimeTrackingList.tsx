@@ -515,26 +515,36 @@ export const TimeTrackingList = ({
                             </div>
                           )}
 
-                          {/* Essential Details */}
-                          <div className="flex items-center gap-4 flex-wrap text-sm">
-                            {entry.client_service_id && (
-                              <div className="flex items-center gap-2">
-                                <Clock className="h-4 w-4 text-muted-foreground" />
-                                <span className="font-medium">
-                                  {getActivityName(entry.client_service_id)}
-                                </span>
-                              </div>
-                            )}
-                            
-                            {entry.pr_package_id && (
-                              <div className="flex items-center gap-2">
-                                <DollarSign className="h-4 w-4 text-muted-foreground" />
-                                <span className="font-medium">
-                                  {getWorkPackageName(entry)}
-                                </span>
-                              </div>
-                            )}
-                          </div>
+                           {/* Essential Details */}
+                           <div className="flex items-center gap-4 flex-wrap text-sm">
+                             {/* Project Name */}
+                             {((entry as any).pr_project_id || entry.project_id) && (
+                               <div className="flex items-center gap-2">
+                                 <User className="h-4 w-4 text-muted-foreground" />
+                                 <span className="font-medium">
+                                   {projects.find(p => p.id === ((entry as any).pr_project_id || entry.project_id))?.name || 'Unknown Project'}
+                                 </span>
+                               </div>
+                             )}
+                             
+                             {entry.client_service_id && (
+                               <div className="flex items-center gap-2">
+                                 <Clock className="h-4 w-4 text-muted-foreground" />
+                                 <span className="font-medium">
+                                   {getActivityName(entry.client_service_id)}
+                                 </span>
+                               </div>
+                             )}
+                             
+                             {entry.pr_package_id && (
+                               <div className="flex items-center gap-2">
+                                 <DollarSign className="h-4 w-4 text-muted-foreground" />
+                                 <span className="font-medium">
+                                   {getWorkPackageName(entry)}
+                                 </span>
+                               </div>
+                             )}
+                           </div>
                        </div>
                      </div>
 
