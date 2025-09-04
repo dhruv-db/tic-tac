@@ -624,6 +624,8 @@ export const TimeTrackingList = ({
         isSubmitting={isCreatingTimeEntry}
         contacts={contacts}
         projects={projects}
+        timesheetStatuses={timesheetStatuses}
+        businessActivities={businessActivities}
       />
 
       {filteredAndSortedTimeEntries.length === 0 && !isLoading && timeEntries.length > 0 && (

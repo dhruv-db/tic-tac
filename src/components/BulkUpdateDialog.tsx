@@ -35,6 +35,8 @@ interface BulkUpdateDialogProps {
   isSubmitting: boolean;
   contacts: Contact[];
   projects: Project[];
+  timesheetStatuses: { id: number; name: string }[];
+  businessActivities: { id: number; name: string }[];
 }
 
 interface BulkUpdateData {
@@ -42,6 +44,8 @@ interface BulkUpdateData {
   allowable_bill?: boolean;
   contact_id?: number;
   project_id?: number;
+  status_id?: number;
+  client_service_id?: number;
 }
 
 export const BulkUpdateDialog = ({
@@ -51,7 +55,9 @@ export const BulkUpdateDialog = ({
   onSubmit,
   isSubmitting,
   contacts,
-  projects
+  projects,
+  timesheetStatuses,
+  businessActivities
 }: BulkUpdateDialogProps) => {
   const [formData, setFormData] = useState<BulkUpdateData>({});
   const [updateFields, setUpdateFields] = useState<{[key: string]: boolean}>({});
@@ -70,6 +76,8 @@ export const BulkUpdateDialog = ({
     if (updateFields.allowable_bill && formData.allowable_bill !== undefined) updateData.allowable_bill = formData.allowable_bill;
     if (updateFields.contact_id && formData.contact_id !== undefined) updateData.contact_id = formData.contact_id;
     if (updateFields.project_id && formData.project_id !== undefined) updateData.project_id = formData.project_id;
+    if (updateFields.status_id && formData.status_id !== undefined) updateData.status_id = formData.status_id;
+    if (updateFields.client_service_id && formData.client_service_id !== undefined) updateData.client_service_id = formData.client_service_id;
     
     await onSubmit(selectedEntries, updateData);
     
@@ -123,7 +131,7 @@ export const BulkUpdateDialog = ({
             </div>
           </div>
 
-          {/* Contact and Project */}
+          {/* Contact, Project, Status, and Activity */}
           <div className="grid grid-cols-2 gap-4">
             <div className="flex items-center gap-4">
               <Switch
@@ -178,6 +186,69 @@ export const BulkUpdateDialog = ({
                     {projects.map((project) => (
                       <SelectItem key={project.id} value={project.id.toString()}>
                         {project.name} (#{project.nr})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </div>
+
+          {/* Status and Activity */}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="flex items-center gap-4">
+              <Switch
+                checked={updateFields.status_id || false}
+                onCheckedChange={(checked) => handleFieldToggle('status_id', checked)}
+              />
+              <div className="flex-1 space-y-2">
+                <Label>Status</Label>
+                <Select
+                  value={formData.status_id?.toString() || "none"}
+                  onValueChange={(value) => setFormData(prev => ({ 
+                    ...prev, 
+                    status_id: value === "none" ? undefined : parseInt(value) 
+                  }))}
+                  disabled={!updateFields.status_id}
+                >
+                  <SelectTrigger className={!updateFields.status_id ? "opacity-50" : ""}>
+                    <SelectValue placeholder="Select a status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">No status</SelectItem>
+                    {timesheetStatuses.map((status) => (
+                      <SelectItem key={status.id} value={status.id.toString()}>
+                        {status.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-4">
+              <Switch
+                checked={updateFields.client_service_id || false}
+                onCheckedChange={(checked) => handleFieldToggle('client_service_id', checked)}
+              />
+              <div className="flex-1 space-y-2">
+                <Label>Activity</Label>
+                <Select
+                  value={formData.client_service_id?.toString() || "none"}
+                  onValueChange={(value) => setFormData(prev => ({ 
+                    ...prev, 
+                    client_service_id: value === "none" ? undefined : parseInt(value) 
+                  }))}
+                  disabled={!updateFields.client_service_id}
+                >
+                  <SelectTrigger className={!updateFields.client_service_id ? "opacity-50" : ""}>
+                    <SelectValue placeholder="Select an activity" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">No activity</SelectItem>
+                    {businessActivities.map((activity) => (
+                      <SelectItem key={activity.id} value={activity.id.toString()}>
+                        {activity.name}
                       </SelectItem>
                     ))}
                   </SelectContent>

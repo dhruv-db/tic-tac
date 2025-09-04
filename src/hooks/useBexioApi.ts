@@ -1078,6 +1078,13 @@ export const useBexioApi = () => {
         return;
       }
 
+      // Check if it's a method not allowed error before fallback
+      const putError = await putResponse.json().catch(() => ({}));
+      if (putResponse.status !== 405 && putResponse.status !== 501) {
+        // It's a real error, not just unsupported method
+        throw new Error(`Failed to update entry: ${putError.error || putResponse.status}`);
+      }
+
       // Fallback for APIs that don't allow PUT on timesheets: delete + recreate
       // Delete existing
       const deleteResponse = await fetch(`https://opcjifbdwpyttaxqlqbf.supabase.co/functions/v1/bexio-proxy`, {
@@ -1215,19 +1222,101 @@ export const useBexioApi = () => {
   const bulkUpdateTimeEntries = useCallback(async (entries: any[], updateData: any) => {
     if (!credentials) return;
     setIsCreatingTimeEntry(true);
+    
+    let successCount = 0;
+    let failureCount = 0;
+    
     try {
+      const authToken = await ensureValidToken();
+      if (!authToken) return;
+
       for (const entry of entries) {
-        await deleteTimeEntry(entry.id);
-        // Simple recreate with updateData - full implementation would merge data
+        try {
+          // Merge existing entry data with updates
+          const mergedData = {
+            user_id: entry.user_id,
+            client_service_id: updateData.client_service_id !== undefined ? updateData.client_service_id : entry.client_service_id,
+            text: updateData.text !== undefined ? updateData.text : entry.text,
+            allowable_bill: updateData.allowable_bill !== undefined ? updateData.allowable_bill : entry.allowable_bill,
+            tracking: {
+              type: "duration",
+              date: entry.date,
+              duration: entry.duration,
+            },
+            contact_id: updateData.contact_id !== undefined ? updateData.contact_id : entry.contact_id,
+            pr_project_id: updateData.project_id !== undefined ? updateData.project_id : entry.project_id,
+            status_id: updateData.status_id !== undefined ? updateData.status_id : entry.status_id,
+          };
+
+          // Try updating via PUT first
+          const putResponse = await fetch(`https://opcjifbdwpyttaxqlqbf.supabase.co/functions/v1/bexio-proxy`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              endpoint: `/timesheet/${entry.id}`,
+              method: 'PUT',
+              apiKey: authToken,
+              companyId: credentials.companyId,
+              data: mergedData,
+            }),
+          });
+
+          if (putResponse.ok) {
+            successCount++;
+            continue;
+          }
+
+          // Check if it's a method not allowed error (405 or 501)
+          const putError = await putResponse.json().catch(() => ({}));
+          if (putResponse.status === 405 || putResponse.status === 501) {
+            // Fallback: delete and recreate for APIs that don't support PUT
+            await deleteTimeEntry(entry.id, true);
+            
+            // Recreate with merged data
+            const createResponse = await fetch(`https://opcjifbdwpyttaxqlqbf.supabase.co/functions/v1/bexio-proxy`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                endpoint: '/timesheet',
+                method: 'POST',
+                apiKey: authToken,
+                companyId: credentials.companyId,
+                data: mergedData,
+              }),
+            });
+
+            if (createResponse.ok) {
+              successCount++;
+            } else {
+              console.error(`Failed to recreate entry ${entry.id}`);
+              failureCount++;
+            }
+          } else {
+            console.error(`Failed to update entry ${entry.id}:`, putError);
+            failureCount++;
+          }
+        } catch (error) {
+          console.error(`Error updating entry ${entry.id}:`, error);
+          failureCount++;
+        }
       }
-      toast({ title: "Bulk update completed" });
+
+      if (failureCount === 0) {
+        toast({ title: `Successfully updated ${successCount} entries` });
+      } else {
+        toast({ 
+          title: `Updated ${successCount} entries, ${failureCount} failed`,
+          variant: failureCount === entries.length ? "destructive" : "default"
+        });
+      }
+      
       await fetchTimeEntries(lastRangeRef.current || undefined, { quiet: true });
     } catch (error) {
       toast({ title: "Bulk update failed", variant: "destructive" });
     } finally {
       setIsCreatingTimeEntry(false);
     }
-  }, [credentials, toast, fetchTimeEntries, deleteTimeEntry]);
+  }, [credentials, toast, fetchTimeEntries, deleteTimeEntry, ensureValidToken]);
 
   const bulkDeleteTimeEntries = useCallback(async (entryIds: number[]) => {
     if (!credentials) return;
