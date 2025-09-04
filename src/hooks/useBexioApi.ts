@@ -1180,13 +1180,13 @@ export const useBexioApi = () => {
 
       console.log('Updating time entry with data:', { id, data: bexioData });
 
-      // Use PUT method with 2.0 API
+      // Use POST method with 2.0 API (per Bexio docs)
       const putResponse = await fetch(`https://opcjifbdwpyttaxqlqbf.supabase.co/functions/v1/bexio-proxy`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           endpoint: `/2.0/timesheet/${id}`,
-          method: 'PUT',
+          method: 'POST',
           apiKey: authToken,
           companyId: credentials.companyId,
           data: bexioData,
@@ -1314,13 +1314,13 @@ export const useBexioApi = () => {
 
           console.log(`📝 Updating entry ${entry.id} with:`, mergedData);
 
-          // Use PUT method with 2.0 API
+          // Use POST method with 2.0 API (per Bexio docs)
           const putResponse = await fetch(`https://opcjifbdwpyttaxqlqbf.supabase.co/functions/v1/bexio-proxy`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               endpoint: `/2.0/timesheet/${entry.id}`,
-              method: 'PUT',
+              method: 'POST',
               apiKey: authToken,
               companyId: credentials.companyId,
               data: mergedData,
