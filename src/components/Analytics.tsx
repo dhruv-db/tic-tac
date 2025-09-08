@@ -38,6 +38,7 @@ import {
   AreaChart,
   ComposedChart
 } from 'recharts';
+import { useIsMobile } from "@/hooks/use-mobile";
 
 export interface TimeEntry {
   id: number;
@@ -94,6 +95,7 @@ export const Analytics = ({ timeEntries, contacts, projects, users, isCurrentUse
   const [selectedProject, setSelectedProject] = useState<string>("all");
   const [timeFilter, setTimeFilter] = useState<string>("all");
   const [usersChartView, setUsersChartView] = useState<'hours' | 'billability'>('hours');
+  const isMobile = useIsMobile();
 
   // Helper function to parse duration
   const parseDurationToMinutes = (duration: string | number): number => {
@@ -398,9 +400,9 @@ export const Analytics = ({ timeEntries, contacts, projects, users, isCurrentUse
       </Card>
 
       {/* KPI Cards */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className={`grid gap-4 ${isMobile ? 'grid-cols-2' : 'md:grid-cols-2 lg:grid-cols-4'}`}>
         <Card className="corporate-card">
-          <CardContent className="p-6">
+        <CardContent className={`${isMobile ? 'p-4' : 'p-6'}`}>
             <div className="flex items-center gap-3">
               <div className="p-2 rounded-full bg-primary-subtle">
                 <Clock className="h-5 w-5 text-primary" />

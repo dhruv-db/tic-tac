@@ -469,11 +469,14 @@ export const useBexioApi = () => {
       });
     } catch (error) {
       console.error('Error fetching contacts:', error);
-      toast({
-        title: "Failed to fetch contacts",
-        description: error instanceof Error ? error.message : "An error occurred while fetching contacts.",
-        variant: "destructive",
-      });
+      // Only show toast if user is connected (to prevent errors before login)
+      if (credentials) {
+        toast({
+          title: "Failed to fetch contacts",
+          description: error instanceof Error ? error.message : "An error occurred while fetching contacts.",
+          variant: "destructive",
+        });
+      }
     } finally {
       setIsLoadingContacts(false);
     }
@@ -953,6 +956,7 @@ export const useBexioApi = () => {
   const fetchTimesheetStatuses = useCallback(async (options?: { quiet?: boolean }) => {
     if (!credentials) {
       console.error('No credentials available');
+      // Only show toast if options don't specify quiet mode (prevents errors during login)
       if (!options?.quiet) {
         toast({ title: "Error", description: "API key not configured. Please connect to Bexio first.", variant: "destructive" });
       }

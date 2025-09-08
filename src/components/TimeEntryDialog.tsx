@@ -1,9 +1,11 @@
 import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription } from "@/components/ui/drawer";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
 import { TimeEntryForm } from "./TimeEntryForm";
 import { DateRange } from "react-day-picker";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 interface Contact {
   id: number;
@@ -88,11 +90,58 @@ export const TimeEntryDialog = ({
   currentBexioUserId
 }: TimeEntryDialogProps) => {
   const [isOpen, setIsOpen] = useState(false);
+  const isMobile = useIsMobile();
 
   const handleSubmit = async (data: any) => {
     await onSubmit(data);
     setIsOpen(false);
   };
+
+  if (isMobile) {
+    return (
+      <>
+        <Button 
+          onClick={() => setIsOpen(true)}
+          className={`gap-2 bg-primary hover:bg-primary/90 mobile-button ${buttonSize === 'sm' ? 'text-sm px-3 py-2' : ''}`}
+          size={buttonSize}
+          variant={buttonVariant}
+        >
+          <Plus className="h-4 w-4" />
+          {buttonText}
+        </Button>
+
+        <Drawer open={isOpen} onOpenChange={setIsOpen}>
+          <DrawerContent className="max-h-[95vh] overflow-y-auto">
+            <DrawerHeader className="text-left">
+              <DrawerTitle>Add Time Entry</DrawerTitle>
+              <DrawerDescription className="sr-only">
+                Create a new time entry by selecting date, duration or start/end time, and details.
+              </DrawerDescription>
+            </DrawerHeader>
+            
+            <div className="px-4 pb-4">
+              <TimeEntryForm 
+                onSubmit={handleSubmit}
+                isSubmitting={isSubmitting}
+                contacts={contacts}
+                projects={projects}
+                workPackages={workPackages}
+                isLoadingWorkPackages={isLoadingWorkPackages}
+                onFetchWorkPackages={onFetchWorkPackages}
+                initialData={initialData}
+                hideFormWrapper={true}
+                timesheetStatuses={timesheetStatuses}
+                businessActivities={businessActivities}
+                users={users}
+                isCurrentUserAdmin={isCurrentUserAdmin}
+                currentBexioUserId={currentBexioUserId}
+              />
+            </div>
+          </DrawerContent>
+        </Drawer>
+      </>
+    );
+  }
 
   return (
     <>

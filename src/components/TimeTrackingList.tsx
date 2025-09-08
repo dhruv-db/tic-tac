@@ -16,6 +16,7 @@ import { Plus } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { DateRange } from "react-day-picker";
 import { useBexioApi } from "@/hooks/useBexioApi";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 export interface TimeEntry {
   id: number;
@@ -124,6 +125,7 @@ export const TimeTrackingList = ({
   const [sortBy, setSortBy] = useState<'date' | 'updated' | 'duration'>('updated');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const { toast } = useToast();
+  const isMobile = useIsMobile();
   // Removed useBexioApi hook - using props instead
   
   // Prefetch work packages for visible projects - handle both project_id and pr_project_id
@@ -351,15 +353,15 @@ export const TimeTrackingList = ({
   }
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className={`space-y-6 animate-fade-in ${isMobile ? 'mobile-container' : ''}`}>
 
 
       <Tabs value="list" className="space-y-6">
         <TabsContent value="list" className="space-y-6">
           {/* Filters and Sorting */}
           <Card className="corporate-card">
-            <CardContent className="p-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:flex xl:flex-wrap gap-4 items-start xl:items-center">
+            <CardContent className={`p-4 ${isMobile ? 'p-3' : ''}`}>
+              <div className={`grid gap-4 items-start ${isMobile ? 'grid-cols-1' : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:flex xl:flex-wrap xl:items-center'}`}>
                 <div className="flex items-center gap-2 col-span-full xl:col-span-1">
                   <Filter className="h-4 w-4 text-muted-foreground" />
                   <span className="text-sm font-medium">Filters & Sort:</span>
@@ -368,10 +370,10 @@ export const TimeTrackingList = ({
                 <div className="flex flex-col gap-1">
                   <label className="text-sm text-muted-foreground">Project:</label>
                   <Select value={projectFilter} onValueChange={setProjectFilter}>
-                    <SelectTrigger className="w-full min-w-[200px]">
+                    <SelectTrigger className={`w-full min-w-[200px] ${isMobile ? 'mobile-button' : ''}`}>
                       <SelectValue placeholder="All projects" />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="z-[1000] bg-popover border border-border shadow-lg">
                       <SelectItem value="all">All projects</SelectItem>
                       <SelectItem value="none">No project assigned</SelectItem>
                       {projects.map((project) => (
@@ -386,10 +388,10 @@ export const TimeTrackingList = ({
                 <div className="flex flex-col gap-1">
                   <label className="text-sm text-muted-foreground">Month:</label>
                   <Select value={monthYearFilter} onValueChange={setMonthYearFilter}>
-                    <SelectTrigger className="w-full min-w-[140px]">
+                    <SelectTrigger className={`w-full min-w-[140px] ${isMobile ? 'mobile-button' : ''}`}>
                       <SelectValue placeholder="All months" />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="z-[1000] bg-popover border border-border shadow-lg">
                       <SelectItem value="all">All months</SelectItem>
                       {getMonthYearOptions().map((monthYear) => (
                         <SelectItem key={monthYear} value={monthYear}>
@@ -407,10 +409,10 @@ export const TimeTrackingList = ({
                     setSortBy(field);
                     setSortOrder(order);
                   }}>
-                    <SelectTrigger className="w-full min-w-[160px]">
+                    <SelectTrigger className={`w-full min-w-[160px] ${isMobile ? 'mobile-button' : ''}`}>
                       <SelectValue />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="z-[1000] bg-popover border border-border shadow-lg">
                       <SelectItem value="updated-desc">Latest Updated</SelectItem>
                       <SelectItem value="updated-asc">Oldest Updated</SelectItem>
                       <SelectItem value="date-desc">Latest Date</SelectItem>
