@@ -1,4 +1,6 @@
 import { useEffect, useState } from "react";
+import { Capacitor } from '@capacitor/core';
+import { Browser } from '@/capacitor-setup';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -6,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Settings, Key, CheckCircle2, User, Shield } from "lucide-react";
+import { MobileOAuth } from "./MobileOAuth";
 interface BexioConnectorProps {
   onConnect: (apiKey: string, companyId: string) => void;
   onOAuthConnect: (accessToken: string, refreshToken: string, companyId: string, userEmail: string) => void;
@@ -145,6 +148,12 @@ export const BexioConnector = ({
         </AlertDescription>
       </Alert>;
   }
+
+  // Use mobile-specific OAuth component when running in Capacitor
+  if (Capacitor.isNativePlatform()) {
+    return <MobileOAuth />;
+  }
+
   return <Card className={className}>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
@@ -165,7 +174,7 @@ export const BexioConnector = ({
                 <p>Connect securely without sharing your credentials. This is the recommended method.</p>
               </div>
             </div>
-            
+
             <Button onClick={handleOAuthConnect} disabled={isOAuthLoading} size="lg" className="w-full text-base bg-[#5faf59]">
               {isOAuthLoading ? "Connecting..." : "Connect with Bexio OAuth"}
             </Button>

@@ -277,7 +277,7 @@ export const BulkTimeEntryDialog = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-4xl max-h-[75vh] md:max-h-[85vh] overflow-y-auto fixed top-[10vh] md:top-[5vh]">
         <DialogHeader>
           <div className="flex items-center justify-between">
             <DialogTitle>New entry</DialogTitle>

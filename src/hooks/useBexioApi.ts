@@ -404,19 +404,22 @@ export const useBexioApi = () => {
         authType: 'oauth',
         expiresAt
       };
-      
+
       console.log('💾 Storing credentials in localStorage:', creds);
       localStorage.setItem('bexio_credentials', JSON.stringify(creds));
       console.log('🎯 Setting credentials state...');
       setCredentials(creds);
       console.log('✅ Credentials set! App should now be connected. isConnected will be:', !!creds);
+      console.log('🔄 Current credentials state after setting:', creds);
+
       logTokenClaims(accessToken);
-      
+
       // Auto-identify current user after OAuth connection
       setTimeout(async () => {
+        console.log('👤 Fetching current user after OAuth...');
         await fetchCurrentUser();
       }, 100);
-      
+
       // No toast notification - seamless authentication
     } catch (error) {
       console.error('❌ OAuth connection error:', error);

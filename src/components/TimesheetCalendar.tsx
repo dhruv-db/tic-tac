@@ -6,6 +6,7 @@ import { Calendar, ChevronLeft, ChevronRight, Clock, Edit, Trash2, Plus } from "
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, addMonths, subMonths, isToday } from "date-fns";
 import { cn } from "@/lib/utils";
 import { TimeEntry } from "./TimeTrackingList";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 interface TimesheetCalendarProps {
   timeEntries: TimeEntry[];
@@ -17,6 +18,7 @@ interface TimesheetCalendarProps {
 
 export const TimesheetCalendar = ({ timeEntries, onEditEntry, onDeleteEntry, onCreateEntry, isLoading }: TimesheetCalendarProps) => {
   const [currentDate, setCurrentDate] = useState(new Date());
+  const isMobile = useIsMobile();
 
   const formatDuration = (duration: string | number) => {
     if (typeof duration === 'string') {
@@ -52,18 +54,12 @@ export const TimesheetCalendar = ({ timeEntries, onEditEntry, onDeleteEntry, onC
   if (isLoading) {
     return (
       <Card className="corporate-card animate-fade-in">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Calendar className="h-5 w-5 text-primary" />
-            Timesheet Calendar
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
+        <CardContent className={`${isMobile ? 'p-4' : 'p-6'}`}>
           <div className="animate-pulse space-y-4">
             <div className="h-8 bg-muted rounded w-64"></div>
             <div className="grid grid-cols-7 gap-2">
               {[...Array(35)].map((_, i) => (
-                <div key={i} className="h-24 bg-muted rounded"></div>
+                <div key={i} className={`${isMobile ? 'h-16' : 'h-24'} bg-muted rounded`}></div>
               ))}
             </div>
           </div>
@@ -74,31 +70,31 @@ export const TimesheetCalendar = ({ timeEntries, onEditEntry, onDeleteEntry, onC
 
   return (
     <Card className="corporate-card animate-fade-in">
-      <CardHeader>
+      <CardHeader className={`${isMobile ? 'pb-3' : 'pb-6'}`}>
         <div className="flex items-center justify-between">
           <CardTitle className="flex items-center gap-2">
-            <Calendar className="h-5 w-5 text-primary" />
-            Timesheet Calendar
+            <Calendar className={`${isMobile ? 'h-4 w-4' : 'h-5 w-5'} text-primary`} />
+            <span className={`${isMobile ? 'text-base' : 'text-lg'}`}>Calendar</span>
           </CardTitle>
-          <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" onClick={previousMonth}>
-              <ChevronLeft className="h-4 w-4" />
+          <div className="flex items-center gap-1">
+            <Button variant="outline" size={isMobile ? "sm" : "sm"} onClick={previousMonth} className={isMobile ? 'h-8 w-8 p-0' : ''}>
+              <ChevronLeft className={`${isMobile ? 'h-3 w-3' : 'h-4 w-4'}`} />
             </Button>
-            <h3 className="text-lg font-semibold min-w-[140px] text-center">
-              {format(currentDate, 'MMMM yyyy')}
+            <h3 className={`${isMobile ? 'text-sm' : 'text-lg'} font-semibold min-w-[100px] text-center`}>
+              {format(currentDate, isMobile ? 'MMM yyyy' : 'MMMM yyyy')}
             </h3>
-            <Button variant="outline" size="sm" onClick={nextMonth}>
-              <ChevronRight className="h-4 w-4" />
+            <Button variant="outline" size={isMobile ? "sm" : "sm"} onClick={nextMonth} className={isMobile ? 'h-8 w-8 p-0' : ''}>
+              <ChevronRight className={`${isMobile ? 'h-3 w-3' : 'h-4 w-4'}`} />
             </Button>
           </div>
         </div>
       </CardHeader>
-      <CardContent>
+      <CardContent className={`${isMobile ? 'p-3' : 'p-6'}`}>
         {/* Calendar Header */}
-        <div className="grid grid-cols-7 gap-1 mb-4">
+        <div className={`grid grid-cols-7 gap-1 ${isMobile ? 'mb-2' : 'mb-4'}`}>
           {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((day) => (
-            <div key={day} className="p-2 text-center text-sm font-medium text-muted-foreground bg-muted/30 rounded">
-              {day}
+            <div key={day} className={`${isMobile ? 'p-1' : 'p-2'} text-center ${isMobile ? 'text-xs' : 'text-sm'} font-medium text-muted-foreground bg-muted/30 rounded`}>
+              {isMobile ? day.slice(0, 3) : day}
             </div>
           ))}
         </div>
@@ -117,14 +113,14 @@ export const TimesheetCalendar = ({ timeEntries, onEditEntry, onDeleteEntry, onC
               <div
                 key={day.toISOString()}
                 className={cn(
-                  "min-h-[120px] p-2 border rounded-lg transition-[var(--transition-smooth)]",
+                  `${isMobile ? 'min-h-[80px] p-1' : 'min-h-[120px] p-2'} border rounded-lg transition-[var(--transition-smooth)]`,
                   isCurrentMonth ? "border-border bg-card" : "border-border/40 bg-muted/20",
                   isTodayDate && "ring-2 ring-primary/50 bg-primary/5",
                   dayEntries.length > 0 && "hover:shadow-[var(--shadow-subtle)]"
                 )}
               >
                 <div className={cn(
-                  "text-sm font-medium mb-2 flex items-center justify-between",
+                  `${isMobile ? 'text-xs' : 'text-sm'} font-medium mb-1 flex items-center justify-between`,
                   !isCurrentMonth && "text-muted-foreground",
                   isTodayDate && "text-primary font-semibold"
                 )}>
@@ -133,67 +129,67 @@ export const TimesheetCalendar = ({ timeEntries, onEditEntry, onDeleteEntry, onC
                     <Button
                       variant="ghost"
                       size="sm"
-                      className="h-5 w-5 p-0 opacity-60 hover:opacity-100"
+                      className={`${isMobile ? 'h-4 w-4 p-0' : 'h-5 w-5 p-0'} opacity-60 hover:opacity-100`}
                       onClick={() => onCreateEntry(day)}
                       title="Add time entry"
                     >
-                      <Plus className="h-3 w-3" />
+                      <Plus className={`${isMobile ? 'h-2.5 w-2.5' : 'h-3 w-3'}`} />
                     </Button>
                   )}
                 </div>
 
                 {dayEntries.length > 0 && (
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                      <Clock className="h-3 w-3" />
+                  <div className="space-y-0.5">
+                    <div className={`flex items-center gap-1 ${isMobile ? 'text-xs' : 'text-xs'} text-muted-foreground`}>
+                      <Clock className={`${isMobile ? 'h-2.5 w-2.5' : 'h-3 w-3'}`} />
                       <span>
                         {totalHours}:{remainingMinutes.toString().padStart(2, '0')}
                       </span>
                     </div>
 
-                    <div className="space-y-1 max-h-16 overflow-y-auto">
-                      {dayEntries.slice(0, 3).map((entry) => (
+                    <div className={`space-y-0.5 ${isMobile ? 'max-h-12' : 'max-h-16'} overflow-y-auto`}>
+                      {dayEntries.slice(0, isMobile ? 2 : 3).map((entry) => (
                         <div
                           key={entry.id}
-                          className="group relative p-1 rounded bg-primary/10 hover:bg-primary/20 transition-colors"
+                          className="group relative p-0.5 rounded bg-primary/10 hover:bg-primary/20 transition-colors"
                         >
                           <div className="flex items-center justify-between">
                             <Badge
                               variant={entry.allowable_bill ? "default" : "secondary"}
-                              className="text-xs h-4 px-1"
+                              className={`${isMobile ? 'text-xs h-3 px-1' : 'text-xs h-4 px-1'}`}
                             >
                               {formatDuration(entry.duration)}
                             </Badge>
-                            <div className="opacity-0 group-hover:opacity-100 flex gap-1 transition-opacity">
+                            <div className="opacity-0 group-hover:opacity-100 flex gap-0.5 transition-opacity">
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                className="h-4 w-4 p-0"
+                                className={`${isMobile ? 'h-3 w-3 p-0' : 'h-4 w-4 p-0'}`}
                                 onClick={() => onEditEntry?.(entry)}
                               >
-                                <Edit className="h-3 w-3" />
+                                <Edit className={`${isMobile ? 'h-2.5 w-2.5' : 'h-3 w-3'}`} />
                               </Button>
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                className="h-4 w-4 p-0 text-destructive hover:text-destructive"
+                                className={`${isMobile ? 'h-3 w-3 p-0' : 'h-4 w-4 p-0'} text-destructive hover:text-destructive`}
                                 onClick={() => onDeleteEntry?.(entry.id)}
                               >
-                                <Trash2 className="h-3 w-3" />
+                                <Trash2 className={`${isMobile ? 'h-2.5 w-2.5' : 'h-3 w-3'}`} />
                               </Button>
                             </div>
                           </div>
                           {entry.text && (
-                            <div className="text-xs text-muted-foreground truncate mt-1">
+                            <div className={`${isMobile ? 'text-xs' : 'text-xs'} text-muted-foreground truncate mt-0.5`}>
                               {entry.text}
                             </div>
                           )}
                         </div>
                       ))}
 
-                      {dayEntries.length > 3 && (
-                        <div className="text-xs text-muted-foreground text-center">
-                          +{dayEntries.length - 3} more
+                      {dayEntries.length > (isMobile ? 2 : 3) && (
+                        <div className={`${isMobile ? 'text-xs' : 'text-xs'} text-muted-foreground text-center`}>
+                          +{dayEntries.length - (isMobile ? 2 : 3)} more
                         </div>
                       )}
                     </div>
@@ -205,14 +201,14 @@ export const TimesheetCalendar = ({ timeEntries, onEditEntry, onDeleteEntry, onC
         </div>
 
         {/* Legend */}
-        <div className="flex items-center gap-4 mt-6 pt-4 border-t">
-          <div className="flex items-center gap-2">
-            <Badge variant="default" className="h-4 px-2">Sample</Badge>
-            <span className="text-sm text-muted-foreground">Billable</span>
+        <div className={`flex items-center gap-3 ${isMobile ? 'mt-3 pt-2' : 'mt-6 pt-4'} border-t`}>
+          <div className="flex items-center gap-1.5">
+            <Badge variant="default" className={`${isMobile ? 'h-3 px-1.5 text-xs' : 'h-4 px-2'}`}>Sample</Badge>
+            <span className={`${isMobile ? 'text-xs' : 'text-sm'} text-muted-foreground`}>Billable</span>
           </div>
-          <div className="flex items-center gap-2">
-            <Badge variant="secondary" className="h-4 px-2">Sample</Badge>
-            <span className="text-sm text-muted-foreground">Non-billable</span>
+          <div className="flex items-center gap-1.5">
+            <Badge variant="secondary" className={`${isMobile ? 'h-3 px-1.5 text-xs' : 'h-4 px-2'}`}>Sample</Badge>
+            <span className={`${isMobile ? 'text-xs' : 'text-sm'} text-muted-foreground`}>Non-billable</span>
           </div>
         </div>
       </CardContent>
