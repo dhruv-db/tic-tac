@@ -303,35 +303,35 @@ export const Analytics = ({ timeEntries, contacts, projects, users, isCurrentUse
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className={`grid gap-3 ${isMobile ? 'grid-cols-2' : 'grid-cols-1 md:grid-cols-3'}`}>
             {/* Time Range Filter */}
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Time Period</label>
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-muted-foreground">Period</label>
               <Select value={timeFilter} onValueChange={setTimeFilter}>
-                <SelectTrigger>
+                <SelectTrigger className="h-8">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Time</SelectItem>
                   <SelectItem value="week">This Week</SelectItem>
                   <SelectItem value="month">This Month</SelectItem>
-                  <SelectItem value="custom">Custom Range</SelectItem>
+                  <SelectItem value="custom">Custom</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
             {/* Contact Filter */}
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Contact</label>
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-muted-foreground">Contact</label>
               <Select value={selectedContact} onValueChange={setSelectedContact}>
-                <SelectTrigger>
+                <SelectTrigger className="h-8">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All Contacts</SelectItem>
-                  {contacts.map(contact => (
+                  <SelectItem value="all">All</SelectItem>
+                  {contacts.slice(0, 10).map(contact => (
                     <SelectItem key={contact.id} value={contact.id.toString()}>
-                      {`${contact.name_1} ${contact.name_2 || ''}`.trim()}
+                      {contact.name_1}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -339,45 +339,45 @@ export const Analytics = ({ timeEntries, contacts, projects, users, isCurrentUse
             </div>
 
             {/* Project Filter */}
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Project</label>
+            <div className={`space-y-1 ${isMobile ? 'col-span-2' : ''}`}>
+              <label className="text-xs font-medium text-muted-foreground">Project</label>
               <Select value={selectedProject} onValueChange={setSelectedProject}>
-                <SelectTrigger>
+                <SelectTrigger className="h-8">
                   <SelectValue />
                 </SelectTrigger>
-                 <SelectContent className="bg-card border border-border shadow-lg z-50">
-                   <SelectItem value="all">All Projects</SelectItem>
-                   {projects.map(project => (
-                     <SelectItem key={project.id} value={project.id.toString()}>
-                       {project.name}
-                     </SelectItem>
-                   ))}
-                 </SelectContent>
+                <SelectContent className="bg-card border border-border shadow-lg z-50">
+                  <SelectItem value="all">All Projects</SelectItem>
+                  {projects.slice(0, 15).map(project => (
+                    <SelectItem key={project.id} value={project.id.toString()}>
+                      {project.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
               </Select>
             </div>
 
-            {/* Custom Date Range */}
+            {/* Custom Date Range - Full width on mobile */}
             {timeFilter === "custom" && (
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Custom Range</label>
+              <div className={`space-y-1 ${isMobile ? 'col-span-2' : ''}`}>
+                <label className="text-xs font-medium text-muted-foreground">Date Range</label>
                 <Popover>
                   <PopoverTrigger asChild>
-                    <Button variant="outline" className={cn(
-                      "justify-start text-left font-normal",
+                    <Button variant="outline" size="sm" className={cn(
+                      "justify-start text-left font-normal h-8",
                       !dateRange && "text-muted-foreground"
                     )}>
-                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      <CalendarIcon className="mr-2 h-3 w-3" />
                       {dateRange?.from ? (
                         dateRange.to ? (
                           <>
-                            {format(dateRange.from, "LLL dd, y")} -{" "}
-                            {format(dateRange.to, "LLL dd, y")}
+                            {format(dateRange.from, "MMM dd")} -{" "}
+                            {format(dateRange.to, "MMM dd")}
                           </>
                         ) : (
-                          format(dateRange.from, "LLL dd, y")
+                          format(dateRange.from, "MMM dd")
                         )
                       ) : (
-                        "Pick a date range"
+                        "Pick dates"
                       )}
                     </Button>
                   </PopoverTrigger>
@@ -388,7 +388,7 @@ export const Analytics = ({ timeEntries, contacts, projects, users, isCurrentUse
                       defaultMonth={dateRange?.from}
                       selected={dateRange}
                       onSelect={setDateRange}
-                      numberOfMonths={2}
+                      numberOfMonths={isMobile ? 1 : 2}
                       className={cn("p-3 pointer-events-auto")}
                     />
                   </PopoverContent>
@@ -400,44 +400,44 @@ export const Analytics = ({ timeEntries, contacts, projects, users, isCurrentUse
       </Card>
 
       {/* KPI Cards */}
-      <div className={`grid gap-4 ${isMobile ? 'grid-cols-2' : 'md:grid-cols-2 lg:grid-cols-4'}`}>
+      <div className={`grid gap-3 ${isMobile ? 'grid-cols-2' : 'md:grid-cols-2 lg:grid-cols-4'}`}>
         <Card className="corporate-card">
-        <CardContent className={`${isMobile ? 'p-4' : 'p-6'}`}>
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-full bg-primary-subtle">
-                <Clock className="h-5 w-5 text-primary" />
+          <CardContent className={`${isMobile ? 'p-3' : 'p-6'}`}>
+            <div className="flex items-center gap-2">
+              <div className="p-1.5 rounded-full bg-primary/10">
+                <Clock className="h-4 w-4 text-primary" />
               </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Total Time</p>
-                <p className="text-2xl font-bold">{formatDuration(kpiData.totalDuration)}</p>
+              <div className="min-w-0 flex-1">
+                <p className="text-xs text-muted-foreground">Total Time</p>
+                <p className={`${isMobile ? 'text-lg' : 'text-2xl'} font-bold`}>{formatDuration(kpiData.totalDuration)}</p>
               </div>
             </div>
           </CardContent>
         </Card>
 
         <Card className="corporate-card">
-          <CardContent className="p-6">
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-full bg-success/10">
-                <DollarSign className="h-5 w-5 text-success" />
+          <CardContent className={`${isMobile ? 'p-3' : 'p-6'}`}>
+            <div className="flex items-center gap-2">
+              <div className="p-1.5 rounded-full bg-green-100">
+                <DollarSign className="h-4 w-4 text-green-600" />
               </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Billable Time</p>
-                <p className="text-2xl font-bold text-success">{formatDuration(kpiData.billableDuration)}</p>
+              <div className="min-w-0 flex-1">
+                <p className="text-xs text-muted-foreground">Billable</p>
+                <p className={`${isMobile ? 'text-lg' : 'text-2xl'} font-bold text-green-600`}>{formatDuration(kpiData.billableDuration)}</p>
               </div>
             </div>
           </CardContent>
         </Card>
 
         <Card className="corporate-card">
-          <CardContent className="p-6">
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-full bg-info/10">
-                <Target className="h-5 w-5 text-info" />
+          <CardContent className={`${isMobile ? 'p-3' : 'p-6'}`}>
+            <div className="flex items-center gap-2">
+              <div className="p-1.5 rounded-full bg-blue-100">
+                <Target className="h-4 w-4 text-blue-600" />
               </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Billable Rate</p>
-                <p className="text-2xl font-bold text-info">
+              <div className="min-w-0 flex-1">
+                <p className="text-xs text-muted-foreground">Billable Rate</p>
+                <p className={`${isMobile ? 'text-lg' : 'text-2xl'} font-bold text-blue-600`}>
                   {Math.round(kpiData.billableRate)}%
                 </p>
               </div>
@@ -446,14 +446,14 @@ export const Analytics = ({ timeEntries, contacts, projects, users, isCurrentUse
         </Card>
 
         <Card className="corporate-card">
-          <CardContent className="p-6">
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-full bg-warning/10">
-                <Activity className="h-5 w-5 text-warning" />
+          <CardContent className={`${isMobile ? 'p-3' : 'p-6'}`}>
+            <div className="flex items-center gap-2">
+              <div className="p-1.5 rounded-full bg-orange-100">
+                <Activity className="h-4 w-4 text-orange-600" />
               </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Total Entries</p>
-                <p className="text-2xl font-bold text-warning">{kpiData.totalEntries}</p>
+              <div className="min-w-0 flex-1">
+                <p className="text-xs text-muted-foreground">Entries</p>
+                <p className={`${isMobile ? 'text-lg' : 'text-2xl'} font-bold text-orange-600`}>{kpiData.totalEntries}</p>
               </div>
             </div>
           </CardContent>
@@ -461,7 +461,7 @@ export const Analytics = ({ timeEntries, contacts, projects, users, isCurrentUse
       </div>
 
       {/* Charts Section */}
-      <div className="grid gap-6 lg:grid-cols-2">
+      <div className={`grid gap-4 ${isMobile ? 'grid-cols-1' : 'lg:grid-cols-2'}`}>
         {/* Monthly Time Trend with Billability */}
         <Card>
           <CardHeader>
@@ -471,17 +471,28 @@ export const Analytics = ({ timeEntries, contacts, projects, users, isCurrentUse
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="h-[300px]">
+            <div className={`${isMobile ? 'h-[250px]' : 'h-[300px]'}`}>
               <ResponsiveContainer width="100%" height="100%">
                 <ComposedChart data={monthlyChartData}>
                   <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="month" />
-                  <YAxis yAxisId="left" />
-                  <YAxis yAxisId="right" orientation="right" domain={[0, 100]} />
-                  <Tooltip 
+                  <XAxis
+                    dataKey="month"
+                    fontSize={isMobile ? 10 : 12}
+                    angle={isMobile ? -45 : 0}
+                    textAnchor={isMobile ? 'end' : 'middle'}
+                    height={isMobile ? 60 : 30}
+                  />
+                  <YAxis yAxisId="left" fontSize={isMobile ? 10 : 12} />
+                  <YAxis yAxisId="right" orientation="right" domain={[0, 100]} fontSize={isMobile ? 10 : 12} />
+                  <Tooltip
                     formatter={(value: any, name: any) => {
-                      if (name === 'billabilityRate') return [`${value}%`, 'Billability Rate'];
-                      return [`${value}h`, name === 'billable' ? 'Billable Hours' : 'Non-Billable Hours'];
+                      if (name === 'billabilityRate') return [`${value}%`, 'Billability'];
+                      return [`${value}h`, name === 'billable' ? 'Billable' : 'Non-Billable'];
+                    }}
+                    labelStyle={{ fontSize: isMobile ? '12px' : '14px' }}
+                    contentStyle={{
+                      fontSize: isMobile ? '12px' : '14px',
+                      padding: isMobile ? '8px' : '12px'
                     }}
                   />
                   <Area
@@ -507,8 +518,8 @@ export const Analytics = ({ timeEntries, contacts, projects, users, isCurrentUse
                     type="monotone"
                     dataKey="billabilityRate"
                     stroke="hsl(var(--warning))"
-                    strokeWidth={3}
-                    dot={{ fill: 'hsl(var(--warning))', strokeWidth: 2, r: 4 }}
+                    strokeWidth={2}
+                    dot={{ fill: 'hsl(var(--warning))', strokeWidth: 2, r: isMobile ? 3 : 4 }}
                   />
                 </ComposedChart>
               </ResponsiveContainer>
@@ -525,31 +536,35 @@ export const Analytics = ({ timeEntries, contacts, projects, users, isCurrentUse
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="h-[300px]">
+            <div className={`${isMobile ? 'h-[250px]' : 'h-[300px]'}`}>
               <ResponsiveContainer width="100%" height="100%">
-                 <RechartsPieChart>
-                   <Pie
-                     data={projectChartData}
-                     cx="50%"
-                     cy="50%"
-                     innerRadius={40}
-                     outerRadius={80}
-                     dataKey="hours"
-                     label={({ name, hours, percentage }) => `${name}: ${hours}h (${percentage}%)`}
-                     labelLine={false}
-                   >
-                     {projectChartData.map((entry, index) => (
-                       <Cell key={`cell-${index}`} fill={entry.fill} />
-                     ))}
-                   </Pie>
-                   <Tooltip 
-                     formatter={(value: any, name: any, props: any) => [
-                       `${value}h (${props.payload.percentage}%)`, 
-                       'Hours'
-                     ]}
-                   />
-                 </RechartsPieChart>
-              </ResponsiveContainer>
+                  <RechartsPieChart>
+                    <Pie
+                      data={projectChartData}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={isMobile ? 30 : 40}
+                      outerRadius={isMobile ? 60 : 80}
+                      dataKey="hours"
+                      label={isMobile ? false : ({ name, hours, percentage }) => `${name}: ${hours}h (${percentage}%)`}
+                      labelLine={false}
+                    >
+                      {projectChartData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.fill} />
+                      ))}
+                    </Pie>
+                    <Tooltip
+                      formatter={(value: any, name: any, props: any) => [
+                        `${value}h (${props.payload.percentage}%)`,
+                        'Hours'
+                      ]}
+                      contentStyle={{
+                        fontSize: isMobile ? '12px' : '14px',
+                        padding: isMobile ? '8px' : '12px'
+                      }}
+                    />
+                  </RechartsPieChart>
+               </ResponsiveContainer>
             </div>
           </CardContent>
         </Card>
@@ -560,20 +575,24 @@ export const Analytics = ({ timeEntries, contacts, projects, users, isCurrentUse
             <div className="flex items-center justify-between">
               <CardTitle className="flex items-center gap-2">
                 <Users className="h-4 w-4" />
-                {usersChartView === 'hours' ? 'Hours by User' : 'Billability by User'}
+                <span className={`${isMobile ? 'text-sm' : 'text-base'}`}>
+                  {usersChartView === 'hours' ? 'Hours by User' : 'Billability by User'}
+                </span>
               </CardTitle>
-              <div className="flex gap-2">
-                <Button 
-                  variant={usersChartView === 'hours' ? 'default' : 'outline'} 
-                  size="sm" 
+              <div className={`flex gap-1 ${isMobile ? 'flex-col' : 'flex-row'}`}>
+                <Button
+                  variant={usersChartView === 'hours' ? 'default' : 'outline'}
+                  size={isMobile ? "sm" : "sm"}
                   onClick={() => setUsersChartView('hours')}
+                  className={isMobile ? 'text-xs px-2 py-1 h-7' : ''}
                 >
                   Hours
                 </Button>
-                <Button 
-                  variant={usersChartView === 'billability' ? 'default' : 'outline'} 
-                  size="sm" 
+                <Button
+                  variant={usersChartView === 'billability' ? 'default' : 'outline'}
+                  size={isMobile ? "sm" : "sm"}
                   onClick={() => setUsersChartView('billability')}
+                  className={isMobile ? 'text-xs px-2 py-1 h-7' : ''}
                 >
                   Billability
                 </Button>
@@ -581,16 +600,26 @@ export const Analytics = ({ timeEntries, contacts, projects, users, isCurrentUse
             </div>
           </CardHeader>
            <CardContent>
-             <div className="h-[300px]">
+             <div className={`${isMobile ? 'h-[250px]' : 'h-[300px]'}`}>
                <ResponsiveContainer width="100%" height="100%">
                   {usersChartView === 'hours' ? (
                     <BarChart data={userChartData}>
                       <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="name" />
-                      <YAxis />
-                      <Tooltip 
+                      <XAxis
+                        dataKey="name"
+                        fontSize={isMobile ? 10 : 12}
+                        angle={isMobile ? -45 : 0}
+                        textAnchor={isMobile ? 'end' : 'middle'}
+                        height={isMobile ? 60 : 30}
+                      />
+                      <YAxis fontSize={isMobile ? 10 : 12} />
+                      <Tooltip
                         formatter={(value: any) => [`${value}h`, 'Hours']}
-                        labelFormatter={(label) => `User: ${label}`}
+                        labelFormatter={(label) => isMobile ? label.split(' ')[0] : `User: ${label}`}
+                        contentStyle={{
+                          fontSize: isMobile ? '12px' : '14px',
+                          padding: isMobile ? '8px' : '12px'
+                        }}
                       />
                       <Bar dataKey="hours" fill="hsl(var(--primary))" />
                     </BarChart>
@@ -600,18 +629,22 @@ export const Analytics = ({ timeEntries, contacts, projects, users, isCurrentUse
                        data={userChartData}
                        cx="50%"
                        cy="50%"
-                       innerRadius={40}
-                       outerRadius={80}
+                       innerRadius={isMobile ? 30 : 40}
+                       outerRadius={isMobile ? 60 : 80}
                        dataKey="billableRate"
-                       label={({ name, billableRate }) => `${name}: ${billableRate}%`}
+                       label={isMobile ? false : ({ name, billableRate }) => `${name}: ${billableRate}%`}
                        labelLine={false}
                      >
                        {userChartData.map((entry, index) => (
                          <Cell key={`cell-${index}`} fill={entry.fill} />
                        ))}
                      </Pie>
-                     <Tooltip 
+                     <Tooltip
                        formatter={(value: any) => [`${value}%`, 'Billable Rate']}
+                       contentStyle={{
+                         fontSize: isMobile ? '12px' : '14px',
+                         padding: isMobile ? '8px' : '12px'
+                       }}
                      />
                    </RechartsPieChart>
                  )}

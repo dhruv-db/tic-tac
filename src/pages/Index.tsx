@@ -2,6 +2,7 @@
 import { Analytics } from "@/components/Analytics";
 import { LanguageFlag } from "@/components/LanguageFlag";
 import { useEffect, useState, useMemo } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
@@ -25,6 +26,8 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 
 const Index = () => {
+  const location = useLocation();
+  const navigate = useNavigate();
   const {
     credentials,
     contacts,
@@ -94,6 +97,24 @@ const Index = () => {
     loadStoredCredentials();
   }, [loadStoredCredentials]);
 
+  // Handle OAuth callback from URL parameters
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const accessToken = params.get('access_token');
+    const refreshToken = params.get('refresh_token');
+    const companyId = params.get('company_id');
+    const userEmail = params.get('user_email');
+
+    if (accessToken && refreshToken && companyId) {
+      console.log('🔗 Detected OAuth tokens in URL, connecting...');
+      connectWithOAuth(accessToken, refreshToken, companyId, userEmail || '');
+
+      // Clean up URL by removing the parameters
+      const newUrl = window.location.pathname;
+      window.history.replaceState({}, document.title, newUrl);
+    }
+  }, [location.search, connectWithOAuth]);
+
   useEffect(() => {
     // Guard: Only auto-fetch when connected to prevent errors before login
     if (!isConnected) return;
@@ -138,14 +159,14 @@ const Index = () => {
     
     setIsTestingConnection(true);
     try {
-      const response = await fetch('https://opcjifbdwpyttaxqlqbf.supabase.co/functions/v1/bexio-proxy', {
+      const response = await fetch('http://localhost:3001/api/bexio-proxy', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
           endpoint: '/company_profile',
-          apiKey: credentials.authType === 'oauth' ? credentials.accessToken : credentials.apiKey,
+          accessToken: credentials.authType === 'oauth' ? credentials.accessToken : credentials.apiKey,
           companyId: credentials.companyId,
         }),
       });

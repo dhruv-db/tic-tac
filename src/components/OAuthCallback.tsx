@@ -1,90 +1,140 @@
 import { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { supabase } from '@/integrations/supabase/client';
-import { useBexioApi } from '@/hooks/useBexioApi';
+import { useAuth } from '@/context/OAuthContext';
 
 export function OAuthCallback() {
-  const location = useLocation();
-  const navigate = useNavigate();
-  const { connectWithOAuth } = useBexioApi();
-  const [status, setStatus] = useState<'processing' | 'success' | 'error'>('processing');
-  const [error, setError] = useState<string>('');
+   const location = useLocation();
+   const navigate = useNavigate();
+   const { connectWithOAuth } = useAuth();
+   const [status, setStatus] = useState<'processing' | 'success' | 'error'>('processing');
+   const [error, setError] = useState<string>('');
 
-  useEffect(() => {
-    const handleCallback = async () => {
-      const params = new URLSearchParams(location.search);
-      const code = params.get('code');
-      const state = params.get('state');
-      const errParam = params.get('error');
+   useEffect(() => {
+     const handleCallback = async () => {
+       console.log('🔄 ===== OAUTH CALLBACK COMPONENT START =====');
+       console.log('🔄 Current location:', location);
+       console.log('🔄 Location search:', location.search);
+       console.log('🔄 Location pathname:', location.pathname);
+       console.log('🔄 Full URL:', window.location.href);
 
-      if (errParam) {
-        console.error('OAuth error:', errParam);
-        setError(`Authentication failed: ${errParam}`);
-        setStatus('error');
-        return;
-      }
+       const params = new URLSearchParams(location.search);
+       const code = params.get('code');
+       const state = params.get('state');
+       const errParam = params.get('error');
 
-      if (!code) {
-        console.error('No authorization code received');
-        setError('No authorization code received');
-        setStatus('error');
-        return;
-      }
+       console.log('🔄 OAuth callback params extracted:', {
+         code: code ? `${code.substring(0, 20)}...` : 'null',
+         state: state ? `${state.substring(0, 20)}...` : 'null',
+         error: errParam
+       });
 
-      try {
-        console.log('Exchanging authorization code for tokens...');
-        
-        // Exchange code for tokens via our edge function
-        const { data, error: exchangeError } = await supabase.functions.invoke('bexio-oauth/exchange', {
-          body: { code, state }
-        });
+       if (errParam) {
+         console.error('❌ OAuth error:', errParam);
+         setError(`Authentication failed: ${errParam}`);
+         setStatus('error');
+         console.log('🔄 ===== OAUTH CALLBACK COMPONENT END (ERROR) =====');
+         return;
+       }
 
-        if (exchangeError) {
-          throw new Error(exchangeError.message);
-        }
+       if (!code) {
+         console.error('❌ No authorization code received');
+         setError('No authorization code received');
+         setStatus('error');
+         console.log('🔄 ===== OAUTH CALLBACK COMPONENT END (NO CODE) =====');
+         return;
+       }
 
-        if (!data || !data.accessToken) {
-          throw new Error('Invalid response from token exchange');
-        }
+       try {
+         console.log('🔄 Exchanging authorization code for tokens...');
+         console.log('🔄 Token exchange endpoint: http://localhost:3001/api/bexio-oauth/exchange');
 
-        console.log('✅ OAuth completed successfully, connecting to app state...');
-        setStatus('success');
-        
-        // Persist credentials in app state
-        connectWithOAuth(
-          data.accessToken,
-          data.refreshToken,
-          data.companyId,
-          data.userEmail
-        );
+         // Exchange code for tokens via our local server
+         const response = await fetch('http://localhost:3001/api/bexio-oauth/exchange', {
+           method: 'POST',
+           headers: { 'Content-Type': 'application/json' },
+           body: JSON.stringify({ code, state })
+         });
 
-        // If opened in a popup, notify and close
-        if (window.opener && !window.opener.closed) {
-          const payload = {
-            type: 'BEXIO_OAUTH_SUCCESS',
-            credentials: {
-              accessToken: data.accessToken,
-              refreshToken: data.refreshToken,
-              companyId: data.companyId,
-              userEmail: data.userEmail
-            }
-          } as const;
-          try { window.opener.postMessage(payload, '*'); } catch {}
-          window.close();
-        } else {
-          // Navigate back after a brief delay
-          setTimeout(() => navigate('/'), 600);
-        }
+         console.log('🔄 Token exchange response status:', response.status);
+         console.log('🔄 Token exchange response headers:', Object.fromEntries(response.headers.entries()));
 
-      } catch (err) {
-        console.error('Token exchange failed:', err);
-        setError(err instanceof Error ? err.message : 'Unknown error occurred');
-        setStatus('error');
-      }
-    };
+         if (!response.ok) {
+           const errorData = await response.json().catch(() => ({}));
+           console.error('❌ Token exchange failed:', errorData);
+           throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+         }
 
-    handleCallback();
-  }, [location.search, navigate, connectWithOAuth]);
+         const data = await response.json();
+         console.log('🔄 Token exchange response data:', {
+           hasAccessToken: !!data.accessToken,
+           hasRefreshToken: !!data.refreshToken,
+           companyId: data.companyId,
+           userEmail: data.userEmail,
+           responseKeys: Object.keys(data)
+         });
+
+         if (!data || !data.accessToken) {
+           console.error('❌ Invalid response from token exchange - missing access token');
+           throw new Error('Invalid response from token exchange');
+         }
+
+         console.log('✅ OAuth completed successfully, connecting to app state...');
+         setStatus('success');
+
+         // Persist credentials in app state
+         console.log('🔗 Calling connectWithOAuth with credentials...');
+         await connectWithOAuth(
+           data.accessToken,
+           data.refreshToken,
+           data.companyId,
+           data.userEmail
+         );
+         console.log('✅ connectWithOAuth completed');
+
+         // If opened in a popup, notify and close
+         if (window.opener && !window.opener.closed) {
+           console.log('🔄 Opened in popup, sending message to opener...');
+           const payload = {
+             type: 'BEXIO_OAUTH_SUCCESS',
+             credentials: {
+               accessToken: data.accessToken,
+               refreshToken: data.refreshToken,
+               companyId: data.companyId,
+               userEmail: data.userEmail
+             }
+           } as const;
+           try {
+             window.opener.postMessage(payload, '*');
+             console.log('✅ Message sent to opener');
+           } catch (e) {
+             console.warn('❌ Failed to send message to opener:', e);
+           }
+           window.close();
+           console.log('🔄 ===== OAUTH CALLBACK COMPONENT END (POPUP CLOSED) =====');
+         } else {
+           console.log('🔄 Not in popup, navigating to home after delay...');
+           // Navigate back after a brief delay
+           setTimeout(() => {
+             console.log('🔄 Navigating to home page...');
+             navigate('/', { replace: true });
+             console.log('🔄 ===== OAUTH CALLBACK COMPONENT END (NAVIGATED HOME) =====');
+           }, 600);
+         }
+
+       } catch (err) {
+         console.error('❌ Token exchange failed:', err);
+         console.error('❌ Error details:', {
+           message: err.message,
+           stack: err.stack
+         });
+         setError(err instanceof Error ? err.message : 'Unknown error occurred');
+         setStatus('error');
+         console.log('🔄 ===== OAUTH CALLBACK COMPONENT END (EXCEPTION) =====');
+       }
+     };
+
+     handleCallback();
+   }, [location.search, navigate, connectWithOAuth]);
 
   const getStatusContent = () => {
     switch (status) {

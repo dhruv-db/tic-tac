@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>OAuth Complete</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    body { font-family: Arial, sans-serif; text-align: center; padding: 40px; background: #f5f5f5; }
+    .title { font-size: 22px; margin-bottom: 10px; color: #222; }
+    .sub { color: #555; }
+  </style>
+</head>
+<body>
+  <div class="title">Finishing sign-in…</div>
+  <div class="sub">You can close this window if it doesn't close automatically.</div>
+
+  <script>
+    (function(){
+      function getParam(){
+        try {
+          var hash = location.hash ? location.hash.substring(1) : '';
+          var qp = new URLSearchParams(hash);
+          var p = qp.get('p');
+          if (!p) {
+            var search = location.search.startsWith('?') ? location.search.substring(1) : location.search;
+            p = new URLSearchParams(search).get('p');
+          }
+          return p;
+        } catch(_) { return null; }
+      }
+
+      try {
+        var p = getParam();
+        if (p) {
+          var json = atob(decodeURIComponent(p));
+          var payload = JSON.parse(json);
+          try { localStorage.setItem('bexio_oauth_success', JSON.stringify(payload)); } catch(_){ }
+          try { localStorage.setItem('bexio_oauth_ready', 'true'); } catch(_){ }
+          if (window.opener && !window.opener.closed) {
+            window.opener.postMessage(payload, '*');
+          }
+        }
+      } catch(e) { console.error('oauth-complete error', e); }
+
+      setTimeout(function(){ window.close(); }, 800);
+    })();
+  </script>
+</body>
+</html>
