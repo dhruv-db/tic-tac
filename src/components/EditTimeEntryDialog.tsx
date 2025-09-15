@@ -6,7 +6,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription } from "@/components/ui/drawer";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { CalendarIcon, Edit } from "lucide-react";
@@ -14,7 +13,6 @@ import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { DateRange } from "react-day-picker";
-import { useIsMobile } from "@/hooks/use-mobile";
 
 interface Contact {
   id: number;
@@ -104,7 +102,6 @@ export const EditTimeEntryDialog = ({
   getWorkPackageName: getWpName
 }: EditTimeEntryDialogProps) => {
   // Removed useBexioApi hook - using props instead
-  const isMobile = useIsMobile();
   
   const [formData, setFormData] = useState<TimeEntryFormData>({
     dateRange: undefined,
@@ -301,249 +298,6 @@ export const EditTimeEntryDialog = ({
   };
 
   if (!entry) return null;
-
-  if (isMobile) {
-    return (
-      <Drawer open={isOpen} onOpenChange={onClose}>
-        <DrawerContent className="max-h-[95vh] overflow-y-auto">
-          <DrawerHeader className="text-left">
-            <DrawerTitle className="flex items-center gap-2">
-              <Edit className="h-5 w-5" />
-              Edit Time Entry
-            </DrawerTitle>
-            <DrawerDescription className="sr-only">
-              Edit an existing time entry. All fields are required unless marked optional.
-            </DrawerDescription>
-          </DrawerHeader>
-          
-          <div className="px-4 pb-4">
-            <form onSubmit={handleSubmit} className="space-y-4">
-              {/* Mobile-optimized form content - same as desktop but with better spacing */}
-              <div className="space-y-2">
-                <Label htmlFor="dateRange">Date</Label>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      className={cn(
-                        "w-full justify-start text-left font-normal mobile-button",
-                        !formData.dateRange && "text-muted-foreground"
-                      )}
-                    >
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                      {formData.dateRange?.from ? (
-                        format(formData.dateRange.from, "LLL dd, y")
-                      ) : (
-                        <span>Pick date</span>
-                      )}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar
-                      initialFocus
-                      mode="single"
-                      selected={formData.dateRange?.from}
-                      onSelect={(date) => setFormData(prev => ({ 
-                        ...prev, 
-                        dateRange: date ? { from: date, to: date } : undefined 
-                      }))}
-                      className="pointer-events-auto"
-                    />
-                  </PopoverContent>
-                </Popover>
-              </div>
-
-              {/* Time Input Mode Toggle */}
-              <div className="space-y-3">
-                <div className="flex items-center space-x-2">
-                  <Switch
-                    id="useDuration"
-                    checked={formData.useDuration}
-                    onCheckedChange={(checked) => setFormData(prev => ({ ...prev, useDuration: checked }))}
-                  />
-                  <Label htmlFor="useDuration">Enter duration directly</Label>
-                </div>
-
-                {formData.useDuration ? (
-                  <div className="space-y-2">
-                    <Label htmlFor="duration">Duration (HH:MM)</Label>
-                    <Input
-                      id="duration"
-                      type="text"
-                      placeholder="08:00"
-                      pattern="[0-9]{1,2}:[0-9]{2}"
-                      value={formData.duration}
-                      onChange={(e) => setFormData(prev => ({ ...prev, duration: e.target.value }))}
-                      className="mobile-text"
-                    />
-                    <p className="text-xs text-muted-foreground">Enter duration in hours:minutes format (e.g., 8:30)</p>
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="startTime">Start Time</Label>
-                      <Input
-                        id="startTime"
-                        type="time"
-                        value={formData.startTime}
-                        onChange={(e) => setFormData(prev => ({ ...prev, startTime: e.target.value }))}
-                        className="mobile-text"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="endTime">End Time</Label>
-                      <Input
-                        id="endTime"
-                        type="time"
-                        value={formData.endTime}
-                        onChange={(e) => setFormData(prev => ({ ...prev, endTime: e.target.value }))}
-                        className="mobile-text"
-                      />
-                    </div>
-                  </div>
-                )}
-
-                <div className="text-sm text-muted-foreground">
-                  Duration: {formData.useDuration 
-                    ? `${Math.floor(parseDuration(formData.duration) / 3600)}h ${Math.floor((parseDuration(formData.duration) % 3600) / 60)}m`
-                    : `${Math.floor(calculateDuration(formData.startTime, formData.endTime) / 3600)}h ${Math.floor((calculateDuration(formData.startTime, formData.endTime) % 3600) / 60)}m`
-                  }
-                </div>
-              </div>
-
-              {/* Description */}
-              <div className="space-y-2">
-                <Label htmlFor="text">Description</Label>
-                <Textarea
-                  id="text"
-                  placeholder="Describe what you worked on..."
-                  value={formData.text}
-                  onChange={(e) => setFormData(prev => ({ ...prev, text: e.target.value }))}
-                  className="min-h-[80px] mobile-text"
-                />
-              </div>
-
-              {/* Project and Contact - Stack on mobile */}
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="contact_id">Contact (Optional)</Label>
-                  <Select
-                    value={formData.contact_id?.toString() || "none"}
-                    onValueChange={(value) => {
-                      const newContactId = value === "none" ? undefined : parseInt(value);
-                      setFormData(prev => ({ 
-                        ...prev, 
-                        contact_id: newContactId,
-                        project_id: undefined,
-                        pr_package_id: undefined,
-                      }));
-                    }}
-                  >
-                    <SelectTrigger className="w-full mobile-button">
-                      <SelectValue placeholder="Select a contact" />
-                    </SelectTrigger>
-                    <SelectContent className="z-[1000] bg-popover border border-border shadow-lg">
-                      <SelectItem value="none">No contact</SelectItem>
-                      {contacts.map((contact) => (
-                        <SelectItem key={contact.id} value={contact.id.toString()}>
-                          {getContactName(contact)} (#{contact.nr})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="project_id">Project (Optional)</Label>
-                  <Select
-                    value={formData.project_id?.toString() || "none"}
-                    onValueChange={(value) => {
-                      const newProjectId = value === "none" ? undefined : parseInt(value);
-                      setFormData(prev => ({ 
-                        ...prev, 
-                        project_id: newProjectId,
-                        pr_package_id: undefined,
-                      }));
-                      if (newProjectId) {
-                        onFetchWorkPackages(newProjectId);
-                      }
-                    }}
-                  >
-                    <SelectTrigger className="w-full mobile-button">
-                      <SelectValue placeholder="Select a project" />
-                    </SelectTrigger>
-                    <SelectContent className="z-[1000] bg-popover border border-border shadow-lg">
-                      <SelectItem value="none">No project</SelectItem>
-                      {projects.map((project) => (
-                        <SelectItem key={project.id} value={project.id.toString()}>
-                          {project.name} (#{project.nr})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
-              {/* Rest of form fields... */}
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="client_service_id">Activity (Optional)</Label>
-                  <Select
-                    value={formData.client_service_id?.toString() || "none"}
-                    onValueChange={(value) => setFormData(prev => ({ 
-                      ...prev, 
-                      client_service_id: value === "none" ? undefined : parseInt(value) 
-                    }))}
-                  >
-                    <SelectTrigger className="w-full mobile-button">
-                      <SelectValue placeholder="Select an activity" />
-                    </SelectTrigger>
-                    <SelectContent className="z-[1000] bg-popover border border-border shadow-lg">
-                      <SelectItem value="none">No activity</SelectItem>
-                      {businessActivities.map((activity) => (
-                        <SelectItem key={activity.id} value={activity.id.toString()}>
-                          {activity.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
-              {/* Billable Toggle */}
-              <div className="flex items-center space-x-2">
-                <Switch
-                  id="allowable_bill"
-                  checked={formData.allowable_bill}
-                  onCheckedChange={(checked) => setFormData(prev => ({ ...prev, allowable_bill: checked }))}
-                />
-                <Label htmlFor="allowable_bill">Billable</Label>
-              </div>
-
-              {/* Submit Button */}
-              <div className="flex gap-3 pt-4">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={onClose}
-                  className="flex-1 mobile-button"
-                >
-                  Cancel
-                </Button>
-                <Button
-                  type="submit"
-                  disabled={isSubmitting}
-                  className="flex-1 mobile-button"
-                >
-                  {isSubmitting ? "Updating..." : "Update Time Entry"}
-                </Button>
-              </div>
-            </form>
-          </div>
-        </DrawerContent>
-      </Drawer>
-    );
-  }
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>

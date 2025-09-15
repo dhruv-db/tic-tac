@@ -20,7 +20,6 @@ import { EditTimeEntryDialog } from "@/components/EditTimeEntryDialog";
 import { LoginPage } from "@/components/LoginPage";
 import { useBexioApi } from "@/hooks/useBexioApi";
 import { RefreshCw, Database, LogOut, BarChart3, CheckCircle2, Grid, List, CalendarDays, Edit3 } from "lucide-react";
-import { useIsMobile } from "@/hooks/use-mobile";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
@@ -83,7 +82,6 @@ const Index = () => {
   const [logoUrlInput, setLogoUrlInput] = useState<string>(logoUrl);
   const [selectedUserId, setSelectedUserId] = useState<number | "all" | null>(null);
   const { toast } = useToast();
-  const isMobile = useIsMobile();
 
 
   // Set default user filter to current user when available
@@ -116,9 +114,6 @@ const Index = () => {
   }, [location.search, connectWithOAuth]);
 
   useEffect(() => {
-    // Guard: Only auto-fetch when connected to prevent errors before login
-    if (!isConnected) return;
-
     // Auto-fetch contacts, projects, and users when switching to Time Tracking or Analytics
     // Only fetch if we haven't loaded initially and not currently loading
     if (activeTab === "timetracking" || activeTab === "analytics") {
@@ -132,18 +127,17 @@ const Index = () => {
         fetchUsers();
       }
       if (timeEntries.length === 0 && !isLoadingTimeEntries && !hasInitiallyLoaded.timeEntries) {
-        // Default to last 3 months on mobile for faster loading, 6 months on desktop
+        // Default to last 6 months for better visibility of past entries
         const now = new Date();
-        const monthsBack = window.innerWidth < 768 ? 3 : 6; // Mobile optimization
-        const startDate = new Date(now.getFullYear(), now.getMonth() - monthsBack, 1);
+        const sixMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 6, 1);
         const endOfCurrentMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-        fetchTimeEntries({ from: startDate, to: endOfCurrentMonth }, { quiet: true }, currentBexioUserId || undefined);
+        fetchTimeEntries({ from: sixMonthsAgo, to: endOfCurrentMonth }, { quiet: true }, currentBexioUserId || undefined);
       }
       if (languages.length === 0) {
         fetchLanguages();
       }
     }
-  }, [activeTab, hasInitiallyLoaded, isLoadingContacts, isLoadingProjects, isLoadingTimeEntries, isLoadingUsers, fetchContacts, fetchProjects, fetchTimeEntries, fetchUsers, languages.length, isConnected]);
+  }, [activeTab, hasInitiallyLoaded, isLoadingContacts, isLoadingProjects, isLoadingTimeEntries, isLoadingUsers, fetchContacts, fetchProjects, fetchTimeEntries, fetchUsers, languages.length]);
 
   const handleRefresh = () => {
     if (activeTab === "analytics" || activeTab === "timetracking") {
@@ -334,7 +328,7 @@ const Index = () => {
         </div>
       </header>
 
-      <main className={`container mx-auto py-4 sm:py-8 ${isMobile ? 'mobile-container px-3' : 'px-2 sm:px-4'}`}>
+      <main className="container mx-auto px-2 sm:px-4 py-4 sm:py-8">
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4 sm:space-y-6">
           <div className="flex flex-col space-y-4 sm:space-y-0 sm:flex-row sm:items-center sm:justify-between">
