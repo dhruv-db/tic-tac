@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Capacitor } from '@capacitor/core';
 import { Browser, App } from '@/capacitor-setup';
 import { motion } from 'framer-motion';
@@ -6,15 +6,14 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
-import { useBexioApi } from '@/hooks/useBexioApi';
+import { useAuth } from '@/context/OAuthContext';
 import { LogIn, Shield, Zap } from 'lucide-react';
-import ticTacDarkLogo from '@/assets/tic-tac-dark.svg';
-import ticTacLightLogo from '@/assets/tic-tac-light.svg';
+import ticTacLogo from '@/assets/Tic-Tac_Dark.png';
 
-const TikTakLogo = ({ className = "", variant = "light" }: { className?: string; variant?: "light" | "dark" }) => (
+const TikTakLogo = ({ className = "" }: { className?: string }) => (
   <div className={`flex flex-col items-center space-y-2 ${className}`}>
     <img
-      src={variant === "dark" ? ticTacDarkLogo : ticTacLightLogo}
+      src={ticTacLogo}
       alt="tik-tak"
       className="h-10 w-auto md:h-12"
     />
@@ -23,154 +22,127 @@ const TikTakLogo = ({ className = "", variant = "light" }: { className?: string;
 
 export function MobileOAuth() {
   const [isAuthenticating, setIsAuthenticating] = useState(false);
-  const [showManualCodeEntry, setShowManualCodeEntry] = useState(false);
-  const [manualCode, setManualCode] = useState('');
+  const [sessionId, setSessionId] = useState<string | null>(null);
+  const [pollingInterval, setPollingInterval] = useState<NodeJS.Timeout | null>(null);
   const { toast } = useToast();
-  const { connectWithOAuth } = useBexioApi();
+  const { connectWithOAuth } = useAuth();
   const isNativePlatform = Capacitor.isNativePlatform();
+  const hasProcessedCompletion = useRef(false);
 
+  // Cleanup polling on unmount
   useEffect(() => {
-    let listener: any = null;
-    let messageListener: any = null;
-
-    // Only setup listener if running in Capacitor
-    if (Capacitor.isNativePlatform()) {
-      // Listen for app URL open events (for OAuth callback)
-      const setupListener = async () => {
-        try {
-          listener = await App.addListener('appUrlOpen', (event) => {
-            console.log('📱 App URL opened:', event.url);
-            console.log('🔍 Full event:', event);
-
-            const url = new URL(event.url);
-            console.log('🌐 Parsed URL:', {
-              protocol: url.protocol,
-              hostname: url.hostname,
-              pathname: url.pathname,
-              search: url.search,
-              hash: url.hash
-            });
-
-            // Check if this is our OAuth callback
-            if (url.protocol === 'bexiosyncbuddy:' && (url.pathname === '/oauth/callback' || url.href.includes('oauth/callback'))) {
-              console.log('🔗 OAuth callback detected via URL scheme');
-              const code = url.searchParams.get('code');
-              const state = url.searchParams.get('state');
-              const error = url.searchParams.get('error');
-
-              console.log('📋 Extracted OAuth parameters:', { code: code ? 'present' : 'missing', state: state ? 'present' : 'missing', error });
-
-              if (error) {
-                console.error('❌ OAuth error:', error);
-                toast({
-                  title: 'Authentication Failed',
-                  description: `Error: ${error}`,
-                  variant: 'destructive',
-                });
-                setIsAuthenticating(false);
-                return;
-              }
-
-              if (code) {
-                console.log('✅ Authorization code received:', code.substring(0, 20) + '...');
-                // Process the OAuth callback
-                handleOAuthCallback(code, state);
-              } else {
-                console.error('❌ No authorization code in callback URL');
-                toast({
-                  title: 'Authentication Failed',
-                  description: 'No authorization code received',
-                  variant: 'destructive',
-                });
-                setIsAuthenticating(false);
-              }
-            } else {
-              console.log('ℹ️ Ignoring non-OAuth URL:', event.url);
-            }
-          });
-          console.log('👂 App URL listener set up successfully');
-        } catch (error) {
-          console.warn('❌ App listener setup failed:', error);
-        }
-      };
-
-      setupListener();
-
-      // Also listen for browser finished events to handle OAuth completion
-      const setupBrowserListener = async () => {
-        try {
-          const browserListener = await Browser.addListener('browserFinished', () => {
-            console.log('🌐 Browser finished - OAuth flow may have completed');
-            // The browser closed, but we should have already processed the callback
-            // If we haven't received a callback yet, there might be an issue
-          });
-
-          return () => {
-            if (browserListener) browserListener.remove();
-          };
-        } catch (error) {
-          console.warn('Browser listener setup failed:', error);
-        }
-      };
-
-      setupBrowserListener();
-
-      // Listen for postMessage events from oauth-complete.html
-      const handleMessage = (event: MessageEvent) => {
-        console.log('📨 Received message from:', event.origin);
-        console.log('📨 Message data:', event.data);
-        console.log('📨 Full event:', event);
-
-        // Check if this is an OAuth callback message
-        if (event.data && event.data.type === 'BEXIO_OAUTH_CALLBACK') {
-          console.log('🔗 OAuth callback detected via postMessage');
-          const { code, state } = event.data;
-
-          console.log('📋 PostMessage OAuth parameters:', { code: code ? 'present' : 'missing', state: state ? 'present' : 'missing' });
-
-          if (code) {
-            console.log('✅ Authorization code received via postMessage:', code.substring(0, 20) + '...');
-            handleOAuthCallback(code, state);
-          } else {
-            console.error('❌ No authorization code in postMessage');
-            toast({
-              title: 'Authentication Failed',
-              description: 'No authorization code received',
-              variant: 'destructive',
-            });
-            setIsAuthenticating(false);
-          }
-        } else if (event.data && event.data.type === 'BEXIO_OAUTH_SUCCESS') {
-          console.log('🎉 OAuth success message received via postMessage');
-          const { credentials } = event.data;
-          if (credentials && credentials.code) {
-            console.log('✅ OAuth success with credentials');
-            handleOAuthCallback(credentials.code, credentials.state);
-          }
-        } else {
-          console.log('ℹ️ Ignoring non-OAuth message:', event.data?.type || 'unknown type');
-        }
-      };
-
-      window.addEventListener('message', handleMessage);
-      messageListener = handleMessage;
-    }
-
     return () => {
-      if (listener) {
-        console.log('🧹 Cleaning up app URL listener');
-        listener.remove();
-      }
-      if (messageListener) {
-        window.removeEventListener('message', messageListener);
+      if (pollingInterval) {
+        clearInterval(pollingInterval);
       }
     };
-  }, []);
+  }, [pollingInterval]);
+
+  // Reset completion flag when starting new session
+  useEffect(() => {
+    if (sessionId) {
+      hasProcessedCompletion.current = false;
+    }
+  }, [sessionId]);
+
+  // Poll for OAuth session completion
+  const pollOAuthStatus = useCallback(async (sessionId: string) => {
+    try {
+      console.log(`🔍 Polling OAuth status for session: ${sessionId}`);
+      const response = await fetch(`http://localhost:3001/api/bexio-oauth/status/${sessionId}`);
+
+      if (!response.ok) {
+        if (response.status === 404) {
+          console.log('📋 Session not found or expired');
+          return;
+        }
+        throw new Error(`HTTP ${response.status}`);
+      }
+
+      const sessionData = await response.json();
+      console.log(`📊 Session status: ${sessionData.status}`);
+
+      if (sessionData.status === 'completed') {
+        console.log('✅ OAuth session completed!');
+        console.log('📦 Session data received:', {
+          hasData: !!sessionData.data,
+          dataKeys: sessionData.data ? Object.keys(sessionData.data) : 'null',
+          accessToken: sessionData.data?.accessToken ? 'present' : 'missing',
+          refreshToken: sessionData.data?.refreshToken ? 'present' : 'missing',
+          companyId: sessionData.data?.companyId,
+          userEmail: sessionData.data?.userEmail
+        });
+
+        // Check if we've already processed this completion
+        if (hasProcessedCompletion.current) {
+          console.log('🔄 Completion already processed, skipping...');
+          return;
+        }
+
+        // Mark as processed to prevent duplicate calls
+        hasProcessedCompletion.current = true;
+
+        // Stop polling
+        if (pollingInterval) {
+          clearInterval(pollingInterval);
+          setPollingInterval(null);
+        }
+
+        // Connect with the received credentials
+        const { data } = sessionData;
+        console.log('🔗 About to call connectWithOAuth from polling...');
+        await connectWithOAuth(
+          data.accessToken,
+          data.refreshToken,
+          data.companyId,
+          data.userEmail
+        );
+        console.log('✅ connectWithOAuth completed in polling');
+
+        toast({
+          title: 'Authentication Successful!',
+          description: 'You have been successfully connected to Bexio.',
+        });
+
+        setIsAuthenticating(false);
+        setSessionId(null);
+
+      } else if (sessionData.status === 'error') {
+        console.error('❌ OAuth session failed');
+
+        // Stop polling
+        if (pollingInterval) {
+          clearInterval(pollingInterval);
+          setPollingInterval(null);
+        }
+
+        toast({
+          title: 'Authentication Failed',
+          description: 'OAuth authentication failed. Please try again.',
+          variant: 'destructive',
+        });
+
+        setIsAuthenticating(false);
+        setSessionId(null);
+      }
+      // If status is still 'pending', continue polling
+
+    } catch (error) {
+      console.error('❌ Error polling OAuth status:', error);
+    }
+  }, [pollingInterval, connectWithOAuth, toast]);
 
   const handleOAuthCallback = async (code: string, state: string | null) => {
+    console.log('🔄 ===== FRONTEND OAUTH CALLBACK START =====');
+    console.log('⏰ Timestamp:', new Date().toISOString());
+    console.log('📱 Platform:', Capacitor.getPlatform());
+    console.log('📱 Is native:', Capacitor.isNativePlatform());
+    console.log('🔑 Current credentials before callback:', !!connectWithOAuth);
+
     try {
       console.log('🔄 Processing OAuth callback with code:', code.substring(0, 20) + '...');
       console.log('📋 State parameter:', state);
+      console.log('📏 Code length:', code.length);
 
       // Show processing feedback
       toast({
@@ -179,18 +151,23 @@ export function MobileOAuth() {
       });
 
       console.log('🔗 Calling token exchange endpoint...');
-      // Exchange code for tokens via our edge function
-      const response = await fetch('https://opcjifbdwpyttaxqlqbf.supabase.co/functions/v1/bexio-oauth/exchange', {
+      console.log('🌐 Request URL: http://localhost:3001/api/bexio-oauth/exchange');
+      console.log('📦 Request payload:', { code: code.substring(0, 20) + '...', state });
+
+      // Exchange code for tokens via our local server
+      const response = await fetch('http://localhost:3001/api/bexio-oauth/exchange', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ code, state })
       });
 
       console.log('📡 Token exchange response status:', response.status);
+      console.log('📡 Response headers:', Object.fromEntries(response.headers.entries()));
 
       if (!response.ok) {
         const errorText = await response.text();
         console.error('❌ Token exchange failed:', response.status, errorText);
+        console.log('🔄 ===== FRONTEND OAUTH CALLBACK END (TOKEN EXCHANGE FAILED) =====');
         throw new Error(`Token exchange failed: ${response.status} - ${errorText}`);
       }
 
@@ -200,15 +177,24 @@ export function MobileOAuth() {
       console.log('🔄 Refresh token present:', !!data.refreshToken);
       console.log('🏢 Company ID present:', !!data.companyId);
       console.log('👤 User email present:', !!data.userEmail);
+      console.log('📋 Full response data keys:', Object.keys(data));
 
       if (!data.accessToken) {
         console.error('❌ No access token in response:', data);
+        console.log('🔄 ===== FRONTEND OAUTH CALLBACK END (NO ACCESS TOKEN) =====');
         throw new Error('Invalid response from token exchange - no access token');
       }
 
       console.log('✅ OAuth completed successfully, calling connectWithOAuth...');
 
       // Connect to the app
+      console.log('🔗 Calling connectWithOAuth with:', {
+        hasAccessToken: !!data.accessToken,
+        hasRefreshToken: !!data.refreshToken,
+        companyId: data.companyId,
+        userEmail: data.userEmail
+      });
+
       await connectWithOAuth(
         data.accessToken,
         data.refreshToken,
@@ -217,6 +203,7 @@ export function MobileOAuth() {
       );
 
       console.log('🎯 connectWithOAuth completed, app should now be connected');
+      console.log('🔄 ===== FRONTEND OAUTH CALLBACK END (SUCCESS) =====');
 
       toast({
         title: 'Authentication Successful!',
@@ -233,8 +220,12 @@ export function MobileOAuth() {
         console.warn('Failed to close browser:', browserError);
       }
 
+      console.log('🔄 ===== FRONTEND OAUTH CALLBACK END (SUCCESS) =====');
+
     } catch (error) {
       console.error('❌ OAuth callback processing failed:', error);
+      console.error('🔍 Error details:', error.message, error.stack);
+      console.log('🔄 ===== FRONTEND OAUTH CALLBACK END (EXCEPTION) =====');
       toast({
         title: 'Authentication Failed',
         description: error instanceof Error ? error.message : 'An unexpected error occurred.',
@@ -247,122 +238,156 @@ export function MobileOAuth() {
   };
 
   const handleOAuthLogin = async () => {
+    console.log('🚀 Starting new OAuth session-based flow');
     setIsAuthenticating(true);
-    setShowManualCodeEntry(false);
-
-    // Set up a timeout to show manual entry if automatic doesn't work
-    const timeoutId = setTimeout(() => {
-      if (isAuthenticating) {
-        console.log('⏰ OAuth timeout - showing manual entry option');
-        setShowManualCodeEntry(true);
-        toast({
-          title: 'Having trouble?',
-          description: 'Try the manual code entry option below if the automatic redirect doesn\'t work.',
-        });
-      }
-    }, 10000); // 10 seconds timeout
 
     try {
-      // Generate a random state for security
-      const state = Math.random().toString(36).substring(2, 15);
+      // Step 1: Start OAuth session
+      console.log('📝 Creating OAuth session...');
+      const sessionResponse = await fetch('http://localhost:3001/api/bexio-oauth/start', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          platform: Capacitor.getPlatform()
+        })
+      });
 
-      // Generate PKCE parameters that meet RFC 7636 requirements
-      const generatePKCE = () => {
-        const length = 64; // 43-128 allowed; 64 is a safe default
+      if (!sessionResponse.ok) {
+        throw new Error(`Failed to start OAuth session: ${sessionResponse.status}`);
+      }
+
+      const { sessionId } = await sessionResponse.json();
+      console.log(`📱 OAuth session created: ${sessionId}`);
+      setSessionId(sessionId);
+
+      // Step 2: Generate PKCE parameters with crypto fallbacks
+      const generatePKCE = async () => {
+        const length = 64;
         const charset = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~';
         const random = new Uint8Array(length);
-        crypto.getRandomValues(random);
+
+        // Check if crypto.getRandomValues is available
+        if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
+          crypto.getRandomValues(random);
+        } else {
+          // Fallback: use Math.random for each byte
+          for (let i = 0; i < length; i++) {
+            random[i] = Math.floor(Math.random() * 256);
+          }
+        }
+
         let codeVerifier = '';
         for (let i = 0; i < length; i++) {
           codeVerifier += charset[random[i] % charset.length];
         }
-        const encoder = new TextEncoder();
-        const data = encoder.encode(codeVerifier);
-        return crypto.subtle.digest('SHA-256', data).then(hashBuffer => {
-          const hashBytes = new Uint8Array(hashBuffer);
-          let base64 = btoa(String.fromCharCode(...hashBytes));
-          const codeChallenge = base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+
+        // Check if Web Crypto API is available
+        if (typeof crypto !== 'undefined' && crypto.subtle && typeof crypto.subtle.digest === 'function') {
+          try {
+            const encoder = new TextEncoder();
+            const data = encoder.encode(codeVerifier);
+            const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+            const hashBytes = new Uint8Array(hashBuffer);
+            let base64 = btoa(String.fromCharCode(...hashBytes));
+            const codeChallenge = base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+            return { codeVerifier, codeChallenge };
+          } catch (error) {
+            console.error('PKCE generation failed:', error);
+            // Fallback to simple random string if crypto.subtle fails
+            const fallbackVerifier = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+            return {
+              codeVerifier: fallbackVerifier,
+              codeChallenge: fallbackVerifier // Use plain verifier as challenge for fallback
+            };
+          }
+        } else {
+          // Fallback: use simple random string if crypto.subtle is not available
+          console.warn('Web Crypto API not available, using fallback for PKCE');
+          const fallbackVerifier = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
           return {
-            codeVerifier,
-            codeChallenge
+            codeVerifier: fallbackVerifier,
+            codeChallenge: fallbackVerifier // Use plain verifier as challenge for fallback
           };
-        });
+        }
       };
 
       const { codeVerifier, codeChallenge } = await generatePKCE();
 
-      // Use the edge function to initiate OAuth with proper scope including contact, projects and monitoring scopes
+      // Step 3: Get OAuth URL with session ID
       const scope = 'openid profile email offline_access contact_show contact_edit monitoring_show monitoring_edit project_show';
+      const returnUrl = `http://localhost:3001/api/bexio-oauth/callback`;
 
-      // Determine return URL based on platform
-      const returnUrl = Capacitor.isNativePlatform()
-        ? `${window.location.origin}/oauth-complete.html` // HTML page for mobile that handles callback
-        : `${window.location.origin}/oauth-complete.html`; // Use HTML page for both platforms for consistency
-
-      const response = await fetch('https://opcjifbdwpyttaxqlqbf.supabase.co/functions/v1/bexio-oauth/auth', {
+      console.log('🔗 Requesting OAuth URL with session ID...');
+      const authResponse = await fetch('http://localhost:3001/api/bexio-oauth/auth', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          state: state,
-          scope: scope,
-          codeChallenge: codeChallenge,
+          state: Math.random().toString(36).substring(2, 15),
+          scope,
+          codeChallenge,
           codeChallengeMethod: 'S256',
-          codeVerifier: codeVerifier,
-          returnUrl: returnUrl
+          codeVerifier,
+          returnUrl,
+          sessionId,
+          platform: Capacitor.getPlatform()
         })
       });
 
-      if (!response.ok) {
-        throw new Error(`OAuth initiation failed: ${response.status}`);
+      if (!authResponse.ok) {
+        throw new Error(`OAuth URL request failed: ${authResponse.status}`);
       }
 
-      const { authUrl } = await response.json();
+      const { authUrl } = await authResponse.json();
+      console.log('✅ OAuth URL received, opening browser...');
 
-      // Handle OAuth flow based on platform
+      // Step 4: Open browser for OAuth
       if (Capacitor.isNativePlatform()) {
-        console.log('📱 Opening OAuth in Capacitor browser:', authUrl);
-        console.log('🔗 Return URL will be:', returnUrl);
-
-        // Use Capacitor Browser plugin for mobile with better configuration
         await Browser.open({
           url: authUrl,
           windowName: '_blank',
-          presentationStyle: 'fullscreen' // Changed from popover to fullscreen for better redirect handling
+          presentationStyle: 'fullscreen'
         });
-
-        console.log('🌐 Browser opened successfully for OAuth flow');
+        console.log('🌐 Browser opened for OAuth flow');
       } else {
-        // Use popup/window for web browser
-        const width = 520,
-          height = 700;
+        // Web fallback
+        const width = 520, height = 700;
         const left = window.screenX + (window.outerWidth - width) / 2;
         const top = window.screenY + (window.outerHeight - height) / 2;
         const features = `popup=yes,toolbar=no,location=no,status=no,menubar=no,scrollbars=yes,resizable=yes,width=${width},height=${height},left=${left},top=${top}`;
-        const popup = window.open(authUrl, 'bexio_oauth', features);
-        if (!popup) {
-          // Fallback to top-level navigation
-          if (window.top) {
-            window.top.location.href = authUrl;
-          } else {
-            window.location.href = authUrl;
-          }
-        }
+        window.open(authUrl, 'bexio_oauth', features);
       }
 
-      // Clear the timeout since we successfully opened the browser
-      clearTimeout(timeoutId);
+      // Step 5: Start polling for completion
+      console.log('🔄 Starting OAuth status polling...');
+      const interval = setInterval(() => {
+        pollOAuthStatus(sessionId);
+      }, 2000); // Poll every 2 seconds
+
+      setPollingInterval(interval);
+
+      // Set timeout for polling (5 minutes)
+      setTimeout(() => {
+        if (pollingInterval) {
+          clearInterval(pollingInterval);
+          setPollingInterval(null);
+          setIsAuthenticating(false);
+          setSessionId(null);
+          toast({
+            title: 'Authentication Timeout',
+            description: 'OAuth authentication timed out. Please try again.',
+            variant: 'destructive',
+          });
+        }
+      }, 5 * 60 * 1000);
 
     } catch (error) {
-      console.error('Failed to open OAuth browser:', error);
+      console.error('❌ OAuth login failed:', error);
       toast({
         title: 'Authentication Failed',
-        description: error instanceof Error ? error.message : 'Failed to open authentication browser.',
+        description: error instanceof Error ? error.message : 'Failed to start authentication.',
         variant: 'destructive',
       });
       setIsAuthenticating(false);
-      clearTimeout(timeoutId);
     }
   };
 
@@ -381,7 +406,7 @@ export function MobileOAuth() {
               transition={{ duration: 0.5, delay: 0.2 }}
               className="mx-auto mb-4"
             >
-              <TikTakLogo variant="dark" />
+              <TikTakLogo />
             </motion.div>
 
             <CardTitle className="text-2xl font-bold text-gray-800 mb-2">
@@ -472,58 +497,15 @@ export function MobileOAuth() {
                 }
               </p>
 
-              {/* Manual Code Entry Toggle */}
-              <Button
-                variant="link"
-                size="sm"
-                onClick={() => setShowManualCodeEntry(!showManualCodeEntry)}
-                className="text-xs text-teal-600 hover:text-teal-700 p-0 h-auto"
-              >
-                {showManualCodeEntry ? 'Hide' : 'Show'} manual code entry
-              </Button>
+              {/* Status indicator */}
+              {isAuthenticating && sessionId && (
+                <div className="flex flex-wrap gap-2 justify-center">
+                  <Badge variant="secondary" className="bg-blue-100 text-blue-800">
+                    Waiting for authorization...
+                  </Badge>
+                </div>
+              )}
             </motion.div>
-
-            {/* Manual Code Entry */}
-            {showManualCodeEntry && (
-              <motion.div
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: 'auto' }}
-                exit={{ opacity: 0, height: 0 }}
-                className="space-y-3"
-              >
-                <div className="text-center">
-                  <p className="text-sm font-medium text-gray-700">Manual Code Entry</p>
-                  <p className="text-xs text-gray-600">
-                    If automatic redirect doesn't work, paste the authorization code here
-                  </p>
-                </div>
-
-                <div className="space-y-2">
-                  <input
-                    type="text"
-                    placeholder="Paste authorization code here"
-                    value={manualCode}
-                    onChange={(e) => setManualCode(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
-                  />
-
-                  <Button
-                    onClick={() => {
-                      if (manualCode.trim()) {
-                        handleOAuthCallback(manualCode.trim(), null);
-                        setManualCode('');
-                        setShowManualCodeEntry(false);
-                      }
-                    }}
-                    disabled={!manualCode.trim() || isAuthenticating}
-                    size="sm"
-                    className="w-full bg-teal-600 hover:bg-teal-700"
-                  >
-                    Submit Code
-                  </Button>
-                </div>
-              </motion.div>
-            )}
           </CardContent>
         </Card>
       </motion.div>

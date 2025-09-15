@@ -5,7 +5,8 @@ const config: CapacitorConfig = {
   appName: 'bexio-sync-buddy',
   webDir: 'dist',
   server: {
-    url: 'http://localhost:8080',
+    // Use dynamic server URL based on environment
+    url: process.env.CAPACITOR_SERVER_URL || 'http://localhost:8081',
     cleartext: true
   },
   plugins: {

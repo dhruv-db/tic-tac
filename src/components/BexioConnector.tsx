@@ -29,8 +29,10 @@ export const BexioConnector = ({
   // Listen for OAuth success from popup and finalize connection
   useEffect(() => {
     const onMessage = (event: MessageEvent) => {
+      console.log('📨 [DEBUG] BexioConnector received message:', event.data);
       const data = (event?.data || {}) as any;
       if (data && data.type === 'BEXIO_OAUTH_SUCCESS' && data.credentials) {
+        console.log('✅ [DEBUG] BexioConnector processing OAuth success');
         try {
           const {
             accessToken,
@@ -38,6 +40,12 @@ export const BexioConnector = ({
             companyId,
             userEmail
           } = data.credentials;
+          console.log('🔗 [DEBUG] BexioConnector calling onOAuthConnect with:', {
+            hasAccessToken: !!accessToken,
+            hasRefreshToken: !!refreshToken,
+            companyId,
+            userEmail
+          });
           onOAuthConnect?.(accessToken, refreshToken, companyId, userEmail);
         } finally {
           setIsOAuthLoading(false);
@@ -63,26 +71,57 @@ export const BexioConnector = ({
       const state = Math.random().toString(36).substring(2, 15);
 
       // Generate PKCE parameters that meet RFC 7636 requirements
-      const generatePKCE = () => {
+      const generatePKCE = async () => {
         const length = 64; // 43-128 allowed; 64 is a safe default
         const charset = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~';
         const random = new Uint8Array(length);
-        crypto.getRandomValues(random);
+
+        // Check if crypto.getRandomValues is available
+        if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
+          crypto.getRandomValues(random);
+        } else {
+          // Fallback: use Math.random for each byte
+          for (let i = 0; i < length; i++) {
+            random[i] = Math.floor(Math.random() * 256);
+          }
+        }
+
         let codeVerifier = '';
         for (let i = 0; i < length; i++) {
           codeVerifier += charset[random[i] % charset.length];
         }
-        const encoder = new TextEncoder();
-        const data = encoder.encode(codeVerifier);
-        return crypto.subtle.digest('SHA-256', data).then(hashBuffer => {
-          const hashBytes = new Uint8Array(hashBuffer);
-          let base64 = btoa(String.fromCharCode(...hashBytes));
-          const codeChallenge = base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+
+        // Check if Web Crypto API is available
+        if (typeof crypto !== 'undefined' && crypto.subtle && typeof crypto.subtle.digest === 'function') {
+          try {
+            const encoder = new TextEncoder();
+            const data = encoder.encode(codeVerifier);
+            const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+            const hashBytes = new Uint8Array(hashBuffer);
+            let base64 = btoa(String.fromCharCode(...hashBytes));
+            const codeChallenge = base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+            return {
+              codeVerifier,
+              codeChallenge
+            };
+          } catch (error) {
+            console.error('PKCE generation failed:', error);
+            // Fallback to simple random string if crypto.subtle fails
+            const fallbackVerifier = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+            return {
+              codeVerifier: fallbackVerifier,
+              codeChallenge: fallbackVerifier // Use plain verifier as challenge for fallback
+            };
+          }
+        } else {
+          // Fallback: use simple random string if crypto.subtle is not available
+          console.warn('Web Crypto API not available, using fallback for PKCE');
+          const fallbackVerifier = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
           return {
-            codeVerifier,
-            codeChallenge
+            codeVerifier: fallbackVerifier,
+            codeChallenge: fallbackVerifier // Use plain verifier as challenge for fallback
           };
-        });
+        }
       };
       const {
         codeVerifier,
@@ -97,9 +136,12 @@ export const BexioConnector = ({
         ru: window.location.origin
       }));
 
-      // Use the edge function to initiate OAuth with proper scope including contact, projects and monitoring scopes
+      // Detect platform for proper redirect URI handling
+      const platform = Capacitor.isNativePlatform() ? 'mobile' : 'web';
+
+      // Use the local server to initiate OAuth with proper scope including contact, projects and monitoring scopes
       const scope = 'openid profile email offline_access contact_show contact_edit monitoring_show monitoring_edit project_show';
-      const response = await fetch('https://opcjifbdwpyttaxqlqbf.supabase.co/functions/v1/bexio-oauth/auth', {
+      const response = await fetch('http://localhost:3001/api/bexio-oauth/auth', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -110,7 +152,8 @@ export const BexioConnector = ({
           codeChallenge: codeChallenge,
           codeChallengeMethod: 'S256',
           codeVerifier: codeVerifier,
-          returnUrl: window.location.origin
+          returnUrl: window.location.origin,
+          platform: platform
         })
       });
       if (!response.ok) {

@@ -3,6 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
     <title>OAuth Complete - Bexio Sync Buddy</title>
     <style>
         body {
@@ -87,56 +90,15 @@
     </div>
 
     <script>
-        // Handle OAuth callback with comprehensive URL parsing
+        // Handle OAuth callback with session-based completion
         function handleCallback() {
-            console.log('🔍 OAuth callback triggered');
+            console.log('🔍 OAuth completion page loaded');
             console.log('📍 Current URL:', window.location.href);
-            console.log('📂 Pathname:', window.location.pathname);
-            console.log('❓ Search:', window.location.search);
 
-            let urlParams;
-            let code, state, error;
-
-            // Method 1: Try to get parameters from query string (correct format)
-            if (window.location.search) {
-                urlParams = new URLSearchParams(window.location.search);
-                code = urlParams.get('code');
-                state = urlParams.get('state');
-                error = urlParams.get('error');
-                console.log('📋 Method 1 - Query params:', { code: code ? 'present' : 'missing', state: state ? 'present' : 'missing', error });
-            }
-
-            // Method 2: If no parameters found, try to extract from pathname (edge function bug workaround)
-            if (!code && window.location.pathname.includes('/oauth/callback')) {
-                console.log('🔧 Method 2 - Pathname parsing triggered');
-                const pathParts = window.location.pathname.split('/oauth/callback');
-                console.log('🧩 Path parts:', pathParts);
-
-                if (pathParts.length > 1 && pathParts[1].includes('?')) {
-                    const queryString = pathParts[1].split('?')[1];
-                    console.log('🔗 Extracted query string:', queryString);
-                    urlParams = new URLSearchParams(queryString);
-                    code = urlParams.get('code');
-                    state = urlParams.get('state');
-                    error = urlParams.get('error');
-                    console.log('📋 Method 2 - Extracted params:', { code: code ? 'present' : 'missing', state: state ? 'present' : 'missing', error });
-                }
-            }
-
-            // Method 3: Try to extract from hash (fallback)
-            if (!code && window.location.hash.includes('?')) {
-                console.log('🔧 Method 3 - Hash parsing triggered');
-                const hashQuery = window.location.hash.split('?')[1];
-                if (hashQuery) {
-                    urlParams = new URLSearchParams(hashQuery);
-                    code = urlParams.get('code');
-                    state = urlParams.get('state');
-                    error = urlParams.get('error');
-                    console.log('📋 Method 3 - Hash params:', { code: code ? 'present' : 'missing', state: state ? 'present' : 'missing', error });
-                }
-            }
-
-            console.log('🎯 Final extracted parameters:', { code: code ? 'present' : 'missing', state: state ? 'present' : 'missing', error });
+            const urlParams = new URLSearchParams(window.location.search);
+            const sessionId = urlParams.get('session');
+            const status = urlParams.get('status');
+            const error = urlParams.get('error');
 
             const content = document.getElementById('content');
 
@@ -151,7 +113,7 @@
                 return;
             }
 
-            if (code) {
+            if (sessionId && status === 'completed') {
                 content.innerHTML = `
                     <div class="success-icon">✅</div>
                     <h1>Authentication Successful!</h1>
@@ -159,112 +121,63 @@
                     <div class="status success">Completing setup...</div>
                 `;
 
-                // Send message to parent window (for popup flow)
-                if (window.opener && !window.opener.closed) {
-                    const payload = {
-                        type: 'BEXIO_OAUTH_SUCCESS',
-                        credentials: { code, state }
-                    };
-                    window.opener.postMessage(payload, '*');
+                // Close the browser after a short delay
+                setTimeout(() => {
+                    console.log('🔒 Closing OAuth browser window');
+                    window.close();
 
-                    setTimeout(() => {
-                        window.close();
-                    }, 2000);
-                } else {
-                    // For mobile app - try to communicate with the app
-                    console.log('📱 Mobile OAuth callback - attempting to communicate with app');
-
-                    // Try to send message to the app (if it's listening)
-                    const payload = {
-                        type: 'BEXIO_OAUTH_SUCCESS',
-                        credentials: { code, state }
-                    };
-
-                    // Send message to any potential listeners
-                    if (window.parent && window.parent !== window) {
-                        try {
-                            window.parent.postMessage(payload, '*');
-                        } catch (e) {
-                            console.warn('Failed to send message to parent:', e);
-                        }
-                    }
-
-                    // Try multiple approaches to communicate with the app
-                    setTimeout(() => {
-                        const callbackUrl = `bexiosyncbuddy://oauth/callback?code=${encodeURIComponent(code)}&state=${encodeURIComponent(state || '')}`;
-                        console.log('🔗 Attempting to open app with URL:', callbackUrl);
-
-                        // Method 1: Try to open the app directly
-                        try {
-                            window.location.href = callbackUrl;
-                        } catch (e) {
-                            console.warn('Direct URL open failed:', e);
-                        }
-
-                        // Method 2: Try using a link element
-                        setTimeout(() => {
-                            try {
-                                const link = document.createElement('a');
-                                link.href = callbackUrl;
-                                link.style.display = 'none';
-                                document.body.appendChild(link);
-                                link.click();
-                                document.body.removeChild(link);
-                            } catch (e) {
-                                console.warn('Link click failed:', e);
-                            }
-                        }, 100);
-
-                        // Method 3: Try window.open as fallback
-                        setTimeout(() => {
-                            try {
-                                window.open(callbackUrl, '_self');
-                            } catch (e) {
-                                console.warn('Window open failed:', e);
-                            }
-                        }, 200);
-
-                        // Method 4: Try to communicate via postMessage to any Capacitor webview
-                        setTimeout(() => {
-                            try {
-                                // Try to send message to Capacitor webview
-                                if (window.webkit && window.webkit.messageHandlers) {
-                                    window.webkit.messageHandlers.capacitor.postMessage({
-                                        type: 'oauth_callback',
-                                        data: { code, state }
-                                    });
-                                }
-
-                                // Also try sending to any potential listeners
-                                window.postMessage({
-                                    type: 'BEXIO_OAUTH_CALLBACK',
-                                    code: code,
-                                    state: state
-                                }, '*');
-
-                            } catch (e) {
-                                console.warn('PostMessage failed:', e);
-                            }
-                        }, 300);
-
-                        // Show success message
+                    // Fallback for browsers that don't support window.close()
+                    if (!window.closed) {
                         content.innerHTML = `
                             <div class="success-icon">✅</div>
                             <h1>Authentication Complete</h1>
-                            <p>Returning to the app...</p>
+                            <p>You can now close this window and return to the app.</p>
                             <div class="status success">Setup complete!</div>
-                            <p><small>If the app doesn't open automatically, you can close this window.</small></p>
                         `;
-                    }, 500);
-                }
+                    }
+                }, 1500);
+
             } else {
-                content.innerHTML = `
-                    <div class="error-icon">❌</div>
-                    <h1>Authentication Failed</h1>
-                    <p>No authorization code received.</p>
-                    <div class="status error">Missing authorization code</div>
-                    <p><small>You can close this window and try again.</small></p>
-                `;
+                // Legacy web flow - handle tokens directly
+                const accessToken = urlParams.get('access_token');
+                const refreshToken = urlParams.get('refresh_token');
+                const companyId = urlParams.get('company_id');
+                const userEmail = urlParams.get('user_email');
+
+                if (accessToken) {
+                    content.innerHTML = `
+                        <div class="success-icon">✅</div>
+                        <h1>Authentication Successful!</h1>
+                        <p>You have been successfully connected to Bexio.</p>
+                        <div class="status success">Completing setup...</div>
+                    `;
+
+                    // Send message to parent window (for popup flow)
+                    if (window.opener && !window.opener.closed) {
+                        const payload = {
+                            type: 'BEXIO_OAUTH_SUCCESS',
+                            credentials: {
+                                accessToken,
+                                refreshToken,
+                                companyId,
+                                userEmail
+                            }
+                        };
+                        window.opener.postMessage(payload, '*');
+
+                        setTimeout(() => {
+                            window.close();
+                        }, 2000);
+                    }
+                } else {
+                    content.innerHTML = `
+                        <div class="error-icon">❌</div>
+                        <h1>Authentication Failed</h1>
+                        <p>No authentication data received.</p>
+                        <div class="status error">Missing authentication data</div>
+                        <p><small>You can close this window and try again.</small></p>
+                    `;
+                }
             }
         }
 

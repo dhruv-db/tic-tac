@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
   RefreshCw,
@@ -14,7 +15,9 @@ import {
   ChevronDown,
   BarChart3,
   Shield,
-  CheckCircle2
+  CheckCircle2,
+  LogOut,
+  Trash2
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -32,20 +35,35 @@ import { SimpleTimeGrid } from '@/components/SimpleTimeGrid';
 import { TimesheetCalendar } from '@/components/TimesheetCalendar';
 import { Analytics } from '@/components/Analytics';
 import { LanguageFlag } from '@/components/LanguageFlag';
-import { useBexioApi } from '@/hooks/useBexioApi';
+import { useAuth } from '@/context/OAuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { useHapticFeedback } from '@/hooks/useHapticFeedback';
 import { BexioConnector } from '@/components/BexioConnector';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { cn } from '@/lib/utils';
+import ticTacLogo from '@/assets/Tic-Tac_Dark.png';
 
-const TikTakLogo = ({ className = "" }: { className?: string }) => (
-  <div className={`flex flex-col items-center space-y-2 ${className}`}>
-    <img src="https://cdn.prod.website-files.com/644a6e413354d12887abce48/678e77dc82ed84dfe2ede9f8_db%20icon%20(1).png" alt="tik-tak" className="h-10 w-auto md:h-12" />
-  </div>
-);
+const TikTakLogo = ({ className = "" }: { className?: string }) => {
+  console.log('🎯 [DEBUG] TikTakLogo component rendered');
+  console.log('🎯 [DEBUG] TikTakLogo className:', className);
+  console.log('🎯 [DEBUG] TikTakLogo image source:', ticTacLogo);
+
+  return (
+    <div className={`flex flex-col items-center space-y-2 p-4 ${className}`}>
+      <img
+        src={ticTacLogo}
+        alt="tik-tak"
+        className="h-10 w-auto md:h-12"
+        onLoad={() => console.log('🎯 [DEBUG] TikTakLogo image loaded successfully')}
+        onError={(e) => console.error('❌ [DEBUG] TikTakLogo image failed to load:', e)}
+      />
+    </div>
+  );
+};
 
 const MobileIndex = () => {
+  const location = useLocation();
+  const navigate = useNavigate();
   const {
     credentials,
     contacts,
@@ -86,19 +104,26 @@ const MobileIndex = () => {
     businessActivities,
     workPackagesByProject,
     getWorkPackageName,
-  } = useBexioApi();
-
-  // Debug logging for connection state
-  console.log('🔍 MobileIndex - isConnected:', isConnected, 'credentials:', !!credentials);
+  } = useAuth();
 
   const [activeTab, setActiveTab] = useState('timetracking');
+
+  // Debug logging for connection state
+  console.log('🔍 [DEBUG] MobileIndex component rendered');
+  console.log('🔍 [DEBUG] MobileIndex - isConnected:', isConnected);
+  console.log('🔍 [DEBUG] MobileIndex - credentials present:', !!credentials);
+  console.log('🔍 [DEBUG] MobileIndex - credentials details:', credentials ? {
+    hasAccessToken: !!credentials.accessToken,
+    authType: credentials.authType,
+    companyId: credentials.companyId
+  } : 'null');
+  console.log('🔍 [DEBUG] MobileIndex - projects count:', projects.length);
+  console.log('🔍 [DEBUG] MobileIndex - contacts count:', contacts.length);
+  console.log('🔍 [DEBUG] MobileIndex - timeEntries count:', timeEntries.length);
+  console.log('🔍 [DEBUG] MobileIndex - hasInitiallyLoaded:', hasInitiallyLoaded);
   const [timeTrackingView, setTimeTrackingView] = useState<'list' | 'grid' | 'calendar'>('list');
   const [calendarInitialData, setCalendarInitialData] = useState<any>(null);
   const [showAddEntryDialog, setShowAddEntryDialog] = useState(false);
-  const [logoUrl, setLogoUrl] = useState<string>(() =>
-    localStorage.getItem('adminLogoUrl') ||
-    'https://cdn.prod.website-files.com/644a6e413354d12887abce48/678e77dc82ed84dfe2ede9f8_db%20icon%20(1).png'
-  );
 
   // Filter states
   const [selectedProject, setSelectedProject] = useState<number | null>(null);
@@ -109,28 +134,96 @@ const MobileIndex = () => {
 
   // Auto-load data when connected
   useEffect(() => {
-    if (!isConnected) return;
+    console.log('🔄 [DEBUG] Auto-load data effect triggered');
+    console.log('🔄 [DEBUG] isConnected:', isConnected);
+    console.log('🔄 [DEBUG] Current data counts - contacts:', contacts.length, 'projects:', projects.length, 'users:', users.length, 'timeEntries:', timeEntries.length);
+
+    if (!isConnected) {
+      console.log('🔄 [DEBUG] Not connected, skipping auto-load');
+      return;
+    }
 
     if (contacts.length === 0 && !isLoadingContacts) {
+      console.log('🔄 [DEBUG] Triggering fetchContacts');
       fetchContacts();
     }
     if (projects.length === 0 && !isLoadingProjects) {
+      console.log('🔄 [DEBUG] Triggering fetchProjects');
       fetchProjects();
     }
     if (users.length === 0 && !isLoadingUsers) {
+      console.log('🔄 [DEBUG] Triggering fetchUsers');
+      console.log('🔄 [DEBUG] currentBexioUserId:', currentBexioUserId);
+      console.log('🔄 [DEBUG] isCurrentUserAdmin:', isCurrentUserAdmin);
       fetchUsers();
     }
     if (timeEntries.length === 0 && !isLoadingTimeEntries) {
+      console.log('🔄 [DEBUG] Triggering fetchTimeEntries');
       const now = new Date();
       const startDate = new Date(now.getFullYear(), now.getMonth() - 3, 1);
       const endOfCurrentMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+      console.log('🔄 [DEBUG] Time entries date range:', startDate.toISOString(), 'to', endOfCurrentMonth.toISOString());
       fetchTimeEntries({ from: startDate, to: endOfCurrentMonth }, { quiet: true });
     }
-  }, [isConnected, contacts.length, projects.length, users.length, timeEntries.length]);
+  }, [isConnected, contacts.length, projects.length, users.length, timeEntries.length, isLoadingContacts, isLoadingProjects, isLoadingUsers, isLoadingTimeEntries, fetchContacts, fetchProjects, fetchUsers, fetchTimeEntries]);
 
   useEffect(() => {
-    loadStoredCredentials();
-  }, []);
+    console.log('🔄 ===== LOAD STORED CREDENTIALS EFFECT START =====');
+    console.log('🔄 Calling loadStoredCredentials from MobileIndex...');
+    const result = loadStoredCredentials();
+    console.log('🔄 loadStoredCredentials result:', result);
+    console.log('🔄 ===== LOAD STORED CREDENTIALS EFFECT END =====');
+  }, []); // Only run once on mount
+
+  // Track authentication state changes
+  useEffect(() => {
+    console.log('🔐 ===== AUTHENTICATION STATE CHANGE =====');
+    console.log('🔐 isConnected:', isConnected);
+    console.log('🔐 credentials present:', !!credentials);
+    console.log('🔐 credentials details:', credentials ? {
+      hasAccessToken: !!credentials.accessToken,
+      hasRefreshToken: !!credentials.refreshToken,
+      authType: credentials.authType,
+      companyId: credentials.companyId,
+      userEmail: credentials.userEmail,
+      expiresAt: credentials.expiresAt ? new Date(credentials.expiresAt).toISOString() : 'null'
+    } : 'null');
+    console.log('🔐 Current time:', new Date().toISOString());
+    console.log('🔐 Will render:', isConnected ? 'MAIN APP' : 'LOGIN SCREEN');
+
+    // Check for issues
+    if (!isConnected) {
+      if (!credentials) {
+        console.log('❌ Not connected: No credentials found');
+      } else if (credentials.authType === 'oauth' && credentials.expiresAt && credentials.expiresAt < Date.now()) {
+        console.log('❌ Not connected: OAuth token expired');
+      } else {
+        console.log('❌ Not connected: Other reason');
+      }
+    } else {
+      console.log('✅ Connected: Should show MAIN APP');
+    }
+
+    console.log('🔐 ===== AUTHENTICATION STATE CHANGE END =====');
+  }, [isConnected, credentials]);
+
+  // Handle OAuth callback from URL parameters
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const accessToken = params.get('access_token');
+    const refreshToken = params.get('refresh_token');
+    const companyId = params.get('company_id');
+    const userEmail = params.get('user_email');
+
+    if (accessToken && refreshToken && companyId) {
+      console.log('🔗 Detected OAuth tokens in URL, connecting...');
+      connectWithOAuth(accessToken, refreshToken, companyId, userEmail || '');
+
+      // Clean up URL by removing the parameters
+      const newUrl = window.location.pathname;
+      window.history.replaceState({}, document.title, newUrl);
+    }
+  }, [location.search, connectWithOAuth]);
 
   const handleRefresh = () => {
     fetchTimeEntries(undefined, { quiet: false });
@@ -194,6 +287,12 @@ const MobileIndex = () => {
   }, [timeEntries, isCurrentUserAdmin, currentBexioUserId, selectedProject, selectedMonth, sortBy, projects]);
 
   const currentUser = users.find(u => u.id === currentBexioUserId);
+  console.log('👤 [DEBUG] currentUser lookup:', {
+    currentBexioUserId,
+    usersCount: users.length,
+    users: users.map(u => ({ id: u.id, name: `${u.firstname} ${u.lastname}`, email: u.email })),
+    foundUser: currentUser ? `${currentUser.firstname} ${currentUser.lastname}` : 'NOT FOUND'
+  });
   const isLoading = isLoadingContacts || isLoadingProjects || isLoadingTimeEntries;
 
   // Calculate today's stats
@@ -614,6 +713,12 @@ const MobileIndex = () => {
         );
 
       case 'settings':
+        console.log('⚙️ [DEBUG] Rendering settings section:', {
+          currentUser: currentUser ? `${currentUser.firstname} ${currentUser.lastname}` : 'NULL',
+          currentBexioUserId,
+          isCurrentUserAdmin,
+          usersCount: users.length
+        });
         return (
           <div className="p-4 space-y-6">
             {/* Mobile-Optimized Profile Header Card */}
@@ -640,7 +745,9 @@ const MobileIndex = () => {
                     </motion.div>
 
                     <div className="flex-1">
-                      <h2 className="text-lg font-bold text-white">Settings</h2>
+                      <h2 className="text-lg font-bold text-white">
+                        {currentUser ? `${currentUser.firstname} ${currentUser.lastname}` : 'Settings'}
+                      </h2>
                       <div className="flex items-center gap-2 mt-1">
                         <Badge
                           variant="secondary"
@@ -712,6 +819,167 @@ const MobileIndex = () => {
                   >
                     <RefreshCw className={cn("h-4 w-4", isLoading && "animate-spin")} />
                     Refresh Data
+                  </Button>
+
+                  <Separator className="my-3" />
+
+                  <Button
+                    variant="outline"
+                    className="w-full justify-start gap-3 h-12 bg-orange-50 border-orange-300 hover:bg-orange-100 text-orange-800"
+                    onClick={() => {
+                      lightImpact();
+                      if (window.confirm('Are you sure you want to clear ALL data? This will remove all cached data, sessions, cookies, and sign you out completely.')) {
+                        // Comprehensive data clearing function
+                        const clearAllData = async () => {
+                          try {
+                            // 1. Clear localStorage
+                            localStorage.clear();
+                            console.log('✅ Cleared localStorage');
+
+                            // 2. Clear sessionStorage
+                            sessionStorage.clear();
+                            console.log('✅ Cleared sessionStorage');
+
+                            // 3. Clear all cookies
+                            const clearCookies = () => {
+                              const cookies = document.cookie.split(';');
+                              for (let cookie of cookies) {
+                                const eqPos = cookie.indexOf('=');
+                                const name = eqPos > -1 ? cookie.substr(0, eqPos).trim() : cookie.trim();
+                                document.cookie = name + '=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/';
+                                document.cookie = name + '=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/;domain=' + window.location.hostname;
+                              }
+                            };
+                            clearCookies();
+                            console.log('✅ Cleared cookies');
+
+                            // 4. Clear IndexedDB
+                            const clearIndexedDB = async () => {
+                              if ('indexedDB' in window) {
+                                try {
+                                  const databases = await indexedDB.databases?.() || [];
+                                  for (const db of databases) {
+                                    if (db.name) {
+                                      indexedDB.deleteDatabase(db.name);
+                                    }
+                                  }
+                                } catch (error) {
+                                  console.warn('⚠️ Could not clear IndexedDB:', error);
+                                }
+                              }
+                            };
+                            await clearIndexedDB();
+                            console.log('✅ Cleared IndexedDB');
+
+                            // 5. Clear Cache Storage (Service Worker caches)
+                            const clearCacheStorage = async () => {
+                              if ('caches' in window) {
+                                try {
+                                  const cacheNames = await caches.keys();
+                                  await Promise.all(
+                                    cacheNames.map(cacheName => caches.delete(cacheName))
+                                  );
+                                } catch (error) {
+                                  console.warn('⚠️ Could not clear Cache Storage:', error);
+                                }
+                              }
+                            };
+                            await clearCacheStorage();
+                            console.log('✅ Cleared Cache Storage');
+
+                            // 6. Clear Web SQL Database (legacy)
+                            const clearWebSQL = () => {
+                              if ('openDatabase' in window) {
+                                try {
+                                  // This is a best-effort attempt since WebSQL is deprecated
+                                  // We can't enumerate all databases, but we can try to clear known ones
+                                  console.log('ℹ️ WebSQL detected but cannot be fully cleared from client-side');
+                                } catch (error) {
+                                  console.warn('⚠️ Could not clear WebSQL:', error);
+                                }
+                              }
+                            };
+                            clearWebSQL();
+                            console.log('✅ Attempted WebSQL clearing');
+
+                            // 7. Clear server-side sessions (optional)
+                            try {
+                              await fetch('http://localhost:3001/api/bexio-oauth/clear-sessions', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ clearAll: true })
+                              });
+                              console.log('✅ Cleared server sessions');
+                            } catch (error) {
+                              console.warn('⚠️ Could not clear server sessions:', error);
+                            }
+
+                            // 8. Clear browser history state
+                            try {
+                              if (window.history.replaceState) {
+                                window.history.replaceState(null, '', window.location.pathname);
+                              }
+                            } catch (error) {
+                              console.warn('⚠️ Could not clear browser history:', error);
+                            }
+                            console.log('✅ Cleared browser history state');
+
+                            // 9. Reset all app state
+                            disconnect();
+                            console.log('✅ Reset app state');
+
+                          } catch (error) {
+                            console.error('❌ Error during data clearing:', error);
+                          }
+                        };
+
+                        // Execute comprehensive clearing
+                        clearAllData().then(() => {
+                          toast({
+                            title: "All Data Cleared",
+                            description: "All local data, sessions, cookies, and cache have been cleared. The page will reload.",
+                          });
+
+                          // Reload the page to ensure completely clean state
+                          setTimeout(() => {
+                            window.location.reload();
+                          }, 1500);
+                        }).catch((error) => {
+                          console.error('❌ Error during comprehensive clearing:', error);
+                          toast({
+                            title: "Partial Clear Completed",
+                            description: "Some data may not have been cleared. The page will reload.",
+                            variant: "destructive",
+                          });
+
+                          // Still reload even if there were errors
+                          setTimeout(() => {
+                            window.location.reload();
+                          }, 1500);
+                        });
+                      }
+                    }}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    Clear All Data
+                  </Button>
+
+                  <Button
+                    variant="destructive"
+                    className="w-full justify-start gap-3 h-12 bg-red-600 hover:bg-red-700 text-white"
+                    onClick={() => {
+                      mediumImpact();
+                      if (window.confirm('Are you sure you want to sign out?')) {
+                        disconnect();
+                        toast({
+                          title: "Signed Out",
+                          description: "You have been successfully signed out.",
+                        });
+                      }
+                    }}
+                  >
+                    <LogOut className="h-4 w-4" />
+                    Sign Out
                   </Button>
                 </CardContent>
               </Card>
@@ -847,8 +1115,8 @@ const MobileIndex = () => {
           <div className="absolute inset-0 bg-gradient-to-br from-primary via-primary/90 to-primary/80"></div>
           <div className="relative z-10 flex flex-col justify-center px-12 py-16 text-white bg-[#164e59]">
             {/* Logo & Brand */}
-            <div className="mb-12 text-center">
-              <TikTakLogo className="mb-6" />
+            <div className="mb-12 text-center px-8 py-6">
+              <TikTakLogo className="mb-8" />
               <h1 className="text-3xl font-bold tracking-tight text-white mb-2">
                 Transform Your Time Tracking
               </h1>
@@ -900,16 +1168,12 @@ const MobileIndex = () => {
         {/* Right Side - Login Form */}
         <div className="flex-1 flex items-center justify-center px-6 py-12">
           <div className="w-full max-w-md">
-            {/* Mobile Header */}
-            <div className="lg:hidden text-center mb-8">
-              <TikTakLogo className="text-primary" />
-            </div>
 
             {/* Login Card */}
             <Card className="corporate-card border-0 shadow-[var(--shadow-elegant)]">
               <CardHeader className="text-center pb-6">
                 <CardTitle className="text-2xl font-bold text-title">Welcome to tik-tak</CardTitle>
-              
+
               </CardHeader>
               <CardContent className="space-y-6">
                 <BexioConnector
@@ -959,7 +1223,6 @@ const MobileIndex = () => {
         onRefresh={handleRefresh}
         onDisconnect={disconnect}
         isLoading={isLoading}
-        logoUrl={logoUrl}
         onAddEntry={handleAddEntry}
       >
         {renderContent()}

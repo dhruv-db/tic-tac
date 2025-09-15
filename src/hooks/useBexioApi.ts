@@ -2,6 +2,18 @@ import { useState, useCallback, useRef, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { DateRange } from "react-day-picker";
 import { format } from "date-fns";
+import { Capacitor } from "@capacitor/core";
+
+// Helper function to get the correct server URL based on platform
+const getServerUrl = () => {
+  // For mobile apps, use the host machine's IP address
+  if (Capacitor.isNativePlatform()) {
+    // Use the same IP as configured in .env
+    return 'http://192.168.29.13:3001';
+  }
+  // For web, use localhost
+  return 'http://localhost:3001';
+};
 
 interface Contact {
   id: number;
@@ -100,11 +112,36 @@ interface BexioCredentials {
 }
 
 export const useBexioApi = () => {
+  const credentialsRef = useRef<BexioCredentials | null>(null);
   const [credentials, setCredentials] = useState<BexioCredentials | null>(() => {
     try {
       const stored = localStorage.getItem('bexio_credentials');
-      return stored ? JSON.parse(stored) as BexioCredentials : null;
-    } catch {
+      console.log('🔄 ===== CREDENTIALS STATE INITIALIZATION =====');
+      console.log('🔄 localStorage.getItem result:', stored ? 'present' : 'null');
+
+      if (stored) {
+        const parsed = JSON.parse(stored) as BexioCredentials;
+        console.log('🔄 Parsed credentials:', {
+          hasAccessToken: !!parsed.accessToken,
+          hasRefreshToken: !!parsed.refreshToken,
+          authType: parsed.authType,
+          companyId: parsed.companyId,
+          userEmail: parsed.userEmail,
+          expiresAt: parsed.expiresAt ? new Date(parsed.expiresAt).toISOString() : 'null'
+        });
+        console.log('🔄 ===== CREDENTIALS STATE INITIALIZATION END (SUCCESS) =====');
+        credentialsRef.current = parsed; // Also set the ref
+        return parsed;
+      } else {
+        console.log('🔄 No stored credentials found');
+        console.log('🔄 ===== CREDENTIALS STATE INITIALIZATION END (NO DATA) =====');
+        credentialsRef.current = null;
+        return null;
+      }
+    } catch (error) {
+      console.error('❌ Error initializing credentials from localStorage:', error);
+      console.log('🔄 ===== CREDENTIALS STATE INITIALIZATION END (ERROR) =====');
+      credentialsRef.current = null;
       return null;
     }
   });
@@ -150,6 +187,23 @@ export const useBexioApi = () => {
       }
     }
   }, [languages]);
+
+  // Monitor credential state changes
+  useEffect(() => {
+    console.log('🔐 ===== CREDENTIALS STATE CHANGED =====');
+    console.log('🔐 New credentials state:', credentials ? {
+      hasAccessToken: !!credentials.accessToken,
+      hasRefreshToken: !!credentials.refreshToken,
+      authType: credentials.authType,
+      companyId: credentials.companyId,
+      userEmail: credentials.userEmail,
+      expiresAt: credentials.expiresAt ? new Date(credentials.expiresAt).toISOString() : 'null'
+    } : 'null');
+    console.log('🔐 isConnected will be:', !!credentials);
+    console.log('🔐 ===== CREDENTIALS STATE CHANGED END =====');
+    // Sync ref with state
+    credentialsRef.current = credentials;
+  }, [credentials]);
   const [isLoadingLanguages, setIsLoadingLanguages] = useState(false);
   const [isCreatingTimeEntry, setIsCreatingTimeEntry] = useState(false);
   const [hasInitiallyLoaded, setHasInitiallyLoaded] = useState({
@@ -393,7 +447,23 @@ export const useBexioApi = () => {
   }, [toast, fetchCurrentUser]);
 
   const connectWithOAuth = useCallback(async (accessToken: string, refreshToken: string, companyId: string, userEmail: string) => {
-    console.log('🔗 connectWithOAuth called with:', { hasAccessToken: !!accessToken, hasRefreshToken: !!refreshToken, companyId, userEmail });
+    console.log('🔗 ===== CONNECT WITH OAUTH START =====');
+    console.log('🔗 connectWithOAuth called with:', {
+      hasAccessToken: !!accessToken,
+      hasRefreshToken: !!refreshToken,
+      companyId,
+      userEmail,
+      accessTokenLength: accessToken?.length,
+      refreshTokenLength: refreshToken?.length
+    });
+
+    // Check if we already have valid credentials to prevent duplicate processing
+    if (credentials && credentials.accessToken === accessToken) {
+      console.log('🔄 Same access token already set, skipping duplicate processing');
+      console.log('🔗 ===== CONNECT WITH OAUTH END (SKIPPED) =====');
+      return;
+    }
+
     try {
       const expiresAt = Date.now() + (3600 * 1000); // 1 hour from now
       const creds: BexioCredentials = {
@@ -405,24 +475,71 @@ export const useBexioApi = () => {
         expiresAt
       };
 
-      console.log('💾 Storing credentials in localStorage:', creds);
+      console.log('💾 Storing credentials in localStorage...');
+      console.log('💾 Credentials to store:', {
+        ...creds,
+        accessToken: creds.accessToken ? `${creds.accessToken.substring(0, 20)}...` : 'null',
+        refreshToken: creds.refreshToken ? `${creds.refreshToken.substring(0, 20)}...` : 'null'
+      });
+
       localStorage.setItem('bexio_credentials', JSON.stringify(creds));
-      console.log('🎯 Setting credentials state...');
-      setCredentials(creds);
-      console.log('✅ Credentials set! App should now be connected. isConnected will be:', !!creds);
-      console.log('🔄 Current credentials state after setting:', creds);
+      console.log('✅ Credentials stored in localStorage');
+
+      console.log('🎯 Setting credentials state and ref...');
+      credentialsRef.current = creds;
+      setCredentials(() => creds);
+      console.log('✅ Credentials state and ref set!');
+
+      console.log('🔗 Connection status check - isConnected should now be:', !!creds);
+      console.log('🔗 Current credentials state after setting:', {
+        ...creds,
+        accessToken: creds.accessToken ? `${creds.accessToken.substring(0, 20)}...` : 'null',
+        refreshToken: creds.refreshToken ? `${creds.refreshToken.substring(0, 20)}...` : 'null'
+      });
+
+      // Force a re-render check
+      console.log('🔄 Force checking state after setCredentials...');
+      setTimeout(() => {
+        console.log('🔄 Delayed check - credentials in ref:', credentialsRef.current);
+        console.log('🔄 Delayed check - isConnected from ref:', !!credentialsRef.current);
+      }, 100);
 
       logTokenClaims(accessToken);
 
       // Auto-identify current user after OAuth connection
       setTimeout(async () => {
         console.log('👤 Fetching current user after OAuth...');
-        await fetchCurrentUser();
+        try {
+          await fetchCurrentUser();
+          console.log('✅ Current user fetch completed');
+        } catch (error) {
+          console.error('❌ Current user fetch failed:', error);
+        }
       }, 100);
 
+      // Force a state update check after a short delay
+      setTimeout(() => {
+        console.log('🔄 Post-connection state check...');
+        console.log('🔄 Current credentials in ref:', credentialsRef.current);
+        console.log('🔄 isConnected should be:', !!credentialsRef.current);
+
+        // Trigger a re-render by updating a dummy state if needed
+        // This ensures the component picks up the credentials change
+        setTimeout(() => {
+          console.log('🔄 Final state verification...');
+          console.log('🔄 Credentials ref after delay:', credentialsRef.current);
+        }, 100);
+      }, 200);
+
+      console.log('🔗 ===== CONNECT WITH OAUTH END (SUCCESS) =====');
       // No toast notification - seamless authentication
     } catch (error) {
       console.error('❌ OAuth connection error:', error);
+      console.error('❌ OAuth connection error details:', {
+        message: error.message,
+        stack: error.stack
+      });
+      console.log('🔗 ===== CONNECT WITH OAUTH END (ERROR) =====');
       toast({
         title: "OAuth connection failed",
         description: "Please try again.",
@@ -728,15 +845,38 @@ export const useBexioApi = () => {
 
   // Load credentials from localStorage on mount
   const loadStoredCredentials = useCallback(() => {
+    console.log('🔄 ===== LOAD STORED CREDENTIALS START =====');
     try {
       const stored = localStorage.getItem('bexio_credentials');
+      console.log('🔄 localStorage.getItem result:', stored ? 'present' : 'null');
+
       if (stored) {
         const creds = JSON.parse(stored);
+        console.log('🔄 Parsed credentials:', {
+          hasAccessToken: !!creds.accessToken,
+          hasRefreshToken: !!creds.refreshToken,
+          authType: creds.authType,
+          companyId: creds.companyId,
+          userEmail: creds.userEmail,
+          expiresAt: creds.expiresAt ? new Date(creds.expiresAt).toISOString() : 'null'
+        });
+
+        console.log('🎯 Setting credentials from localStorage...');
         setCredentials(creds);
+        console.log('✅ Credentials loaded from localStorage successfully');
+        console.log('🔄 ===== LOAD STORED CREDENTIALS END (SUCCESS) =====');
         return true;
+      } else {
+        console.log('❌ No credentials found in localStorage');
+        console.log('🔄 ===== LOAD STORED CREDENTIALS END (NO DATA) =====');
       }
     } catch (error) {
-      console.error('Error loading stored credentials:', error);
+      console.error('❌ Error loading stored credentials:', error);
+      console.error('❌ Error details:', {
+        message: error.message,
+        stack: error.stack
+      });
+      console.log('🔄 ===== LOAD STORED CREDENTIALS END (ERROR) =====');
     }
     return false;
   }, []);
@@ -1513,12 +1653,34 @@ export const useBexioApi = () => {
   }, [credentials, ensureValidToken, toast, currentBexioUserId, fetchCurrentUser]);
 
   const disconnect = useCallback(() => {
+    // Clear all user-related data from localStorage
     localStorage.removeItem('bexio_credentials');
+    localStorage.removeItem('selectedBexioUserId');
+    localStorage.removeItem('isCurrentUserAdmin');
+    localStorage.removeItem('bexioLanguage');
+
+    // Reset all state
+    credentialsRef.current = null;
     setCredentials(null);
     setContacts([]);
     setProjects([]);
     setTimeEntries([]);
     setWorkPackages([]);
+    setWorkPackagesByProject({});
+    setUsers([]);
+    setCurrentBexioUserId(null);
+    setIsCurrentUserAdmin(false);
+    setTimesheetStatuses([]);
+    setBusinessActivities([]);
+    setLanguages([]);
+    setCurrentLanguage('en');
+    setHasInitiallyLoaded({
+      contacts: false,
+      projects: false,
+      timeEntries: false,
+      users: false
+    });
+
     toast({
       title: "Disconnected",
       description: "You have been disconnected from Bexio.",
