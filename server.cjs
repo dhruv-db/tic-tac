@@ -35,17 +35,18 @@ app.use('/oauth-complete.html', (req, res, next) => {
 });
 
 // Bexio OAuth configuration
+const SERVER_BASE_URL = process.env.SERVER_BASE_URL || `http://localhost:${PORT}`;
 const BEXIO_CONFIG = {
   clientId: process.env.BEXIO_CLIENT_ID || 'your_client_id_here',
   clientSecret: process.env.BEXIO_CLIENT_SECRET || 'your_client_secret_here',
   // Support both web and mobile redirect URIs
-  webRedirectUri: process.env.BEXIO_WEB_REDIRECT_URI || 'http://localhost:8081/oauth-complete.html',
+  webRedirectUri: process.env.BEXIO_WEB_REDIRECT_URI || `${SERVER_BASE_URL.replace(PORT.toString(), '8081')}/oauth-complete.html`,
   mobileRedirectUri: process.env.BEXIO_MOBILE_REDIRECT_URI || 'bexiosyncbuddy://oauth/callback',
   authUrl: 'https://auth.bexio.com/realms/bexio/protocol/openid-connect/auth',
   tokenUrl: 'https://auth.bexio.com/realms/bexio/protocol/openid-connect/token',
   apiBaseUrl: 'https://api.bexio.com/api2',
   // Server callback URI for OAuth (should match what's registered with Bexio)
-  serverCallbackUri: process.env.BEXIO_SERVER_CALLBACK_URI || `http://localhost:${PORT}/api/bexio-oauth/callback`
+  serverCallbackUri: process.env.BEXIO_SERVER_CALLBACK_URI || `${SERVER_BASE_URL}/api/bexio-oauth/callback`
 };
 
 // Generate PKCE challenge
@@ -361,19 +362,19 @@ app.get('/api/bexio-oauth/callback', async (req, res) => {
     if (error) {
       console.error('❌ OAuth callback error:', error);
       const timestamp = Date.now();
-      return res.redirect(`http://localhost:${PORT}/oauth-complete.html?error=${encodeURIComponent(error)}&t=${timestamp}`);
+      return res.redirect(`${SERVER_BASE_URL}/oauth-complete.html?error=${encodeURIComponent(error)}&t=${timestamp}`);
     }
 
     if (!code) {
       console.error('❌ No authorization code in callback');
       const timestamp = Date.now();
-      return res.redirect(`http://localhost:${PORT}/oauth-complete.html?error=no_code&t=${timestamp}`);
+      return res.redirect(`${SERVER_BASE_URL}/oauth-complete.html?error=no_code&t=${timestamp}`);
     }
 
     // Extract session data from state
     let sessionId = null;
     let codeVerifier = null;
-    let returnUrl = `http://localhost:${PORT}/oauth-complete.html`;
+    let returnUrl = `${SERVER_BASE_URL}/oauth-complete.html`;
     let platform = 'web';
 
     console.log('🔑 Decoding state parameter...');
@@ -487,7 +488,7 @@ app.get('/api/bexio-oauth/callback', async (req, res) => {
 
       // Redirect to completion page that will close the browser (with timestamp to prevent caching)
       const timestamp = Date.now();
-      return res.redirect(`http://localhost:${PORT}/oauth-complete.html?session=${sessionId}&status=completed&t=${timestamp}`);
+      return res.redirect(`${SERVER_BASE_URL}/oauth-complete.html?session=${sessionId}&status=completed&t=${timestamp}`);
     } else {
       // Handle both web and mobile redirects
       const isMobile = platform === 'mobile' || platform === 'ios' || platform === 'android';
@@ -528,7 +529,7 @@ app.get('/api/bexio-oauth/callback', async (req, res) => {
   } catch (error) {
     console.error('❌ OAuth callback processing failed:', error);
     const timestamp = Date.now();
-    res.redirect(`http://localhost:${PORT}/oauth-complete.html?error=callback_failed&t=${timestamp}`);
+    res.redirect(`${SERVER_BASE_URL}/oauth-complete.html?error=callback_failed&t=${timestamp}`);
   }
 });
 
@@ -645,12 +646,12 @@ app.get('/api/health', (req, res) => {
 // Start server
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 Bexio OAuth Proxy Server running on port ${PORT} (accessible from all interfaces)`);
-  console.log(`📊 Health check: http://localhost:${PORT}/api/health`);
+  console.log(`📊 Health check: ${SERVER_BASE_URL}/api/health`);
   console.log(`🔐 OAuth endpoints:`);
-  console.log(`   POST http://localhost:${PORT}/api/bexio-oauth/auth`);
-  console.log(`   GET  http://localhost:${PORT}/api/bexio-oauth/callback`);
-  console.log(`   POST http://localhost:${PORT}/api/bexio-oauth/exchange`);
-  console.log(`   POST http://localhost:${PORT}/api/bexio-proxy`);
+  console.log(`   POST ${SERVER_BASE_URL}/api/bexio-oauth/auth`);
+  console.log(`   GET  ${SERVER_BASE_URL}/api/bexio-oauth/callback`);
+  console.log(`   POST ${SERVER_BASE_URL}/api/bexio-oauth/exchange`);
+  console.log(`   POST ${SERVER_BASE_URL}/api/bexio-proxy`);
   console.log(`🌐 Server callback URI: ${BEXIO_CONFIG.serverCallbackUri}`);
 });
 
