@@ -1,6 +1,6 @@
 const { BEXIO_CONFIG } = require('../_utils');
 
-export default async function handler(req, res) {
+module.exports = async function handler(req, res) {
   console.log('🔄 ===== OAUTH CALLBACK START =====');
   console.log('⏰ Timestamp:', new Date().toISOString());
   console.log('🌐 Full request URL:', req.url);

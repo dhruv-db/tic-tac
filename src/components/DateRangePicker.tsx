@@ -7,6 +7,7 @@ import { CalendarIcon } from "lucide-react";
 import { format, startOfMonth, endOfMonth, subMonths, startOfWeek, endOfWeek } from "date-fns";
 import { cn } from "@/lib/utils";
 import { DateRange } from "react-day-picker";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 interface DateRangePickerProps {
   onDateRangeChange: (range: { from: Date; to: Date } | undefined) => void;
@@ -16,11 +17,13 @@ interface DateRangePickerProps {
 export const DateRangePicker = ({ onDateRangeChange, className }: DateRangePickerProps) => {
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
   const [preset, setPreset] = useState<string>("current");
+  const isMobile = useIsMobile();
+
 
   const handlePresetChange = (value: string) => {
     setPreset(value);
     const now = new Date();
-    
+
     switch (value) {
       case "current":
         const currentMonth = { from: startOfMonth(now), to: endOfMonth(now) };
@@ -56,7 +59,7 @@ export const DateRangePicker = ({ onDateRangeChange, className }: DateRangePicke
   return (
     <div className={cn("flex items-center gap-2", className)}>
       <Select value={preset} onValueChange={handlePresetChange}>
-        <SelectTrigger className="w-32">
+        <SelectTrigger className={isMobile ? "w-24" : "w-32"}>
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
@@ -66,14 +69,14 @@ export const DateRangePicker = ({ onDateRangeChange, className }: DateRangePicke
           <SelectItem value="custom">Custom</SelectItem>
         </SelectContent>
       </Select>
-      
+
       {preset === "custom" && (
         <Popover>
           <PopoverTrigger asChild>
             <Button
               variant="outline"
               className={cn(
-                "w-64 justify-start text-left font-normal",
+                isMobile ? "flex-1 justify-start text-left font-normal" : "w-64 justify-start text-left font-normal",
                 !dateRange && "text-muted-foreground"
               )}
             >
@@ -81,26 +84,26 @@ export const DateRangePicker = ({ onDateRangeChange, className }: DateRangePicke
               {dateRange?.from ? (
                 dateRange.to ? (
                   <>
-                    {format(dateRange.from, "LLL dd, y")} -{" "}
-                    {format(dateRange.to, "LLL dd, y")}
+                    {format(dateRange.from, isMobile ? "MMM dd" : "LLL dd, y")} -{" "}
+                    {format(dateRange.to, isMobile ? "MMM dd" : "LLL dd, y")}
                   </>
                 ) : (
-                  format(dateRange.from, "LLL dd, y")
+                  format(dateRange.from, isMobile ? "MMM dd" : "LLL dd, y")
                 )
               ) : (
                 "Pick a date range"
               )}
             </Button>
           </PopoverTrigger>
-          <PopoverContent className="w-auto p-0" align="start">
+          <PopoverContent className={cn(isMobile ? "w-full p-0" : "w-auto p-0", "z-[100]")} align="start">
             <Calendar
               initialFocus
               mode="range"
               defaultMonth={dateRange?.from}
               selected={dateRange}
               onSelect={handleDateSelect}
-              numberOfMonths={2}
-              className="p-3"
+              numberOfMonths={isMobile ? 1 : 2}
+              className={isMobile ? "p-2" : "p-3"}
             />
           </PopoverContent>
         </Popover>

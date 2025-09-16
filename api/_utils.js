@@ -21,16 +21,16 @@ function generatePKCE() {
 
 // Bexio OAuth configuration
 const BEXIO_CONFIG = {
-  clientId: process.env.BEXIO_CLIENT_ID || 'your_client_id_here',
-  clientSecret: process.env.BEXIO_CLIENT_SECRET || 'your_client_secret_here',
+  clientId: process.env.BEXIO_CLIENT_ID,
+  clientSecret: process.env.BEXIO_CLIENT_SECRET,
   // Support both web and mobile redirect URIs
-  webRedirectUri: process.env.BEXIO_WEB_REDIRECT_URI || `https://your-app.vercel.app/oauth-complete.html`,
+  webRedirectUri: process.env.BEXIO_WEB_REDIRECT_URI,
   mobileRedirectUri: process.env.BEXIO_MOBILE_REDIRECT_URI || 'bexiosyncbuddy://oauth/callback',
   authUrl: 'https://auth.bexio.com/realms/bexio/protocol/openid-connect/auth',
   tokenUrl: 'https://auth.bexio.com/realms/bexio/protocol/openid-connect/token',
   apiBaseUrl: 'https://api.bexio.com/api2',
   // Server callback URI for OAuth (should match what's registered with Bexio)
-  serverCallbackUri: process.env.BEXIO_SERVER_CALLBACK_URI || `https://your-app.vercel.app/api/bexio-oauth/callback`
+  serverCallbackUri: process.env.BEXIO_SERVER_CALLBACK_URI
 };
 
 module.exports = { generatePKCE, BEXIO_CONFIG };

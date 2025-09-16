@@ -9,10 +9,10 @@ const getServerUrl = () => {
   // For mobile apps, use the host machine's IP address
   if (Capacitor.isNativePlatform()) {
     // Use the same IP as configured in .env
-    return 'http://192.168.29.13:3001';
+    return process.env.REACT_APP_MOBILE_SERVER_URL || 'http://192.168.29.13:3001';
   }
-  // For web, use localhost
-  return 'http://localhost:3001';
+  // For web, use localhost or production URL
+  return process.env.REACT_APP_WEB_SERVER_URL || 'http://localhost:3001';
 };
 
 interface Contact {
@@ -296,7 +296,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Token expired or about to expire, refresh it
       if (credentials.refreshToken) {
         try {
-          const response = await fetch('https://opcjifbdwpyttaxqlqbf.supabase.co/functions/v1/bexio-oauth/refresh', {
+          const response = await fetch(`${getServerUrl()}/api/bexio-oauth/refresh`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ refreshToken: credentials.refreshToken }),
@@ -462,7 +462,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     setIsLoadingContacts(true);
     try {
-      const response = await fetch(`https://opcjifbdwpyttaxqlqbf.supabase.co/functions/v1/bexio-proxy`, {
+      const response = await fetch(`${getServerUrl()}/api/bexio-proxy`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -512,7 +512,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     setIsLoadingProjects(true);
     try {
-      const response = await fetch(`https://opcjifbdwpyttaxqlqbf.supabase.co/functions/v1/bexio-proxy`, {
+      const response = await fetch(`${getServerUrl()}/api/bexio-proxy`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -568,7 +568,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         endpoint += `?${params.join('&')}`;
       }
 
-      const response = await fetch(`https://opcjifbdwpyttaxqlqbf.supabase.co/functions/v1/bexio-proxy`, {
+      const response = await fetch(`${getServerUrl()}/api/bexio-proxy`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -628,7 +628,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     console.log('👥 [DEBUG] Starting user fetch...');
 
     try {
-      const response = await fetch(`https://opcjifbdwpyttaxqlqbf.supabase.co/functions/v1/bexio-proxy`, {
+      const response = await fetch(`${getServerUrl()}/api/bexio-proxy`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -696,7 +696,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!authToken) return null;
 
     try {
-      const meResponse = await fetch(`https://opcjifbdwpyttaxqlqbf.supabase.co/functions/v1/bexio-proxy`, {
+      const meResponse = await fetch(`${getServerUrl()}/api/bexio-proxy`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -793,7 +793,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     console.log('🔍 Fetching timesheet statuses from Bexio');
 
     try {
-      const response = await fetch(`https://opcjifbdwpyttaxqlqbf.supabase.co/functions/v1/bexio-proxy`, {
+      const response = await fetch(`${getServerUrl()}/api/bexio-proxy`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -850,7 +850,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     console.log('🔍 Fetching business activities from Bexio');
 
     try {
-      const response = await fetch(`https://opcjifbdwpyttaxqlqbf.supabase.co/functions/v1/bexio-proxy`, {
+      const response = await fetch(`${getServerUrl()}/api/bexio-proxy`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1003,7 +1003,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const maxRetries = 3;
         for (let attempt = 1; attempt <= maxRetries; attempt++) {
           try {
-            const response = await fetch(`https://opcjifbdwpyttaxqlqbf.supabase.co/functions/v1/bexio-proxy`, {
+            const response = await fetch(`${getServerUrl()}/api/bexio-proxy`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
@@ -1148,7 +1148,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       console.log('Updating time entry with data:', { id, data: bexioData });
 
-      const putResponse = await fetch(`https://opcjifbdwpyttaxqlqbf.supabase.co/functions/v1/bexio-proxy`, {
+      const putResponse = await fetch(`${getServerUrl()}/api/bexio-proxy`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1200,7 +1200,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!authToken) return;
 
     try {
-      const response = await fetch(`https://opcjifbdwpyttaxqlqbf.supabase.co/functions/v1/bexio-proxy`, {
+      const response = await fetch(`${getServerUrl()}/api/bexio-proxy`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -1272,7 +1272,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
           console.log(`📝 Updating entry ${entry.id} with:`, mergedData);
 
-          const putResponse = await fetch(`https://opcjifbdwpyttaxqlqbf.supabase.co/functions/v1/bexio-proxy`, {
+          const putResponse = await fetch(`${getServerUrl()}/api/bexio-proxy`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -1464,3 +1464,6 @@ export function useAuth() {
 // Legacy alias for backward compatibility
 export const OAuthProvider = AuthProvider;
 export const useOAuth = useAuth;
+
+// Export utility function
+export { getServerUrl };

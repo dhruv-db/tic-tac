@@ -24,5 +24,41 @@
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
+
+    <!-- Image debugging script -->
+    <script>
+      // Test image loading
+      window.addEventListener('load', () => {
+        console.log('🔍 Testing image.png loading...');
+
+        const testImg = new Image();
+        testImg.onload = () => {
+          console.log('✅ image.png loaded successfully:', {
+            width: testImg.width,
+            height: testImg.height,
+            naturalWidth: testImg.naturalWidth,
+            naturalHeight: testImg.naturalHeight
+          });
+        };
+        testImg.onerror = (e) => {
+          console.error('❌ image.png failed to load:', e);
+        };
+        testImg.src = '/image.png';
+
+        // Check for any existing image.png references in DOM
+        setTimeout(() => {
+          const images = document.querySelectorAll('img[src*="image.png"], [style*="image.png"]');
+          console.log('🔍 Found', images.length, 'elements referencing image.png:');
+          images.forEach((img, index) => {
+            console.log(`  ${index + 1}.`, {
+              element: img.tagName,
+              src: img.src || img.style.backgroundImage,
+              className: img.className,
+              dimensions: img.getBoundingClientRect()
+            });
+          });
+        }, 1000);
+      });
+    </script>
   </body>
 </html>

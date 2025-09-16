@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
-import { useAuth } from '@/context/OAuthContext';
+import { useAuth, getServerUrl } from '@/context/OAuthContext';
 import { LogIn, Shield, Zap } from 'lucide-react';
 import ticTacLogo from '@/assets/Tic-Tac_Dark.png';
 
@@ -48,8 +48,9 @@ export function MobileOAuth() {
   // Poll for OAuth session completion
   const pollOAuthStatus = useCallback(async (sessionId: string) => {
     try {
-      console.log(`🔍 Polling OAuth status for session: ${sessionId}`);
-      const response = await fetch(`http://localhost:3001/api/bexio-oauth/status/${sessionId}`);
+      const serverUrl = getServerUrl();
+      console.log(`🔍 Polling OAuth status for session: ${sessionId} at ${serverUrl}`);
+      const response = await fetch(`${serverUrl}/api/bexio-oauth/status/${sessionId}`);
 
       if (!response.ok) {
         if (response.status === 404) {
@@ -242,9 +243,10 @@ export function MobileOAuth() {
     setIsAuthenticating(true);
 
     try {
+      const serverUrl = getServerUrl();
       // Step 1: Start OAuth session
       console.log('📝 Creating OAuth session...');
-      const sessionResponse = await fetch('http://localhost:3001/api/bexio-oauth/start', {
+      const sessionResponse = await fetch(`${serverUrl}/api/bexio-oauth/start`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -315,22 +317,30 @@ export function MobileOAuth() {
 
       // Step 3: Get OAuth URL with session ID
       const scope = 'openid profile email offline_access contact_show contact_edit monitoring_show monitoring_edit project_show';
-      const returnUrl = `http://localhost:3001/api/bexio-oauth/callback`;
+      const requestBody: any = {
+        state: Math.random().toString(36).substring(2, 15),
+        scope,
+        codeChallenge,
+        codeChallengeMethod: 'S256',
+        codeVerifier,
+        sessionId,
+        platform: Capacitor.getPlatform()
+      };
+
+      // Set returnUrl based on platform
+      if (isNativePlatform) {
+        // For mobile, returnUrl is not used (uses sessionId), but set it anyway
+        requestBody.returnUrl = `${serverUrl}/api/bexio-oauth/callback`;
+      } else {
+        // For web, set returnUrl to the current origin + callback page
+        requestBody.returnUrl = `${window.location.origin}/oauth-complete.html`;
+      }
 
       console.log('🔗 Requesting OAuth URL with session ID...');
-      const authResponse = await fetch('http://localhost:3001/api/bexio-oauth/auth', {
+      const authResponse = await fetch(`${serverUrl}/api/bexio-oauth/auth`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          state: Math.random().toString(36).substring(2, 15),
-          scope,
-          codeChallenge,
-          codeChallengeMethod: 'S256',
-          codeVerifier,
-          returnUrl,
-          sessionId,
-          platform: Capacitor.getPlatform()
-        })
+        body: JSON.stringify(requestBody)
       });
 
       if (!authResponse.ok) {

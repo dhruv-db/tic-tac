@@ -11,7 +11,54 @@ import MobileIndex from "./pages/MobileIndex";
 import NotFound from "./pages/NotFound";
 import { OAuthCallback } from "./components/OAuthCallback";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useToast } from "@/hooks/use-toast";
 import { AuthProvider, useAuth } from "@/context/OAuthContext";
+
+// Image debugging utility
+const debugImageLoading = () => {
+  // Monitor for broken images
+  document.addEventListener('error', (e) => {
+    const target = e.target as HTMLImageElement;
+    if (target && target.tagName === 'IMG') {
+      console.warn('🚨 Broken image detected:', {
+        src: target.src,
+        alt: target.alt,
+        className: target.className,
+        dataset: target.dataset
+      });
+    }
+  }, true);
+
+  // Monitor for images with image.png in src
+  const observer = new MutationObserver((mutations) => {
+    mutations.forEach((mutation) => {
+      mutation.addedNodes.forEach((node) => {
+        if (node.nodeType === Node.ELEMENT_NODE) {
+          const element = node as Element;
+          if (element.tagName === 'IMG') {
+            const img = element as HTMLImageElement;
+            if (img.src && img.src.includes('image.png')) {
+              console.log('🎯 Found image.png reference:', {
+                src: img.src,
+                alt: img.alt,
+                className: img.className,
+                parentElement: img.parentElement?.tagName,
+                styles: window.getComputedStyle(img)
+              });
+            }
+          }
+        }
+      });
+    });
+  });
+
+  observer.observe(document.body, {
+    childList: true,
+    subtree: true
+  });
+
+  console.log('🔍 Image debugging enabled - monitoring for image.png references');
+};
 
 // Simple Error Boundary to catch React errors
 class ErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean; error?: Error }> {
@@ -70,14 +117,53 @@ const RouterContent = () => {
   console.log('🚀 RouterContent component rendering');
   const navigate = useNavigate();
   const { connectWithOAuth } = useAuth();
+  const { toast } = useToast();
   console.log('✅ RouterContent initialization complete');
 
-  // Handle deep links for OAuth callbacks (mobile apps)
-   useEffect(() => {
-     if (Capacitor.isNativePlatform()) {
-       console.log('🔗 Setting up deep link listener for OAuth callbacks');
+  // Handle OAuth messages for web popup flow
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform()) {
+      console.log('🔗 Setting up postMessage listener for web OAuth');
 
-       const handleDeepLink = (event: any) => {
+      const handleMessage = (event: MessageEvent) => {
+        if (event.data && event.data.type === 'BEXIO_OAUTH_SUCCESS') {
+          console.log('🔗 Received OAuth success message:', event.data);
+          const { credentials } = event.data;
+          if (credentials) {
+            console.log('🔗 Processing OAuth credentials from message...');
+            connectWithOAuth(
+              credentials.accessToken,
+              credentials.refreshToken,
+              credentials.companyId,
+              credentials.userEmail
+            ).catch(error => {
+              console.error('❌ Error processing OAuth credentials:', error);
+              toast({
+                title: 'Authentication Failed',
+                description: 'Failed to process authentication data.',
+                variant: 'destructive',
+              });
+            });
+          }
+        }
+      };
+
+      window.addEventListener('message', handleMessage);
+      console.log('🔗 PostMessage listener registered');
+
+      return () => {
+        window.removeEventListener('message', handleMessage);
+        console.log('🔗 PostMessage listener removed');
+      };
+    }
+  }, [connectWithOAuth, toast]);
+
+  // Handle deep links for OAuth callbacks (mobile apps)
+  useEffect(() => {
+    if (Capacitor.isNativePlatform()) {
+      console.log('🔗 Setting up deep link listener for OAuth callbacks');
+
+      const handleDeepLink = (event: any) => {
          try {
            console.log('🔗 ===== DEEP LINK RECEIVED =====');
            console.log('🔗 Deep link event:', event);
@@ -179,20 +265,26 @@ const AppRoutes = () => {
   return isMobile ? <MobileIndex /> : <Index />;
 };
 
-const App = () => (
-  <ErrorBoundary>
-    <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        <TooltipProvider>
-          <Toaster />
-          <Sonner />
-          <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-            <RouterContent />
-          </BrowserRouter>
-        </TooltipProvider>
-      </AuthProvider>
-    </QueryClientProvider>
-  </ErrorBoundary>
-);
+const App = () => {
+  useEffect(() => {
+    debugImageLoading();
+  }, []);
+
+  return (
+    <ErrorBoundary>
+      <QueryClientProvider client={queryClient}>
+        <AuthProvider>
+          <TooltipProvider>
+            <Toaster />
+            <Sonner />
+            <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+              <RouterContent />
+            </BrowserRouter>
+          </TooltipProvider>
+        </AuthProvider>
+      </QueryClientProvider>
+    </ErrorBoundary>
+  );
+};
 
 export default App;

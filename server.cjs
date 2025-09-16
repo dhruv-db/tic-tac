@@ -218,6 +218,80 @@ app.post('/api/bexio-oauth/auth', async (req, res) => {
   }
 });
 
+// Refresh token endpoint
+app.post('/api/bexio-oauth/refresh', async (req, res) => {
+  console.log('🔄 ===== REFRESH TOKEN REQUEST =====');
+  console.log('⏰ Timestamp:', new Date().toISOString());
+
+  try {
+    const { refreshToken } = req.body;
+
+    console.log('🔄 Refresh token request:', {
+      refreshToken: refreshToken ? 'present' : 'missing',
+      tokenLength: refreshToken?.length
+    });
+
+    if (!refreshToken) {
+      return res.status(400).json({ error: 'Refresh token is required' });
+    }
+
+    // Exchange refresh token for new access token
+    const tokenParams = new URLSearchParams({
+      grant_type: 'refresh_token',
+      client_id: BEXIO_CONFIG.clientId,
+      client_secret: BEXIO_CONFIG.clientSecret,
+      refresh_token: refreshToken
+    });
+
+    console.log('📡 Refreshing tokens...');
+
+    const tokenResponse = await fetch(BEXIO_CONFIG.tokenUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'Accept': 'application/json'
+      },
+      body: tokenParams.toString()
+    });
+
+    if (!tokenResponse.ok) {
+      const errorText = await tokenResponse.text();
+      console.error('❌ Token refresh failed:', tokenResponse.status, errorText);
+      return res.status(tokenResponse.status).json({
+        error: 'Token refresh failed',
+        details: errorText
+      });
+    }
+
+    const tokenData = await tokenResponse.json();
+    console.log('✅ Token refresh successful');
+
+    // Return the refreshed token data
+    const response = {
+      accessToken: tokenData.access_token,
+      refreshToken: tokenData.refresh_token || refreshToken, // Use new refresh token if provided, otherwise keep old one
+      expiresIn: tokenData.expires_in || 3600
+    };
+
+    console.log('📦 Returning refreshed tokens:', {
+      hasAccessToken: !!response.accessToken,
+      hasRefreshToken: !!response.refreshToken,
+      expiresIn: response.expiresIn
+    });
+
+    console.log('🔄 ===== REFRESH TOKEN REQUEST END (SUCCESS) =====');
+    res.json(response);
+
+  } catch (error) {
+    console.error('❌ Token refresh error:', error);
+    console.log('🔄 ===== REFRESH TOKEN REQUEST END (ERROR) =====');
+    res.status(500).json({
+      error: 'Token refresh failed',
+      details: error.message
+    });
+  }
+});
+
 // Token exchange endpoint
 app.post('/api/bexio-oauth/exchange', async (req, res) => {
   try {
@@ -347,6 +421,8 @@ app.get('/api/bexio-oauth/callback', async (req, res) => {
   console.log('🔄 ===== OAUTH CALLBACK START =====');
   console.log('⏰ Timestamp:', new Date().toISOString());
   console.log('🌐 Full request URL:', req.url);
+  console.log('📊 Request headers:', req.headers);
+  console.log('📋 User-Agent:', req.get('User-Agent'));
 
   try {
     const code = req.query.code;
@@ -492,6 +568,7 @@ app.get('/api/bexio-oauth/callback', async (req, res) => {
     } else {
       // Handle both web and mobile redirects
       const isMobile = platform === 'mobile' || platform === 'ios' || platform === 'android';
+      console.log('📱 Platform detection:', { platform, isMobile, mobileRedirectUri: BEXIO_CONFIG.mobileRedirectUri });
 
       if (isMobile) {
         // Mobile app flow - redirect with tokens to mobile app
@@ -506,6 +583,7 @@ app.get('/api/bexio-oauth/callback', async (req, res) => {
         });
 
         const mobileRedirectUrl = `${BEXIO_CONFIG.mobileRedirectUri}?${redirectParams.toString()}`;
+        console.log('🔗 Mobile redirect URL:', mobileRedirectUrl);
         console.log('🔄 ===== OAUTH CALLBACK END (MOBILE REDIRECT) =====');
         return res.redirect(mobileRedirectUrl);
       } else {
@@ -521,6 +599,7 @@ app.get('/api/bexio-oauth/callback', async (req, res) => {
         });
 
         const redirectUrl = `${returnUrl}?${redirectParams.toString()}`;
+        console.log('🔗 Web redirect URL:', redirectUrl);
         console.log('🔄 ===== OAUTH CALLBACK END (WEB REDIRECT) =====');
         return res.redirect(redirectUrl);
       }
@@ -531,6 +610,17 @@ app.get('/api/bexio-oauth/callback', async (req, res) => {
     const timestamp = Date.now();
     res.redirect(`${SERVER_BASE_URL}/oauth-complete.html?error=callback_failed&t=${timestamp}`);
   }
+});
+
+// Special handling for image.png requests
+app.get('/image.png', (req, res) => {
+  console.log('🖼️ Image.png requested:', {
+    userAgent: req.get('User-Agent'),
+    referer: req.get('Referer'),
+    timestamp: new Date().toISOString()
+  });
+  // Let the static file middleware handle it
+  res.sendFile('public/image.png', { root: __dirname });
 });
 
 // Proxy endpoint for Bexio API calls
@@ -651,6 +741,7 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log(`   POST ${SERVER_BASE_URL}/api/bexio-oauth/auth`);
   console.log(`   GET  ${SERVER_BASE_URL}/api/bexio-oauth/callback`);
   console.log(`   POST ${SERVER_BASE_URL}/api/bexio-oauth/exchange`);
+  console.log(`   POST ${SERVER_BASE_URL}/api/bexio-oauth/refresh`);
   console.log(`   POST ${SERVER_BASE_URL}/api/bexio-proxy`);
   console.log(`🌐 Server callback URI: ${BEXIO_CONFIG.serverCallbackUri}`);
 });
