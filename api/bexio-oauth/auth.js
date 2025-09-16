@@ -1,6 +1,14 @@
 const { BEXIO_CONFIG } = require('../_utils');
 
 module.exports = async function handler(req, res) {
+  console.log('🔧 VERCEL API ROUTE CALLED:', {
+    method: req.method,
+    url: req.url,
+    headers: req.headers,
+    body: req.body,
+    timestamp: new Date().toISOString()
+  });
+
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
@@ -12,7 +20,9 @@ module.exports = async function handler(req, res) {
       state: state ? 'present' : 'missing',
       scope: requestedScope,
       codeChallengeMethod,
-      returnUrl
+      returnUrl,
+      environment: process.env.NODE_ENV,
+      vercelEnv: process.env.VERCEL_ENV
     });
 
     // Allow OIDC scopes and API scopes that are configured for the app

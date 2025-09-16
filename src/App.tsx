@@ -267,6 +267,13 @@ const AppRoutes = () => {
 
 const App = () => {
   useEffect(() => {
+    console.log('🚀 App component mounted');
+    console.log('🌐 Current location:', window.location.href);
+    console.log('🔧 Environment check:', {
+      isNative: Capacitor.isNativePlatform(),
+      platform: Capacitor.getPlatform(),
+      userAgent: navigator.userAgent
+    });
     debugImageLoading();
   }, []);
 
