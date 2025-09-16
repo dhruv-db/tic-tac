@@ -2,8 +2,9 @@ console.log('🚀 main.tsx starting...');
 console.log('🌐 Current URL:', window.location.href);
 console.log('📱 User Agent:', navigator.userAgent);
 console.log('🔧 Environment:', {
-  NODE_ENV: process.env.NODE_ENV,
-  VERCEL_ENV: process.env.VERCEL_ENV,
+  NODE_ENV: import.meta.env.MODE,
+  DEV: import.meta.env.DEV,
+  PROD: import.meta.env.PROD,
   hostname: window.location.hostname
 });
 
