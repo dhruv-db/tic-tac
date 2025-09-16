@@ -7,16 +7,10 @@ import path from "path";
 export default defineConfig(({ mode }) => ({
   server: {
     host: "0.0.0.0",
-    port: 8081,
+    port: 5173, // Use Vite's default port
     proxy: {
       // Proxy API requests to the Express server
       '/api': {
-        target: 'http://localhost:3001',
-        changeOrigin: true,
-        secure: false,
-      },
-      // Proxy static assets that might be requested
-      '/image.png': {
         target: 'http://localhost:3001',
         changeOrigin: true,
         secure: false,
