@@ -11,7 +11,14 @@ const getServerUrl = () => {
     // Use the same IP as configured in .env
     return process.env.REACT_APP_MOBILE_SERVER_URL || 'http://192.168.29.13:3001';
   }
-  // For web, use localhost or production URL
+
+  // For web, check if we're in production (Vercel)
+  if (process.env.NODE_ENV === 'production' || window.location.hostname !== 'localhost') {
+    // Use production URL from environment or Vercel domain
+    return process.env.REACT_APP_WEB_SERVER_URL || `https://${window.location.hostname}`;
+  }
+
+  // For local development
   return process.env.REACT_APP_WEB_SERVER_URL || 'http://localhost:3001';
 };
 
