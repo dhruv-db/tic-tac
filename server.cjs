@@ -37,20 +37,9 @@ app.use('/oauth-complete.html', (req, res, next) => {
   next();
 });
 
-// Bexio OAuth configuration
+// Import BEXIO_CONFIG from utils to ensure consistency
+const { BEXIO_CONFIG } = require('./api/_utils');
 const SERVER_BASE_URL = process.env.SERVER_BASE_URL || `http://localhost:${PORT}`;
-const BEXIO_CONFIG = {
-  clientId: process.env.BEXIO_CLIENT_ID || 'your_client_id_here',
-  clientSecret: process.env.BEXIO_CLIENT_SECRET || 'your_client_secret_here',
-  // Support both web and mobile redirect URIs
-  webRedirectUri: process.env.BEXIO_WEB_REDIRECT_URI || `${SERVER_BASE_URL.replace(PORT.toString(), '8081')}/oauth-complete.html`,
-  mobileRedirectUri: process.env.BEXIO_MOBILE_REDIRECT_URI || 'bexiosyncbuddy://oauth/callback',
-  authUrl: 'https://auth.bexio.com/realms/bexio/protocol/openid-connect/auth',
-  tokenUrl: 'https://auth.bexio.com/realms/bexio/protocol/openid-connect/token',
-  apiBaseUrl: 'https://api.bexio.com/api2',
-  // Server callback URI for OAuth (should match what's registered with Bexio)
-  serverCallbackUri: process.env.BEXIO_SERVER_CALLBACK_URI || `${SERVER_BASE_URL}/api/bexio-oauth/callback`
-};
 
 // Generate PKCE challenge
 function generatePKCE() {
