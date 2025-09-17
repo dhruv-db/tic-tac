@@ -14,7 +14,10 @@ const oauthSessions = new Map();
 app.use(cors());
 app.use(express.json());
 
-// Serve static files from public directory
+// Serve static files from dist directory (production build)
+app.use(express.static('dist'));
+
+// Also serve files from public directory for backwards compatibility
 app.use(express.static('public'));
 
 // Add logging and cache control for static file requests
@@ -733,9 +736,20 @@ app.get('/api/health', (req, res) => {
   });
 });
 
+// SPA fallback: serve index.html for all non-API routes
+app.use((req, res, next) => {
+  // Skip API routes and static files
+  if (req.path.startsWith('/api/') || req.path.includes('.')) {
+    return next();
+  }
+
+  // Serve the main index.html for SPA routing
+  res.sendFile('index.html', { root: 'dist' });
+});
+
 // Start server
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`🚀 Bexio OAuth Proxy Server running on port ${PORT} (accessible from all interfaces)`);
+app.listen(PORT, 'localhost', () => {
+  console.log(`🚀 Bexio OAuth Proxy Server running on port ${PORT} (localhost only)`);
   console.log(`📊 Health check: ${SERVER_BASE_URL}/api/health`);
   console.log(`🔐 OAuth endpoints:`);
   console.log(`   POST ${SERVER_BASE_URL}/api/bexio-oauth/auth`);
