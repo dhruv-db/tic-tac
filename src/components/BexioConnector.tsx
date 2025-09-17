@@ -133,7 +133,7 @@ export const BexioConnector = ({
       const packedState = btoa(JSON.stringify({
         s: state,
         cv: codeVerifier,
-        ru: window.location.origin
+        ru: 'https://tic-tac-puce-chi.vercel.app'
       }));
 
       // Detect platform for proper redirect URI handling
@@ -152,7 +152,7 @@ export const BexioConnector = ({
           codeChallenge: codeChallenge,
           codeChallengeMethod: 'S256',
           codeVerifier: codeVerifier,
-          returnUrl: window.location.origin,
+          returnUrl: 'https://tic-tac-puce-chi.vercel.app',
           platform: platform
         })
       });
