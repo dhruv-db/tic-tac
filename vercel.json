@@ -13,7 +13,7 @@
       "destination": "/api/$1"
     },
     {
-      "source": "/((?!assets|favicon\\.ico|robots\\.txt|image\\.png|_next).*)",
+      "source": "^/(?!assets/|favicon\\.ico|robots\\.txt).*$",
       "destination": "/index.html"
     }
   ],
@@ -23,7 +23,7 @@
       "headers": [
         {
           "key": "Content-Type",
-          "value": "application/javascript"
+          "value": "application/javascript; charset=utf-8"
         },
         {
           "key": "Cache-Control",
@@ -36,7 +36,7 @@
       "headers": [
         {
           "key": "Content-Type",
-          "value": "text/css"
+          "value": "text/css; charset=utf-8"
         },
         {
           "key": "Cache-Control",
@@ -45,24 +45,11 @@
       ]
     },
     {
-      "source": "/assets/(.*)\\.png",
+      "source": "/assets/(.*)",
       "headers": [
-        {
-          "key": "Content-Type",
-          "value": "image/png"
-        },
         {
           "key": "Cache-Control",
           "value": "public, max-age=31536000, immutable"
-        }
-      ]
-    },
-    {
-      "source": "/image.png",
-      "headers": [
-        {
-          "key": "Content-Type",
-          "value": "image/png"
         }
       ]
     }
