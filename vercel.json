@@ -19,7 +19,7 @@
       "destination": "/api/$1"
     },
     {
-      "source": "/(.*)",
+      "source": "/((?!assets|favicon\\.ico|robots\\.txt|image\\.png|_next).*)",
       "destination": "/index.html"
     }
   ],
