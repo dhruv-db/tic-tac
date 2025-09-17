@@ -17,6 +17,9 @@ export default defineConfig(({ mode }) => ({
       }
     }
   },
+  build: {
+    cssMinify: false, // Disable CSS minification to avoid syntax errors
+  },
   plugins: [
     react(),
     // mode === 'development' &&
