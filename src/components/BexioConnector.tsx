@@ -130,10 +130,11 @@ export const BexioConnector = ({
       console.log('🚀 Starting OAuth flow with redirect');
 
       // Pack state with code_verifier and return URL for callback
+      const productionUrl = import.meta.env.VITE_PRODUCTION_URL || 'https://tic-tac-puce-chi.vercel.app';
       const packedState = btoa(JSON.stringify({
         s: state,
         cv: codeVerifier,
-        ru: 'https://tic-tac-puce-chi.vercel.app'
+        ru: productionUrl
       }));
 
       // Detect platform for proper redirect URI handling
@@ -152,7 +153,7 @@ export const BexioConnector = ({
           codeChallenge: codeChallenge,
           codeChallengeMethod: 'S256',
           codeVerifier: codeVerifier,
-          returnUrl: 'https://tic-tac-puce-chi.vercel.app',
+          returnUrl: productionUrl,
           platform: platform
         })
       });
