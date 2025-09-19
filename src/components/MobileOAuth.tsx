@@ -29,6 +29,113 @@ export function MobileOAuth() {
   const isNativePlatform = Capacitor.isNativePlatform();
   const hasProcessedCompletion = useRef(false);
 
+  // Enhanced polling for mobile OAuth completion
+  useEffect(() => {
+    if (isNativePlatform && sessionId) {
+      console.log('📱 Starting enhanced mobile OAuth polling for session:', sessionId);
+
+      const enhancedPoll = async () => {
+        try {
+          const serverUrl = getServerUrl();
+          console.log(`🔍 Enhanced polling OAuth status for session: ${sessionId} at ${serverUrl}`);
+          const response = await fetch(`${serverUrl}/api/bexio-oauth/status/${sessionId}`);
+
+          if (!response.ok) {
+            if (response.status === 404) {
+              console.log('📋 Session not found or expired');
+              return false;
+            }
+            throw new Error(`HTTP ${response.status}`);
+          }
+
+          const sessionData = await response.json();
+          console.log(`📊 Enhanced session status: ${sessionData.status}`);
+
+          if (sessionData.status === 'completed') {
+            console.log('✅ Enhanced OAuth session completed!');
+            console.log('📦 Enhanced session data received:', {
+              hasData: !!sessionData.data,
+              dataKeys: sessionData.data ? Object.keys(sessionData.data) : 'null',
+              accessToken: sessionData.data?.accessToken ? 'present' : 'missing',
+              refreshToken: sessionData.data?.refreshToken ? 'present' : 'missing',
+              companyId: sessionData.data?.companyId,
+              userEmail: sessionData.data?.userEmail
+            });
+
+            // Stop polling
+            if (pollingInterval) {
+              clearInterval(pollingInterval);
+              setPollingInterval(null);
+            }
+
+            // Connect with the received credentials
+            const { data } = sessionData;
+            console.log('🔗 About to call connectWithOAuth from enhanced polling...');
+            await connectWithOAuth(
+              data.accessToken,
+              data.refreshToken,
+              data.companyId,
+              data.userEmail
+            );
+            console.log('✅ connectWithOAuth completed in enhanced polling');
+
+            toast({
+              title: 'Authentication Successful!',
+              description: 'You have been successfully connected to Bexio.',
+            });
+
+            setIsAuthenticating(false);
+            setSessionId(null);
+            return true; // Stop polling
+
+          } else if (sessionData.status === 'error') {
+            console.error('❌ Enhanced OAuth session failed');
+
+            // Stop polling
+            if (pollingInterval) {
+              clearInterval(pollingInterval);
+              setPollingInterval(null);
+            }
+
+            toast({
+              title: 'Authentication Failed',
+              description: 'OAuth authentication failed. Please try again.',
+              variant: 'destructive',
+            });
+
+            setIsAuthenticating(false);
+            setSessionId(null);
+            return true; // Stop polling
+          }
+          // If status is still 'pending', continue polling
+          return false;
+
+        } catch (error) {
+          console.error('❌ Error in enhanced polling:', error);
+          return false;
+        }
+      };
+
+      // Start enhanced polling immediately and then every 2 seconds
+      enhancedPoll(); // Initial poll
+      const interval = setInterval(async () => {
+        const shouldStop = await enhancedPoll();
+        if (shouldStop) {
+          clearInterval(interval);
+        }
+      }, 2000);
+
+      setPollingInterval(interval);
+
+      // Cleanup function
+      return () => {
+        if (interval) {
+          clearInterval(interval);
+        }
+      };
+    }
+  }, [isNativePlatform, sessionId, pollingInterval, connectWithOAuth, toast]);
+
   // Cleanup polling on unmount
   useEffect(() => {
     return () => {

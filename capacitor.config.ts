@@ -5,9 +5,9 @@ const config: CapacitorConfig = {
   appName: 'bexio-sync-buddy',
   webDir: 'dist',
   server: {
-    // Use dynamic server URL based on environment
-    url: process.env.CAPACITOR_SERVER_URL || 'http://localhost:8081',
-    cleartext: true
+    // Use production server for mobile apps
+    url: 'https://tic-tac-puce-chi.vercel.app',
+    cleartext: false
   },
   plugins: {
     SplashScreen: {

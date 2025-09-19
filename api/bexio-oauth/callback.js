@@ -159,12 +159,9 @@ export default async function handler(req, res) {
         console.log('✅ OAuth tokens stored in session for mobile app');
         console.log('🔄 ===== OAUTH CALLBACK END (MOBILE SESSION STORED) =====');
 
-        // Return success response for mobile
-        return res.json({
-          success: true,
-          message: 'OAuth completed successfully',
-          sessionId: sessionId
-        });
+        // Redirect to completion page for mobile app to handle polling
+        const timestamp = Date.now();
+        return res.redirect(`/oauth-complete.html?mobile=true&sessionId=${sessionId}&t=${timestamp}`);
       } else {
         // Fallback: redirect with tokens to mobile app
         console.log('📱 Mobile OAuth flow - redirecting with tokens (no session)');
