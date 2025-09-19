@@ -1,6 +1,6 @@
-const { BEXIO_CONFIG } = require('../_utils');
+import { BEXIO_CONFIG } from '../_utils.js';
 
-module.exports = async function handler(req, res) {
+export default async function handler(req, res) {
   console.log('🔧 VERCEL API ROUTE CALLED:', {
     method: req.method,
     url: req.url,

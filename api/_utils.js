@@ -1,4 +1,4 @@
-const crypto = require('crypto');
+import crypto from 'crypto';
 
 // Generate PKCE challenge
 function generatePKCE() {
@@ -33,4 +33,4 @@ const BEXIO_CONFIG = {
   serverCallbackUri: process.env.BEXIO_SERVER_CALLBACK_URI
 };
 
-module.exports = { generatePKCE, BEXIO_CONFIG };
+export { generatePKCE, BEXIO_CONFIG };
