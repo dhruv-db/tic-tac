@@ -128,22 +128,60 @@ export default async function handler(req, res) {
     const isMobile = platform === 'mobile' || platform === 'ios' || platform === 'android';
     console.log('📱 Platform detection:', { platform, isMobile, mobileRedirectUri: BEXIO_CONFIG.mobileRedirectUri });
 
-    if (isMobile) {
-      // Mobile app flow - redirect with tokens to mobile app
-      console.log('📱 Mobile OAuth flow - redirecting with tokens');
-      const redirectParams = new URLSearchParams({
-        access_token: tokenData.access_token,
-        refresh_token: tokenData.refresh_token || '',
-        company_id: companyId,
-        user_email: userEmail,
-        id_token: idToken,
-        expires_in: (tokenData.expires_in || 3600).toString()
-      });
+    // Prepare token data for response
+    const tokenDataResponse = {
+      accessToken: tokenData.access_token,
+      refreshToken: tokenData.refresh_token || '',
+      tokenType: tokenData.token_type || 'Bearer',
+      expiresIn: tokenData.expires_in || 3600,
+      companyId: companyId,
+      userEmail: userEmail,
+      idToken: idToken
+    };
 
-      const mobileRedirectUrl = `${BEXIO_CONFIG.mobileRedirectUri}?${redirectParams.toString()}`;
-      console.log('🔗 Mobile redirect URL:', mobileRedirectUrl);
-      console.log('🔄 ===== OAUTH CALLBACK END (MOBILE REDIRECT) =====');
-      return res.redirect(mobileRedirectUrl);
+    if (isMobile) {
+      // Mobile app flow - store tokens in session for polling
+      if (sessionId) {
+        console.log('📱 Mobile OAuth flow - storing tokens in session:', sessionId);
+
+        // Store session data (in a real app, you'd use Redis/database)
+        if (!global.oauthSessions) {
+          global.oauthSessions = new Map();
+        }
+
+        global.oauthSessions.set(sessionId, {
+          status: 'completed',
+          platform: platform || 'mobile',
+          createdAt: new Date().toISOString(),
+          data: tokenDataResponse
+        });
+
+        console.log('✅ OAuth tokens stored in session for mobile app');
+        console.log('🔄 ===== OAUTH CALLBACK END (MOBILE SESSION STORED) =====');
+
+        // Return success response for mobile
+        return res.json({
+          success: true,
+          message: 'OAuth completed successfully',
+          sessionId: sessionId
+        });
+      } else {
+        // Fallback: redirect with tokens to mobile app
+        console.log('📱 Mobile OAuth flow - redirecting with tokens (no session)');
+        const redirectParams = new URLSearchParams({
+          access_token: tokenData.access_token,
+          refresh_token: tokenData.refresh_token || '',
+          company_id: companyId,
+          user_email: userEmail,
+          id_token: idToken,
+          expires_in: (tokenData.expires_in || 3600).toString()
+        });
+
+        const mobileRedirectUrl = `${BEXIO_CONFIG.mobileRedirectUri}?${redirectParams.toString()}`;
+        console.log('🔗 Mobile redirect URL:', mobileRedirectUrl);
+        console.log('🔄 ===== OAUTH CALLBACK END (MOBILE REDIRECT) =====');
+        return res.redirect(mobileRedirectUrl);
+      }
     } else {
       // Web flow - redirect with tokens to web app
       console.log('🌐 Web OAuth flow - redirecting with tokens');

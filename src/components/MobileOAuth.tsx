@@ -152,11 +152,12 @@ export function MobileOAuth() {
       });
 
       console.log('🔗 Calling token exchange endpoint...');
-      console.log('🌐 Request URL: http://localhost:3001/api/bexio-oauth/exchange');
+      const exchangeUrl = `${getServerUrl()}/api/bexio-oauth/exchange`;
+      console.log('🌐 Request URL:', exchangeUrl);
       console.log('📦 Request payload:', { code: code.substring(0, 20) + '...', state });
 
-      // Exchange code for tokens via our local server
-      const response = await fetch('http://localhost:3001/api/bexio-oauth/exchange', {
+      // Exchange code for tokens via our server
+      const response = await fetch(exchangeUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ code, state })
