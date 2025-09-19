@@ -6,10 +6,10 @@ import { format } from "date-fns";
 
 // Helper function to get the correct server URL based on platform
 const getServerUrl = () => {
-  // For mobile apps, use the host machine's IP address
+  // For mobile apps, always use production server
   if (Capacitor.isNativePlatform()) {
-    // Use the same IP as configured in .env
-    return import.meta.env.VITE_MOBILE_SERVER_URL || 'http://192.168.29.13:3001';
+    // Use production server for mobile apps
+    return 'https://tic-tac-puce-chi.vercel.app';
   }
 
   // For web, check if we're in production (Vercel)
