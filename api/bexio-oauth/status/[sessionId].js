@@ -51,7 +51,6 @@ export default async function handler(req, res) {
 
     if (!session) {
       console.log('❌ Session not found:', sessionId);
-      console.log('📊 Available sessions:', Array.from(global.oauthSessions.keys()));
       console.log('🔍 ===== OAUTH STATUS ENDPOINT END (SESSION NOT FOUND) =====');
       return res.status(404).json({
         status: 'error',
