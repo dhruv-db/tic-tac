@@ -1,13 +1,13 @@
 import { BEXIO_CONFIG } from '../_utils.js';
 
 export default async function handler(req, res) {
-  console.log('🔧 VERCEL API ROUTE CALLED:', {
-    method: req.method,
-    url: req.url,
-    headers: req.headers,
-    body: req.body,
-    timestamp: new Date().toISOString()
-  });
+  console.log('🔧 ===== OAUTH AUTH ENDPOINT START =====');
+  console.log('🔧 Method:', req.method);
+  console.log('🔧 URL:', req.url);
+  console.log('🔧 User-Agent:', req.headers['user-agent']);
+  console.log('🔧 Content-Type:', req.headers['content-type']);
+  console.log('🔧 Timestamp:', new Date().toISOString());
+  console.log('🔧 Request body keys:', req.body ? Object.keys(req.body) : 'null');
 
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
@@ -89,13 +89,19 @@ export default async function handler(req, res) {
     const authUrl = `${BEXIO_CONFIG.authUrl}?${params.toString()}`;
 
     console.log('🔗 Generated OAuth URL (OIDC scopes):', authUrl.substring(0, 100) + '...');
+    console.log('✅ ===== OAUTH AUTH ENDPOINT END (SUCCESS) =====');
 
     res.json({
       authUrl
     });
 
   } catch (error) {
-    console.error('❌ OAuth initiation failed:', error);
+    console.error('❌ ===== OAUTH AUTH ENDPOINT END (ERROR) =====');
+    console.error('❌ Error type:', error.constructor.name);
+    console.error('❌ Error message:', error.message);
+    console.error('❌ Error stack:', error.stack);
+    console.log('🔧 ===== OAUTH AUTH ENDPOINT END =====');
+
     res.status(500).json({
       error: 'OAuth initiation failed',
       details: error.message

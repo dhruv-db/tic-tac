@@ -86,14 +86,28 @@ export default async function handler(req, res) {
       console.error('❌ Token exchange failed:', tokenResponse.status, errorText);
 
       // For mobile, if session exists, mark it as error
-      if (sessionId && global.oauthSessions) {
-        global.oauthSessions.set(sessionId, {
+      if (sessionId) {
+        const fs = await import('fs');
+        const path = await import('path');
+        const sessionDir = '/tmp/oauth-sessions';
+        const sessionFile = path.join(sessionDir, `${sessionId}.json`);
+
+        const errorSessionData = {
           status: 'error',
           platform: platform || 'mobile',
           createdAt: new Date().toISOString(),
           error: `Token exchange failed: ${tokenResponse.status} - ${errorText}`
-        });
-        console.log('❌ Marked mobile session as error:', sessionId);
+        };
+
+        try {
+          if (!fs.existsSync(sessionDir)) {
+            fs.mkdirSync(sessionDir, { recursive: true });
+          }
+          fs.writeFileSync(sessionFile, JSON.stringify(errorSessionData));
+          console.log('❌ Marked mobile session as error:', sessionId);
+        } catch (fileError) {
+          console.error('❌ Failed to write error session file:', fileError);
+        }
       }
 
       const timestamp = Date.now();
@@ -156,19 +170,32 @@ export default async function handler(req, res) {
       if (sessionId) {
         console.log('📱 Mobile OAuth flow - storing tokens in session:', sessionId);
 
-        // Store session data (in a real app, you'd use Redis/database)
-        if (!global.oauthSessions) {
-          global.oauthSessions = new Map();
-        }
+        // Store session data using file-based storage
+        const fs = await import('fs');
+        const path = await import('path');
+        const sessionDir = '/tmp/oauth-sessions';
+        const sessionFile = path.join(sessionDir, `${sessionId}.json`);
 
-        global.oauthSessions.set(sessionId, {
+        const sessionData = {
           status: 'completed',
           platform: platform || 'mobile',
           createdAt: new Date().toISOString(),
           data: tokenDataResponse
-        });
+        };
 
-        console.log('✅ OAuth tokens stored in session for mobile app');
+        try {
+          // Ensure directory exists
+          if (!fs.existsSync(sessionDir)) {
+            fs.mkdirSync(sessionDir, { recursive: true });
+          }
+
+          // Write updated session data to file
+          fs.writeFileSync(sessionFile, JSON.stringify(sessionData));
+          console.log('✅ OAuth tokens stored in session file for mobile app:', sessionFile);
+        } catch (fileError) {
+          console.error('❌ Failed to write session file:', fileError);
+        }
+
         console.log('🔄 ===== OAUTH CALLBACK END (MOBILE SESSION STORED) =====');
 
         // Redirect to completion page for mobile app to handle polling
