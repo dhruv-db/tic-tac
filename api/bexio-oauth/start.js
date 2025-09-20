@@ -22,8 +22,8 @@ export default async function handler(req, res) {
     console.log('📝 Created OAuth session:', sessionId);
 
     // Store session data using file-based storage for serverless compatibility
-    const fs = require('fs');
-    const path = require('path');
+    const fs = await import('fs');
+    const path = await import('path');
 
     const sessionData = {
       status: 'pending',
