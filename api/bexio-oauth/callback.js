@@ -87,8 +87,8 @@ export default async function handler(req, res) {
 
       // For mobile, if session exists, mark it as error
       if (sessionId) {
-        const fs = await import('fs');
-        const path = await import('path');
+        const fs = require('fs');
+        const path = require('path');
         const sessionDir = '/tmp/oauth-sessions';
         const sessionFile = path.join(sessionDir, `${sessionId}.json`);
 
@@ -171,8 +171,8 @@ export default async function handler(req, res) {
         console.log('📱 Mobile OAuth flow - storing tokens in session:', sessionId);
 
         // Store session data using file-based storage
-        const fs = await import('fs');
-        const path = await import('path');
+        const fs = require('fs');
+        const path = require('path');
         const sessionDir = '/tmp/oauth-sessions';
         const sessionFile = path.join(sessionDir, `${sessionId}.json`);
 

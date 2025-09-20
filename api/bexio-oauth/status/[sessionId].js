@@ -16,8 +16,8 @@ export default async function handler(req, res) {
     console.log('🔍 Checking OAuth session status for:', sessionId);
 
     // Get session data from file storage
-    const fs = await import('fs');
-    const path = await import('path');
+    const fs = require('fs');
+    const path = require('path');
     const sessionDir = '/tmp/oauth-sessions';
     const sessionFile = path.join(sessionDir, `${sessionId}.json`);
 
