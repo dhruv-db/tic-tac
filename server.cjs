@@ -95,14 +95,18 @@ app.get('/api/bexio-oauth/status/:sessionId', async (req, res) => {
     const session = oauthSessions.get(sessionId);
 
     if (!session) {
+      console.log(`❌ Session ${sessionId} not found in status check`);
       return res.status(404).json({ error: 'Session not found' });
     }
 
     // Clean up old sessions (older than 10 minutes)
     if (Date.now() - session.createdAt.getTime() > 10 * 60 * 1000) {
+      console.log(`⏰ Session ${sessionId} expired (age: ${(Date.now() - session.createdAt.getTime()) / 1000}s)`);
       oauthSessions.delete(sessionId);
       return res.status(404).json({ error: 'Session expired' });
     }
+
+    console.log(`📊 Returning session status: ${session.status} for ${sessionId}`);
 
     res.json({
       sessionId,
@@ -493,6 +497,19 @@ app.get('/api/bexio-oauth/callback', async (req, res) => {
     if (!tokenResponse.ok) {
       const errorText = await tokenResponse.text();
       console.error('❌ Token exchange failed:', tokenResponse.status, errorText);
+
+      // Set session to error if this is a session-based flow
+      if (sessionId && oauthSessions.has(sessionId)) {
+        console.log(`❌ Setting session ${sessionId} to error due to token exchange failure`);
+        oauthSessions.set(sessionId, {
+          status: 'error',
+          createdAt: oauthSessions.get(sessionId).createdAt,
+          platform: oauthSessions.get(sessionId).platform,
+          error: 'Token exchange failed',
+          errorDetails: errorText
+        });
+      }
+
       const timestamp = Date.now();
       return res.redirect(`${returnUrl}?error=token_exchange_failed&t=${timestamp}`);
     }

@@ -84,6 +84,18 @@ export default async function handler(req, res) {
     if (!tokenResponse.ok) {
       const errorText = await tokenResponse.text();
       console.error('❌ Token exchange failed:', tokenResponse.status, errorText);
+
+      // For mobile, if session exists, mark it as error
+      if (sessionId && global.oauthSessions) {
+        global.oauthSessions.set(sessionId, {
+          status: 'error',
+          platform: platform || 'mobile',
+          createdAt: new Date().toISOString(),
+          error: `Token exchange failed: ${tokenResponse.status} - ${errorText}`
+        });
+        console.log('❌ Marked mobile session as error:', sessionId);
+      }
+
       const timestamp = Date.now();
       return res.redirect(`${returnUrl}?error=token_exchange_failed&t=${timestamp}`);
     }
