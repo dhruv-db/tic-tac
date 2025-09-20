@@ -34,6 +34,16 @@ export default async function handler(req, res) {
         });
       } else {
         console.log('❌ Session file not found:', sessionFile);
+        // Try to list available session files for debugging
+        try {
+          const sessionDir = '/tmp/oauth-sessions';
+          if (fs.existsSync(sessionDir)) {
+            const files = fs.readdirSync(sessionDir);
+            console.log('📊 Available session files:', files);
+          }
+        } catch (listError) {
+          console.warn('⚠️ Could not list session files:', listError.message);
+        }
       }
     } catch (fileError) {
       console.error('❌ Error reading session file:', fileError);
