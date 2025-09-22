@@ -268,39 +268,70 @@ export const useBexioApi = () => {
     
     if (credentials.authType === 'oauth') {
       // Check if token is still valid (with 5 minute buffer)
-      if (credentials.expiresAt && credentials.expiresAt > Date.now() + (5 * 60 * 1000)) {
+      const now = Date.now();
+      const bufferTime = 5 * 60 * 1000; // 5 minutes
+      const isValid = credentials.expiresAt && credentials.expiresAt > (now + bufferTime);
+
+      console.log('🔍 Token validation check:', {
+        expiresAt: credentials.expiresAt ? new Date(credentials.expiresAt).toISOString() : 'null',
+        now: new Date(now).toISOString(),
+        timeUntilExpiry: credentials.expiresAt ? Math.floor((credentials.expiresAt - now) / 1000) : 'N/A',
+        isValid,
+        willRefresh: !isValid && !!credentials.refreshToken
+      });
+
+      if (isValid) {
         return credentials.accessToken || null;
       }
       
       // Token expired or about to expire, refresh it
       if (credentials.refreshToken) {
+        console.log('🔄 Attempting token refresh...');
         try {
-          const response = await fetch('https://opcjifbdwpyttaxqlqbf.supabase.co/functions/v1/bexio-oauth/refresh', {
+          const serverUrl = getServerUrl();
+          console.log('🌐 Refresh endpoint:', `${serverUrl}/api/bexio-oauth/refresh`);
+
+          const response = await fetch(`${serverUrl}/api/bexio-oauth/refresh`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ refreshToken: credentials.refreshToken }),
           });
-          
+
+          console.log('📡 Refresh response status:', response.status);
+
           if (response.ok) {
-            const { accessToken, refreshToken, expiresIn } = await response.json();
+            const refreshData = await response.json();
+            console.log('✅ Refresh successful:', {
+              hasNewAccessToken: !!refreshData.accessToken,
+              hasNewRefreshToken: !!refreshData.refreshToken,
+              expiresIn: refreshData.expiresIn
+            });
+
+            const { accessToken, refreshToken, expiresIn } = refreshData;
             const expiresAt = Date.now() + (expiresIn * 1000);
-            
+
             const updatedCreds: BexioCredentials = {
               ...credentials,
               accessToken,
               refreshToken: refreshToken || credentials.refreshToken,
               expiresAt
             };
-            
+
             localStorage.setItem('bexio_credentials', JSON.stringify(updatedCreds));
             setCredentials(updatedCreds);
             logTokenClaims(accessToken);
-            
+
+            console.log('💾 Updated credentials stored, new expiry:', new Date(expiresAt).toISOString());
             return accessToken;
+          } else {
+            const errorText = await response.text();
+            console.error('❌ Refresh failed with status:', response.status, errorText);
           }
         } catch (error) {
-          console.error('Failed to refresh token:', error);
+          console.error('💥 Failed to refresh token:', error);
         }
+      } else {
+        console.log('❌ No refresh token available');
       }
       
       // Refresh failed, clear credentials

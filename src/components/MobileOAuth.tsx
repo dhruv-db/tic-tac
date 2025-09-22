@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
-import { useAuth } from '@/context/OAuthContext';
+import { useAuth, getServerUrl } from '@/context/OAuthContext';
 import { LogIn, Shield, Zap } from 'lucide-react';
 import ticTacLogo from '@/assets/Tic-Tac_Dark.png';
 
@@ -29,6 +29,113 @@ export function MobileOAuth() {
   const isNativePlatform = Capacitor.isNativePlatform();
   const hasProcessedCompletion = useRef(false);
 
+  // Enhanced polling for mobile OAuth completion
+  useEffect(() => {
+    if (isNativePlatform && sessionId) {
+      console.log('📱 Starting enhanced mobile OAuth polling for session:', sessionId);
+
+      const enhancedPoll = async () => {
+        try {
+          const serverUrl = getServerUrl();
+          console.log(`🔍 Enhanced polling OAuth status for session: ${sessionId} at ${serverUrl}`);
+          const response = await fetch(`${serverUrl}/api/bexio-oauth/status/${sessionId}`);
+
+          if (!response.ok) {
+            if (response.status === 404) {
+              console.log('📋 Session not found or expired');
+              return false;
+            }
+            throw new Error(`HTTP ${response.status}`);
+          }
+
+          const sessionData = await response.json();
+          console.log(`📊 Enhanced session status: ${sessionData.status}`);
+
+          if (sessionData.status === 'completed') {
+            console.log('✅ Enhanced OAuth session completed!');
+            console.log('📦 Enhanced session data received:', {
+              hasData: !!sessionData.data,
+              dataKeys: sessionData.data ? Object.keys(sessionData.data) : 'null',
+              accessToken: sessionData.data?.accessToken ? 'present' : 'missing',
+              refreshToken: sessionData.data?.refreshToken ? 'present' : 'missing',
+              companyId: sessionData.data?.companyId,
+              userEmail: sessionData.data?.userEmail
+            });
+
+            // Stop polling
+            if (pollingInterval) {
+              clearInterval(pollingInterval);
+              setPollingInterval(null);
+            }
+
+            // Connect with the received credentials
+            const { data } = sessionData;
+            console.log('🔗 About to call connectWithOAuth from enhanced polling...');
+            await connectWithOAuth(
+              data.accessToken,
+              data.refreshToken,
+              data.companyId,
+              data.userEmail
+            );
+            console.log('✅ connectWithOAuth completed in enhanced polling');
+
+            toast({
+              title: 'Authentication Successful!',
+              description: 'You have been successfully connected to Bexio.',
+            });
+
+            setIsAuthenticating(false);
+            setSessionId(null);
+            return true; // Stop polling
+
+          } else if (sessionData.status === 'error') {
+            console.error('❌ Enhanced OAuth session failed');
+
+            // Stop polling
+            if (pollingInterval) {
+              clearInterval(pollingInterval);
+              setPollingInterval(null);
+            }
+
+            toast({
+              title: 'Authentication Failed',
+              description: 'OAuth authentication failed. Please try again.',
+              variant: 'destructive',
+            });
+
+            setIsAuthenticating(false);
+            setSessionId(null);
+            return true; // Stop polling
+          }
+          // If status is still 'pending', continue polling
+          return false;
+
+        } catch (error) {
+          console.error('❌ Error in enhanced polling:', error);
+          return false;
+        }
+      };
+
+      // Start enhanced polling immediately and then every 2 seconds
+      enhancedPoll(); // Initial poll
+      const interval = setInterval(async () => {
+        const shouldStop = await enhancedPoll();
+        if (shouldStop) {
+          clearInterval(interval);
+        }
+      }, 2000);
+
+      setPollingInterval(interval);
+
+      // Cleanup function
+      return () => {
+        if (interval) {
+          clearInterval(interval);
+        }
+      };
+    }
+  }, [isNativePlatform, sessionId, pollingInterval, connectWithOAuth, toast]);
+
   // Cleanup polling on unmount
   useEffect(() => {
     return () => {
@@ -48,8 +155,9 @@ export function MobileOAuth() {
   // Poll for OAuth session completion
   const pollOAuthStatus = useCallback(async (sessionId: string) => {
     try {
-      console.log(`🔍 Polling OAuth status for session: ${sessionId}`);
-      const response = await fetch(`http://localhost:3001/api/bexio-oauth/status/${sessionId}`);
+      const serverUrl = getServerUrl();
+      console.log(`🔍 Polling OAuth status for session: ${sessionId} at ${serverUrl}`);
+      const response = await fetch(`${serverUrl}/api/bexio-oauth/status/${sessionId}`);
 
       if (!response.ok) {
         if (response.status === 404) {
@@ -151,11 +259,12 @@ export function MobileOAuth() {
       });
 
       console.log('🔗 Calling token exchange endpoint...');
-      console.log('🌐 Request URL: http://localhost:3001/api/bexio-oauth/exchange');
+      const exchangeUrl = `${getServerUrl()}/api/bexio-oauth/exchange`;
+      console.log('🌐 Request URL:', exchangeUrl);
       console.log('📦 Request payload:', { code: code.substring(0, 20) + '...', state });
 
-      // Exchange code for tokens via our local server
-      const response = await fetch('http://localhost:3001/api/bexio-oauth/exchange', {
+      // Exchange code for tokens via our server
+      const response = await fetch(exchangeUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ code, state })
@@ -238,13 +347,19 @@ export function MobileOAuth() {
   };
 
   const handleOAuthLogin = async () => {
-    console.log('🚀 Starting new OAuth session-based flow');
+    console.log('🚀 ===== MOBILE OAUTH LOGIN START =====');
+    console.log('📱 Platform:', Capacitor.getPlatform());
+    console.log('📱 Is native:', Capacitor.isNativePlatform());
+    console.log('🌐 Capacitor platform:', Capacitor.getPlatform());
     setIsAuthenticating(true);
 
     try {
+      const serverUrl = getServerUrl();
+      console.log('🌐 Server URL:', serverUrl);
+
       // Step 1: Start OAuth session
       console.log('📝 Creating OAuth session...');
-      const sessionResponse = await fetch('http://localhost:3001/api/bexio-oauth/start', {
+      const sessionResponse = await fetch(`${serverUrl}/api/bexio-oauth/start`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -252,11 +367,18 @@ export function MobileOAuth() {
         })
       });
 
+      console.log('📡 Session creation response status:', sessionResponse.status);
+      console.log('📡 Session creation response headers:', Object.fromEntries(sessionResponse.headers.entries()));
+
       if (!sessionResponse.ok) {
-        throw new Error(`Failed to start OAuth session: ${sessionResponse.status}`);
+        const errorText = await sessionResponse.text();
+        console.error('❌ Session creation failed:', sessionResponse.status, errorText);
+        throw new Error(`Failed to start OAuth session: ${sessionResponse.status} - ${errorText}`);
       }
 
-      const { sessionId } = await sessionResponse.json();
+      const sessionData = await sessionResponse.json();
+      console.log('📦 Session creation response:', sessionData);
+      const { sessionId } = sessionData;
       console.log(`📱 OAuth session created: ${sessionId}`);
       setSessionId(sessionId);
 
@@ -315,22 +437,30 @@ export function MobileOAuth() {
 
       // Step 3: Get OAuth URL with session ID
       const scope = 'openid profile email offline_access contact_show contact_edit monitoring_show monitoring_edit project_show';
-      const returnUrl = `http://localhost:3001/api/bexio-oauth/callback`;
+      const requestBody: any = {
+        state: Math.random().toString(36).substring(2, 15),
+        scope,
+        codeChallenge,
+        codeChallengeMethod: 'S256',
+        codeVerifier,
+        sessionId,
+        platform: Capacitor.getPlatform()
+      };
+
+      // Set returnUrl based on platform
+      if (isNativePlatform) {
+        // For mobile, returnUrl is not used (uses sessionId), but set it anyway
+        requestBody.returnUrl = `${serverUrl}/api/bexio-oauth/callback`;
+      } else {
+        // For web, set returnUrl to the current origin + callback page
+        requestBody.returnUrl = `${window.location.origin}/oauth-complete.html`;
+      }
 
       console.log('🔗 Requesting OAuth URL with session ID...');
-      const authResponse = await fetch('http://localhost:3001/api/bexio-oauth/auth', {
+      const authResponse = await fetch(`${serverUrl}/api/bexio-oauth/auth`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          state: Math.random().toString(36).substring(2, 15),
-          scope,
-          codeChallenge,
-          codeChallengeMethod: 'S256',
-          codeVerifier,
-          returnUrl,
-          sessionId,
-          platform: Capacitor.getPlatform()
-        })
+        body: JSON.stringify(requestBody)
       });
 
       if (!authResponse.ok) {
@@ -342,46 +472,73 @@ export function MobileOAuth() {
 
       // Step 4: Open browser for OAuth
       if (Capacitor.isNativePlatform()) {
-        await Browser.open({
-          url: authUrl,
+        console.log('📱 Opening browser for mobile OAuth...');
+        console.log('📱 Browser options:', {
+          url: authUrl.substring(0, 50) + '...',
           windowName: '_blank',
           presentationStyle: 'fullscreen'
         });
-        console.log('🌐 Browser opened for OAuth flow');
+
+        try {
+          await Browser.open({
+            url: authUrl,
+            windowName: '_blank',
+            presentationStyle: 'fullscreen'
+          });
+          console.log('✅ Browser opened successfully for OAuth flow');
+        } catch (browserError) {
+          console.error('❌ Failed to open browser:', browserError);
+          throw new Error(`Failed to open browser: ${browserError.message}`);
+        }
       } else {
         // Web fallback
+        console.log('🌐 Opening popup for web OAuth...');
         const width = 520, height = 700;
         const left = window.screenX + (window.outerWidth - width) / 2;
         const top = window.screenY + (window.outerHeight - height) / 2;
         const features = `popup=yes,toolbar=no,location=no,status=no,menubar=no,scrollbars=yes,resizable=yes,width=${width},height=${height},left=${left},top=${top}`;
-        window.open(authUrl, 'bexio_oauth', features);
+        const popup = window.open(authUrl, 'bexio_oauth', features);
+        console.log('✅ Web popup opened:', !!popup);
       }
 
       // Step 5: Start polling for completion
       console.log('🔄 Starting OAuth status polling...');
+      console.log('⏱️ Polling interval: 2000ms');
+      console.log('⏱️ Timeout: 5 minutes');
+
       const interval = setInterval(() => {
+        console.log('🔍 Polling attempt for session:', sessionId);
         pollOAuthStatus(sessionId);
       }, 2000); // Poll every 2 seconds
 
       setPollingInterval(interval);
 
       // Set timeout for polling (5 minutes)
-      setTimeout(() => {
+      const timeoutId = setTimeout(() => {
+        console.log('⏰ OAuth polling timeout reached');
         if (pollingInterval) {
           clearInterval(pollingInterval);
           setPollingInterval(null);
-          setIsAuthenticating(false);
-          setSessionId(null);
-          toast({
-            title: 'Authentication Timeout',
-            description: 'OAuth authentication timed out. Please try again.',
-            variant: 'destructive',
-          });
         }
+        setIsAuthenticating(false);
+        setSessionId(null);
+        toast({
+          title: 'Authentication Timeout',
+          description: 'OAuth authentication timed out. Please try again.',
+          variant: 'destructive',
+        });
       }, 5 * 60 * 1000);
 
+      console.log('✅ OAuth flow initiated successfully');
+      console.log('🚀 ===== MOBILE OAUTH LOGIN END =====');
+
     } catch (error) {
-      console.error('❌ OAuth login failed:', error);
+      console.error('❌ ===== MOBILE OAUTH LOGIN FAILED =====');
+      console.error('❌ Error type:', error.constructor.name);
+      console.error('❌ Error message:', error.message);
+      console.error('❌ Error stack:', error.stack);
+      console.log('🚀 ===== MOBILE OAUTH LOGIN END (ERROR) =====');
+
       toast({
         title: 'Authentication Failed',
         description: error instanceof Error ? error.message : 'Failed to start authentication.',

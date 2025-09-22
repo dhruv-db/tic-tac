@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { useAuth } from '@/context/OAuthContext';
+import { useAuth, getServerUrl } from '@/context/OAuthContext';
 
 export function OAuthCallback() {
    const location = useLocation();
@@ -45,11 +45,12 @@ export function OAuthCallback() {
        }
 
        try {
+         const serverUrl = getServerUrl();
          console.log('🔄 Exchanging authorization code for tokens...');
-         console.log('🔄 Token exchange endpoint: http://localhost:3001/api/bexio-oauth/exchange');
+         console.log('🔄 Token exchange endpoint:', `${serverUrl}/api/bexio-oauth/exchange`);
 
          // Exchange code for tokens via our local server
-         const response = await fetch('http://localhost:3001/api/bexio-oauth/exchange', {
+         const response = await fetch(`${serverUrl}/api/bexio-oauth/exchange`, {
            method: 'POST',
            headers: { 'Content-Type': 'application/json' },
            body: JSON.stringify({ code, state })

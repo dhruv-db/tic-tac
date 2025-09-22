@@ -29,3 +29,4 @@ dist-ssr
 # Capacitor
 android/app/src/main/assets/public
 ios/App/App/public
+.vercel

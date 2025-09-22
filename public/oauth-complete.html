@@ -96,7 +96,8 @@
             console.log('📍 Current URL:', window.location.href);
 
             const urlParams = new URLSearchParams(window.location.search);
-            const sessionId = urlParams.get('session');
+            const sessionId = urlParams.get('sessionId') || urlParams.get('session');
+            const isMobile = urlParams.get('mobile') === 'true';
             const status = urlParams.get('status');
             const error = urlParams.get('error');
 
@@ -110,6 +111,13 @@
                     <div class="status error">Error: ${error}</div>
                     <p><small>You can close this window and try again.</small></p>
                 `;
+                return;
+            }
+
+            // Handle mobile session polling
+            if (isMobile && sessionId) {
+                console.log('📱 Mobile session detected, starting polling for:', sessionId);
+                pollMobileSession(sessionId);
                 return;
             }
 
@@ -179,6 +187,97 @@
                     `;
                 }
             }
+        }
+
+        // Poll mobile session status
+        async function pollMobileSession(sessionId) {
+            const content = document.getElementById('content');
+            const maxAttempts = 30; // 30 seconds max
+            let attempts = 0;
+
+            const poll = async () => {
+                try {
+                    attempts++;
+                    console.log(`🔍 Polling mobile session ${sessionId} (attempt ${attempts})`);
+
+                    const response = await fetch(`/api/bexio-oauth/status/${sessionId}`);
+                    const sessionData = await response.json();
+
+                    console.log('📊 Session status:', sessionData.status);
+
+                    if (sessionData.status === 'completed') {
+                        console.log('✅ Mobile session completed!');
+                        console.log('📦 Session data:', sessionData.data);
+
+                        content.innerHTML = `
+                            <div class="success-icon">✅</div>
+                            <h1>Authentication Successful!</h1>
+                            <p>You have been successfully connected to Bexio.</p>
+                            <div class="status success">Returning to app...</div>
+                        `;
+
+                        // Send message to mobile app via Capacitor
+                        if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.App) {
+                            console.log('📱 Sending completion message to mobile app');
+                            window.Capacitor.Plugins.App.notifyListeners('oauthComplete', {
+                                success: true,
+                                data: sessionData.data
+                            });
+                        }
+
+                        // Close browser after a short delay
+                        setTimeout(() => {
+                            console.log('🔒 Closing OAuth browser window');
+                            window.close();
+
+                            // Fallback for browsers that don't support window.close()
+                            if (!window.closed) {
+                                content.innerHTML = `
+                                    <div class="success-icon">✅</div>
+                                    <h1>Authentication Complete</h1>
+                                    <p>You can now close this window and return to the app.</p>
+                                    <div class="status success">Setup complete!</div>
+                                `;
+                            }
+                        }, 2000);
+
+                    } else if (sessionData.status === 'error') {
+                        console.error('❌ Mobile session failed');
+                        content.innerHTML = `
+                            <div class="error-icon">❌</div>
+                            <h1>Authentication Failed</h1>
+                            <p>There was an error during authentication.</p>
+                            <div class="status error">Session failed</div>
+                            <p><small>You can close this window and try again.</small></p>
+                        `;
+                    } else if (attempts >= maxAttempts) {
+                        console.error('⏰ Mobile session polling timeout');
+                        content.innerHTML = `
+                            <div class="error-icon">⏰</div>
+                            <h1>Authentication Timeout</h1>
+                            <p>The authentication process timed out.</p>
+                            <div class="status error">Timeout - please try again</div>
+                            <p><small>You can close this window and try again.</small></p>
+                        `;
+                    } else {
+                        // Continue polling
+                        setTimeout(poll, 2000);
+                    }
+
+                } catch (error) {
+                    console.error('❌ Error polling mobile session:', error);
+                    content.innerHTML = `
+                        <div class="error-icon">❌</div>
+                        <h1>Connection Error</h1>
+                        <p>Unable to check authentication status.</p>
+                        <div class="status error">Connection failed</div>
+                        <p><small>You can close this window and try again.</small></p>
+                    `;
+                }
+            };
+
+            // Start polling
+            poll();
         }
 
         // Handle page load
