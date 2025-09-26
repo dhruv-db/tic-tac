@@ -3,16 +3,280 @@ const express = require('express');
 const cors = require('cors');
 const crypto = require('crypto');
 const { default: fetch } = require('node-fetch');
+const rateLimit = require('express-rate-limit');
+const Joi = require('joi');
+const helmet = require('helmet');
+const winston = require('winston');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-// In-memory session storage for OAuth sessions (in production, use Redis/database)
-const oauthSessions = new Map();
+// Enhanced session storage for serverless environments
+class SessionStorage {
+  constructor() {
+    this.sessionDir = process.env.NODE_ENV === 'production'
+      ? '/tmp/oauth-sessions'
+      : './oauth-sessions';
+    this.ensureSessionDirectory();
+  }
+
+  ensureSessionDirectory() {
+    try {
+      const fs = require('fs');
+      const path = require('path');
+
+      if (!fs.existsSync(this.sessionDir)) {
+        fs.mkdirSync(this.sessionDir, { recursive: true });
+        console.log(`📁 Created session directory: ${this.sessionDir}`);
+      }
+    } catch (error) {
+      console.error('❌ Failed to create session directory:', error);
+    }
+  }
+
+  async store(sessionId, data) {
+    try {
+      const fs = require('fs').promises;
+      const path = require('path');
+      const filePath = path.join(this.sessionDir, `${sessionId}.json`);
+
+      const sessionData = {
+        ...data,
+        sessionId,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+
+      await fs.writeFile(filePath, JSON.stringify(sessionData, null, 2));
+      console.log(`💾 Stored session: ${sessionId}`);
+    } catch (error) {
+      console.error(`❌ Failed to store session ${sessionId}:`, error);
+      throw error;
+    }
+  }
+
+  async get(sessionId) {
+    try {
+      const fs = require('fs').promises;
+      const path = require('path');
+      const filePath = path.join(this.sessionDir, `${sessionId}.json`);
+
+      const data = await fs.readFile(filePath, 'utf8');
+      const session = JSON.parse(data);
+
+      // Check if session is expired (10 minutes)
+      const age = Date.now() - new Date(session.createdAt).getTime();
+      if (age > 10 * 60 * 1000) {
+        console.log(`⏰ Session ${sessionId} expired (${Math.round(age / 1000)}s old)`);
+        await this.delete(sessionId);
+        return null;
+      }
+
+      return session;
+    } catch (error) {
+      if (error.code !== 'ENOENT') {
+        console.error(`❌ Failed to read session ${sessionId}:`, error);
+      }
+      return null;
+    }
+  }
+
+  async delete(sessionId) {
+    try {
+      const fs = require('fs').promises;
+      const path = require('path');
+      const filePath = path.join(this.sessionDir, `${sessionId}.json`);
+
+      await fs.unlink(filePath);
+      console.log(`🗑️ Deleted session: ${sessionId}`);
+    } catch (error) {
+      if (error.code !== 'ENOENT') {
+        console.error(`❌ Failed to delete session ${sessionId}:`, error);
+      }
+    }
+  }
+
+  async cleanup() {
+    try {
+      const fs = require('fs').promises;
+      const path = require('path');
+      const files = await fs.readdir(this.sessionDir);
+
+      let cleaned = 0;
+      for (const file of files) {
+        if (file.endsWith('.json')) {
+          const filePath = path.join(this.sessionDir, file);
+          try {
+            const data = await fs.readFile(filePath, 'utf8');
+            const session = JSON.parse(data);
+            const age = Date.now() - new Date(session.createdAt).getTime();
+
+            if (age > 10 * 60 * 1000) { // 10 minutes
+              await fs.unlink(filePath);
+              cleaned++;
+            }
+          } catch (error) {
+            // Delete corrupted files
+            await fs.unlink(filePath);
+            cleaned++;
+          }
+        }
+      }
+
+      if (cleaned > 0) {
+        console.log(`🧹 Cleaned up ${cleaned} expired sessions`);
+      }
+    } catch (error) {
+      console.error('❌ Session cleanup failed:', error);
+    }
+  }
+}
+
+const sessionStorage = new SessionStorage();
+
+// Structured logging configuration
+const logger = winston.createLogger({
+  level: process.env.LOG_LEVEL || 'info',
+  format: winston.format.combine(
+    winston.format.timestamp(),
+    winston.format.errors({ stack: true }),
+    winston.format.json()
+  ),
+  defaultMeta: { service: 'bexio-oauth-proxy' },
+  transports: [
+    // Write all logs with importance level of `error` or less to `error.log`
+    new winston.transports.File({
+      filename: process.env.NODE_ENV === 'production' ? '/tmp/error.log' : 'logs/error.log',
+      level: 'error'
+    }),
+    // Write all logs with importance level of `info` or less to `combined.log`
+    new winston.transports.File({
+      filename: process.env.NODE_ENV === 'production' ? '/tmp/combined.log' : 'logs/combined.log'
+    }),
+  ],
+});
+
+// If we're not in production then log to the `console` with a simple format
+if (process.env.NODE_ENV !== 'production') {
+  logger.add(new winston.transports.Console({
+    format: winston.format.combine(
+      winston.format.colorize(),
+      winston.format.simple()
+    )
+  }));
+}
+
+// Request logging middleware
+const requestLogger = (req, res, next) => {
+  const start = Date.now();
+
+  res.on('finish', () => {
+    const duration = Date.now() - start;
+    logger.info('Request completed', {
+      method: req.method,
+      url: req.url,
+      status: res.statusCode,
+      duration: `${duration}ms`,
+      ip: req.ip,
+      userAgent: req.get('User-Agent')
+    });
+  });
+
+  next();
+};
+
+// Security middleware
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // limit each IP to 100 requests per windowMs
+  message: {
+    error: 'Too many requests from this IP, please try again later.',
+    retryAfter: 15 * 60 // seconds
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+// Stricter rate limiting for OAuth endpoints
+const oauthLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 10, // limit each IP to 10 OAuth requests per windowMs
+  message: {
+    error: 'Too many OAuth requests from this IP, please try again later.',
+    retryAfter: 15 * 60
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+// Input validation schemas
+const oauthStartSchema = Joi.object({
+  platform: Joi.string().valid('web', 'mobile', 'ios', 'android').optional()
+});
+
+const oauthAuthSchema = Joi.object({
+  state: Joi.string().optional(),
+  scope: Joi.string().optional(),
+  codeChallenge: Joi.string().optional(),
+  codeChallengeMethod: Joi.string().valid('S256', 'plain').optional(),
+  codeVerifier: Joi.string().optional(),
+  returnUrl: Joi.string().uri().optional(),
+  sessionId: Joi.string().optional(),
+  platform: Joi.string().valid('web', 'mobile', 'ios', 'android').optional()
+});
+
+const tokenExchangeSchema = Joi.object({
+  code: Joi.string().required(),
+  state: Joi.string().optional(),
+  codeVerifier: Joi.string().optional()
+});
+
+const refreshTokenSchema = Joi.object({
+  refreshToken: Joi.string().required()
+});
+
+// Validation middleware
+const validateBody = (schema) => {
+  return (req, res, next) => {
+    const { error } = schema.validate(req.body);
+    if (error) {
+      return res.status(400).json({
+        error: 'Validation error',
+        details: error.details[0].message
+      });
+    }
+    next();
+  };
+};
 
 // Middleware
-app.use(cors());
-app.use(express.json());
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      scriptSrc: ["'self'"],
+      imgSrc: ["'self'", "data:", "https:"],
+      connectSrc: ["'self'", "https://api.bexio.com", "https://auth.bexio.com"],
+      frameSrc: ["'none'"],
+      objectSrc: ["'none'"]
+    }
+  },
+  hsts: {
+    maxAge: 31536000,
+    includeSubDomains: true,
+    preload: true
+  }
+}));
+app.use(cors({
+  origin: process.env.NODE_ENV === 'production'
+    ? ['https://tic-tac-bt2y.vercel.app', 'bexiosyncbuddy://oauth/callback']
+    : ['https://tic-tac-bt2y.vercel.app', 'bexiosyncbuddy://oauth/callback', 'http://localhost:3000', 'http://localhost:8080', 'http://localhost:8081'],
+  credentials: true
+}));
+app.use(express.json({ limit: '10mb' })); // Limit payload size
+app.use(requestLogger); // Request logging
+app.use(limiter); // Apply general rate limiting
 
 // Serve static files from dist directory (production build)
 app.use(express.static('dist'));
@@ -61,14 +325,13 @@ function generatePKCE() {
 }
 
 // Start OAuth session endpoint (for mobile apps)
-app.post('/api/bexio-oauth/start', async (req, res) => {
+app.post('/api/bexio-oauth/start', oauthLimiter, validateBody(oauthStartSchema), async (req, res) => {
   try {
-    const sessionId = Math.random().toString(36).substring(2, 15);
+    const sessionId = `session_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`;
 
-    // Initialize session
-    oauthSessions.set(sessionId, {
+    // Initialize session with enhanced storage
+    await sessionStorage.store(sessionId, {
       status: 'pending',
-      createdAt: new Date(),
       platform: req.body.platform || 'unknown'
     });
 
@@ -92,32 +355,29 @@ app.post('/api/bexio-oauth/start', async (req, res) => {
 app.get('/api/bexio-oauth/status/:sessionId', async (req, res) => {
   try {
     const { sessionId } = req.params;
-    const session = oauthSessions.get(sessionId);
+    const session = await sessionStorage.get(sessionId);
 
     if (!session) {
       console.log(`❌ Session ${sessionId} not found in status check`);
-      return res.status(404).json({ error: 'Session not found' });
-    }
-
-    // Clean up old sessions (older than 10 minutes)
-    if (Date.now() - session.createdAt.getTime() > 10 * 60 * 1000) {
-      console.log(`⏰ Session ${sessionId} expired (age: ${(Date.now() - session.createdAt.getTime()) / 1000}s)`);
-      oauthSessions.delete(sessionId);
-      return res.status(404).json({ error: 'Session expired' });
+      return res.status(404).json({
+        status: 'error',
+        error: 'Session not found or expired'
+      });
     }
 
     console.log(`📊 Returning session status: ${session.status} for ${sessionId}`);
 
     res.json({
-      sessionId,
       status: session.status,
       data: session.data || null,
+      platform: session.platform,
       createdAt: session.createdAt
     });
 
   } catch (error) {
     console.error('❌ Failed to check session status:', error);
     res.status(500).json({
+      status: 'error',
       error: 'Failed to check session status',
       details: error.message
     });
@@ -125,7 +385,7 @@ app.get('/api/bexio-oauth/status/:sessionId', async (req, res) => {
 });
 
 // OAuth initiation endpoint
-app.post('/api/bexio-oauth/auth', async (req, res) => {
+app.post('/api/bexio-oauth/auth', oauthLimiter, validateBody(oauthAuthSchema), async (req, res) => {
   try {
     const { state, scope: requestedScope, codeChallenge, codeChallengeMethod, codeVerifier, returnUrl, sessionId, platform } = req.body;
 
@@ -215,7 +475,7 @@ app.post('/api/bexio-oauth/auth', async (req, res) => {
 });
 
 // Refresh token endpoint
-app.post('/api/bexio-oauth/refresh', async (req, res) => {
+app.post('/api/bexio-oauth/refresh', oauthLimiter, validateBody(refreshTokenSchema), async (req, res) => {
   console.log('🔄 ===== REFRESH TOKEN REQUEST =====');
   console.log('⏰ Timestamp:', new Date().toISOString());
 
@@ -289,7 +549,7 @@ app.post('/api/bexio-oauth/refresh', async (req, res) => {
 });
 
 // Token exchange endpoint
-app.post('/api/bexio-oauth/exchange', async (req, res) => {
+app.post('/api/bexio-oauth/exchange', oauthLimiter, validateBody(tokenExchangeSchema), async (req, res) => {
   try {
     const { code, state, codeVerifier } = req.body;
 
@@ -499,12 +759,11 @@ app.get('/api/bexio-oauth/callback', async (req, res) => {
       console.error('❌ Token exchange failed:', tokenResponse.status, errorText);
 
       // Set session to error if this is a session-based flow
-      if (sessionId && oauthSessions.has(sessionId)) {
+      if (sessionId) {
         console.log(`❌ Setting session ${sessionId} to error due to token exchange failure`);
-        oauthSessions.set(sessionId, {
+        await sessionStorage.store(sessionId, {
           status: 'error',
-          createdAt: oauthSessions.get(sessionId).createdAt,
-          platform: oauthSessions.get(sessionId).platform,
+          platform: 'unknown',
           error: 'Token exchange failed',
           errorDetails: errorText
         });
@@ -551,14 +810,13 @@ app.get('/api/bexio-oauth/callback', async (req, res) => {
     }
 
     // Check if this is a session-based OAuth (mobile app)
-    if (sessionId && oauthSessions.has(sessionId)) {
+    if (sessionId) {
       console.log(`📱 Completing OAuth session: ${sessionId}`);
 
       // Update session with completed data
-      oauthSessions.set(sessionId, {
+      await sessionStorage.store(sessionId, {
         status: 'completed',
-        createdAt: oauthSessions.get(sessionId).createdAt,
-        platform: oauthSessions.get(sessionId).platform,
+        platform: platform || 'mobile',
         data: {
           accessToken: tokenData.access_token,
           refreshToken: tokenData.refresh_token,
@@ -703,25 +961,24 @@ app.post('/api/bexio-proxy', async (req, res) => {
 });
 
 // Clear sessions endpoint
-app.post('/api/bexio-oauth/clear-sessions', (req, res) => {
+app.post('/api/bexio-oauth/clear-sessions', async (req, res) => {
   try {
     const { clearAll } = req.body;
 
     if (clearAll) {
-      // Clear all OAuth sessions
-      const sessionCount = oauthSessions.size;
-      oauthSessions.clear();
+      // Clear all OAuth sessions using sessionStorage cleanup
+      await sessionStorage.cleanup();
 
-      console.log(`🧹 Cleared ${sessionCount} OAuth sessions`);
+      console.log(`🧹 Cleaned up expired OAuth sessions`);
 
       res.json({
         success: true,
-        message: `Cleared ${sessionCount} sessions`,
+        message: `Cleaned up expired sessions`,
         timestamp: new Date().toISOString()
       });
     } else {
       res.status(400).json({
-        error: 'Invalid request. Use { "clearAll": true } to clear all sessions.'
+        error: 'Invalid request. Use { "clearAll": true } to clean up expired sessions.'
       });
     }
   } catch (error) {
@@ -733,13 +990,38 @@ app.post('/api/bexio-oauth/clear-sessions', (req, res) => {
   }
 });
 
-// Health check endpoint
+// Health check endpoint with monitoring
 app.get('/api/health', (req, res) => {
-  res.json({
+  const health = {
     status: 'OK',
     timestamp: new Date().toISOString(),
-    service: 'Bexio OAuth Proxy'
-  });
+    service: 'Bexio OAuth Proxy',
+    version: '1.0.0',
+    environment: process.env.NODE_ENV || 'development',
+    uptime: process.uptime(),
+    memory: process.memoryUsage(),
+    sessions: {
+      active: sessionStorage ? 'monitoring' : 'disabled'
+    }
+  };
+
+  logger.info('Health check requested', { health });
+  res.json(health);
+});
+
+// Metrics endpoint for monitoring
+app.get('/api/metrics', (req, res) => {
+  const metrics = {
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+    memory: process.memoryUsage(),
+    platform: process.platform,
+    nodeVersion: process.version,
+    environment: process.env.NODE_ENV || 'development'
+  };
+
+  logger.info('Metrics requested', { metrics });
+  res.json(metrics);
 });
 
 // SPA fallback: serve index.html for all non-API routes
@@ -753,10 +1035,34 @@ app.use((req, res, next) => {
   res.sendFile('index.html', { root: 'dist' });
 });
 
+// Error handling middleware
+app.use((error, req, res, next) => {
+  logger.error('Unhandled error', {
+    error: error.message,
+    stack: error.stack,
+    url: req.url,
+    method: req.method,
+    ip: req.ip
+  });
+
+  res.status(500).json({
+    error: 'Internal server error',
+    message: process.env.NODE_ENV === 'production' ? 'Something went wrong' : error.message
+  });
+});
+
 // Start server
 app.listen(PORT, 'localhost', () => {
+  logger.info('Server started', {
+    port: PORT,
+    environment: process.env.NODE_ENV || 'development',
+    serverUrl: SERVER_BASE_URL,
+    callbackUri: BEXIO_CONFIG.serverCallbackUri
+  });
+
   console.log(`🚀 Bexio OAuth Proxy Server running on port ${PORT} (localhost only)`);
   console.log(`📊 Health check: ${SERVER_BASE_URL}/api/health`);
+  console.log(`📈 Metrics: ${SERVER_BASE_URL}/api/metrics`);
   console.log(`🔐 OAuth endpoints:`);
   console.log(`   POST ${SERVER_BASE_URL}/api/bexio-oauth/auth`);
   console.log(`   GET  ${SERVER_BASE_URL}/api/bexio-oauth/callback`);
@@ -764,6 +1070,20 @@ app.listen(PORT, 'localhost', () => {
   console.log(`   POST ${SERVER_BASE_URL}/api/bexio-oauth/refresh`);
   console.log(`   POST ${SERVER_BASE_URL}/api/bexio-proxy`);
   console.log(`🌐 Server callback URI: ${BEXIO_CONFIG.serverCallbackUri}`);
+
+  // Start periodic session cleanup (every 5 minutes)
+  setInterval(async () => {
+    try {
+      const cleaned = await sessionStorage.cleanup();
+      if (cleaned > 0) {
+        logger.info('Session cleanup completed', { sessionsCleaned: cleaned });
+      }
+    } catch (error) {
+      logger.error('Session cleanup failed', { error: error.message });
+    }
+  }, 5 * 60 * 1000);
+
+  console.log(`🧹 Session cleanup scheduled every 5 minutes`);
 });
 
 module.exports = app;
