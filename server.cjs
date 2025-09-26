@@ -271,7 +271,7 @@ app.use(helmet({
 app.use(cors({
   origin: process.env.NODE_ENV === 'production'
     ? ['https://tic-tac-bt2y.vercel.app', 'bexiosyncbuddy://oauth/callback']
-    : ['https://tic-tac-bt2y.vercel.app', 'bexiosyncbuddy://oauth/callback', 'http://localhost:3000', 'http://localhost:8080', 'http://localhost:8081'],
+    : ['https://tic-tac-bt2y.vercel.app', 'bexiosyncbuddy://oauth/callback', 'http://localhost:3000', 'http://localhost:8080', 'http://localhost:8081', 'http://localhost:3001'],
   credentials: true
 }));
 app.use(express.json({ limit: '10mb' })); // Limit payload size

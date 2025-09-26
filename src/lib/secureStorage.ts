@@ -159,26 +159,48 @@ class SecureStorage {
    */
   static async storeCredentials(credentials: BexioCredentials): Promise<void> {
     try {
+      console.log('🔐 [DEBUG] Storing credentials securely...');
+      console.log('🔐 [DEBUG] Platform:', Capacitor.getPlatform(), 'isNative:', Capacitor.isNativePlatform());
+      console.log('🔐 [DEBUG] Credentials to store:', {
+        hasAccessToken: !!credentials.accessToken,
+        hasRefreshToken: !!credentials.refreshToken,
+        companyId: credentials.companyId,
+        userEmail: credentials.userEmail,
+        authType: credentials.authType,
+        hasExpiresAt: !!credentials.expiresAt
+      });
+
       const credentialsString = JSON.stringify({
         ...credentials,
         storedAt: Date.now(),
         version: '1.0'
       });
 
+      console.log('🔐 [DEBUG] Credentials string length:', credentialsString.length);
+
       const encryptedData = await this.encrypt(credentialsString);
+      console.log('🔐 [DEBUG] Encrypted data length:', encryptedData.length);
+      console.log('🔐 [DEBUG] Encrypted data prefix:', encryptedData.substring(0, 20) + '...');
 
       if (Capacitor.isNativePlatform()) {
+        console.log('🔐 [DEBUG] Using Capacitor Preferences for storage');
         await Preferences.set({
           key: this.STORAGE_KEY,
           value: encryptedData,
         });
       } else {
+        console.log('🔐 [DEBUG] Using localStorage for storage');
         localStorage.setItem(this.STORAGE_KEY, encryptedData);
       }
 
-      console.log('🔐 Credentials stored securely');
+      console.log('🔐 [DEBUG] Credentials stored securely');
     } catch (error) {
-      console.error('❌ Failed to store credentials securely:', error);
+      console.error('❌ [DEBUG] Failed to store credentials securely:', error);
+      console.error('❌ [DEBUG] Error details:', {
+        message: error.message,
+        stack: error.stack,
+        name: error.name
+      });
       throw new Error('Failed to store credentials securely');
     }
   }
@@ -188,34 +210,70 @@ class SecureStorage {
    */
   static async getStoredCredentials(): Promise<BexioCredentials | null> {
     try {
+      console.log('🔓 [DEBUG] Retrieving stored credentials...');
+      console.log('🔓 [DEBUG] Platform:', Capacitor.getPlatform(), 'isNative:', Capacitor.isNativePlatform());
+
       let encryptedData: string | null = null;
 
       if (Capacitor.isNativePlatform()) {
+        console.log('🔓 [DEBUG] Using Capacitor Preferences for retrieval');
         const { value } = await Preferences.get({ key: this.STORAGE_KEY });
         encryptedData = value;
       } else {
+        console.log('🔓 [DEBUG] Using localStorage for retrieval');
         encryptedData = localStorage.getItem(this.STORAGE_KEY);
       }
 
+      console.log('🔓 [DEBUG] Encrypted data exists:', !!encryptedData);
+      if (encryptedData) {
+        console.log('🔓 [DEBUG] Encrypted data length:', encryptedData.length);
+        console.log('🔓 [DEBUG] Encrypted data prefix:', encryptedData.substring(0, 20) + '...');
+      }
+
       if (!encryptedData) {
+        console.log('🔓 [DEBUG] No encrypted data found, returning null');
         return null;
       }
 
+      console.log('🔓 [DEBUG] Decrypting data...');
       const decryptedString = await this.decrypt(encryptedData);
+      console.log('🔓 [DEBUG] Decrypted string length:', decryptedString.length);
+
       const parsed = JSON.parse(decryptedString);
+      console.log('🔓 [DEBUG] Parsed credentials:', {
+        hasAccessToken: !!parsed.accessToken,
+        hasRefreshToken: !!parsed.refreshToken,
+        companyId: parsed.companyId,
+        userEmail: parsed.userEmail,
+        authType: parsed.authType,
+        hasExpiresAt: !!parsed.expiresAt,
+        storedAt: parsed.storedAt,
+        version: parsed.version
+      });
 
       // Validate the stored data structure
       if (!parsed || typeof parsed !== 'object') {
-        console.warn('Invalid stored credentials format');
+        console.warn('🔓 [DEBUG] Invalid stored credentials format');
         return null;
       }
 
       // Remove metadata before returning
       const { storedAt, version, ...credentials } = parsed;
+      console.log('🔓 [DEBUG] Returning credentials:', {
+        hasAccessToken: !!credentials.accessToken,
+        hasRefreshToken: !!credentials.refreshToken,
+        companyId: credentials.companyId,
+        authType: credentials.authType
+      });
       return credentials as BexioCredentials;
 
     } catch (error) {
-      console.error('❌ Failed to retrieve credentials:', error);
+      console.error('❌ [DEBUG] Failed to retrieve credentials:', error);
+      console.error('❌ [DEBUG] Error details:', {
+        message: error.message,
+        stack: error.stack,
+        name: error.name
+      });
       // Clear corrupted data
       await this.removeStoredCredentials();
       return null;

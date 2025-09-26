@@ -7,10 +7,29 @@ import SecureStorage from '@/lib/secureStorage';
 
 // Helper function to get the correct server URL based on platform
 const getServerUrl = () => {
-  if (Capacitor.isNativePlatform()) {
-    return import.meta.env.VITE_MOBILE_SERVER_URL || import.meta.env.VITE_SERVER_URL || 'http://localhost:3001';
+  const isNative = Capacitor.isNativePlatform();
+  const mobileUrl = import.meta.env.VITE_MOBILE_SERVER_URL;
+  const serverUrl = import.meta.env.VITE_SERVER_URL;
+  const fallbackUrl = 'http://localhost:3001';
+
+  let finalUrl: string;
+  if (isNative) {
+    finalUrl = mobileUrl || serverUrl || fallbackUrl;
+  } else {
+    finalUrl = serverUrl || fallbackUrl;
   }
-  return import.meta.env.VITE_SERVER_URL || 'http://localhost:3001';
+
+  console.log('🔗 [DEBUG] getServerUrl called:', {
+    isNative,
+    platform: Capacitor.getPlatform(),
+    mobileUrl,
+    serverUrl,
+    fallbackUrl,
+    finalUrl,
+    allEnvVars: Object.keys(import.meta.env).filter(key => key.includes('SERVER'))
+  });
+
+  return finalUrl;
 };
 
 // Secure storage utility functions for production-ready credential persistence
@@ -414,8 +433,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [toast]);
 
   const connectWithOAuth = useCallback(async (accessToken: string, refreshToken: string, companyId: string, userEmail: string) => {
-    console.log('🔗 ===== CONNECT WITH OAUTH START =====');
-    console.log('🔗 connectWithOAuth called with:', {
+    console.log('🔗 [DEBUG] ===== CONNECT WITH OAUTH START =====');
+    console.log('🔗 [DEBUG] Platform:', Capacitor.getPlatform(), 'isNative:', Capacitor.isNativePlatform());
+    console.log('🔗 [DEBUG] connectWithOAuth called with:', {
       hasAccessToken: !!accessToken,
       hasRefreshToken: !!refreshToken,
       companyId,

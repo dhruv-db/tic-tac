@@ -35,12 +35,19 @@ export function MobileOAuth() {
   // Enhanced polling for mobile OAuth completion
   useEffect(() => {
     if (isNativePlatform && sessionId) {
-      console.log('📱 Starting enhanced mobile OAuth polling for session:', sessionId);
+      console.log('📱 [DEBUG] Starting enhanced mobile OAuth polling for session:', sessionId);
+      console.log('📱 [DEBUG] Platform details:', {
+        platform: Capacitor.getPlatform(),
+        isNative: Capacitor.isNativePlatform(),
+        sessionId,
+        pollingInterval: !!pollingInterval
+      });
 
       const enhancedPoll = async () => {
         try {
           const serverUrl = getServerUrl();
-          console.log(`🔍 Enhanced polling OAuth status for session: ${sessionId} at ${serverUrl}`);
+          console.log(`🔍 [DEBUG] Enhanced polling OAuth status for session: ${sessionId} at ${serverUrl}`);
+          console.log(`🔍 [DEBUG] Full polling URL: ${serverUrl}/api/bexio-oauth/status/${sessionId}`);
           const response = await fetch(`${serverUrl}/api/bexio-oauth/status/${sessionId}`);
 
           if (!response.ok) {
@@ -483,22 +490,30 @@ export function MobileOAuth() {
 
       // Step 4: Open browser for OAuth
       if (Capacitor.isNativePlatform()) {
-        console.log('📱 Opening browser for mobile OAuth...');
-        console.log('📱 Browser options:', {
-          url: authUrl.substring(0, 50) + '...',
+        console.log('📱 [DEBUG] Opening browser for mobile OAuth...');
+        console.log('📱 [DEBUG] Browser options:', {
+          url: authUrl.substring(0, 100) + '...',
+          urlLength: authUrl.length,
           windowName: '_blank',
-          presentationStyle: 'fullscreen'
+          presentationStyle: 'fullscreen',
+          platform: Capacitor.getPlatform()
         });
 
         try {
+          console.log('📱 [DEBUG] Calling Browser.open...');
           await Browser.open({
             url: authUrl,
             windowName: '_blank',
             presentationStyle: 'fullscreen'
           });
-          console.log('✅ Browser opened successfully for OAuth flow');
+          console.log('✅ [DEBUG] Browser opened successfully for OAuth flow');
         } catch (browserError) {
-          console.error('❌ Failed to open browser:', browserError);
+          console.error('❌ [DEBUG] Failed to open browser:', browserError);
+          console.error('❌ [DEBUG] Browser error details:', {
+            message: browserError.message,
+            stack: browserError.stack,
+            name: browserError.name
+          });
           throw new Error(`Failed to open browser: ${browserError.message}`);
         }
       } else {
