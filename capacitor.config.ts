@@ -4,11 +4,6 @@ const config: CapacitorConfig = {
   appId: 'app.bexiosyncbuddy.app',
   appName: 'bexio-sync-buddy',
   webDir: 'dist',
-  server: {
-    // Use production server for mobile apps
-    url: 'https://tic-tac-puce-chi.vercel.app',
-    cleartext: false
-  },
   plugins: {
     SplashScreen: {
       launchShowDuration: 3000,

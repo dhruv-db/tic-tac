@@ -30,3 +30,6 @@ dist-ssr
 android/app/src/main/assets/public
 ios/App/App/public
 .vercel
+
+# iOS build artifacts
+DerivedData/

@@ -24,10 +24,13 @@ export function MobileOAuth() {
   const [isAuthenticating, setIsAuthenticating] = useState(false);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [pollingInterval, setPollingInterval] = useState<NodeJS.Timeout | null>(null);
+  const [retryCount, setRetryCount] = useState(0);
+  const [lastError, setLastError] = useState<string | null>(null);
   const { toast } = useToast();
   const { connectWithOAuth } = useAuth();
   const isNativePlatform = Capacitor.isNativePlatform();
   const hasProcessedCompletion = useRef(false);
+  const maxRetries = 3;
 
   // Enhanced polling for mobile OAuth completion
   useEffect(() => {
@@ -346,12 +349,20 @@ export function MobileOAuth() {
     }
   };
 
-  const handleOAuthLogin = async () => {
+  const performOAuthLogin = async (isRetry = false) => {
     console.log('🚀 ===== MOBILE OAUTH LOGIN START =====');
     console.log('📱 Platform:', Capacitor.getPlatform());
     console.log('📱 Is native:', Capacitor.isNativePlatform());
     console.log('🌐 Capacitor platform:', Capacitor.getPlatform());
+    console.log('🔄 Is retry:', isRetry, 'Retry count:', retryCount);
+
     setIsAuthenticating(true);
+    setLastError(null);
+
+    // Reset retry count if this is not a retry
+    if (!isRetry) {
+      setRetryCount(0);
+    }
 
     try {
       const serverUrl = getServerUrl();
@@ -539,13 +550,36 @@ export function MobileOAuth() {
       console.error('❌ Error stack:', error.stack);
       console.log('🚀 ===== MOBILE OAUTH LOGIN END (ERROR) =====');
 
-      toast({
-        title: 'Authentication Failed',
-        description: error instanceof Error ? error.message : 'Failed to start authentication.',
-        variant: 'destructive',
-      });
+      const errorMessage = error instanceof Error ? error.message : 'Failed to start authentication.';
+      setLastError(errorMessage);
+
+      // Show retry option for certain errors
+      if (retryCount < maxRetries && !errorMessage.includes('rate limit')) {
+        toast({
+          title: 'Authentication Failed',
+          description: `${errorMessage} (${retryCount + 1}/${maxRetries} attempts)`,
+          variant: 'destructive',
+        });
+        setRetryCount(prev => prev + 1);
+      } else {
+        toast({
+          title: 'Authentication Failed',
+          description: errorMessage,
+          variant: 'destructive',
+        });
+        setRetryCount(0);
+      }
+
       setIsAuthenticating(false);
     }
+  };
+
+  const handleOAuthLogin = () => {
+    performOAuthLogin(false);
+  };
+
+  const handleRetry = () => {
+    performOAuthLogin(true);
   };
 
   return (
@@ -606,6 +640,7 @@ export function MobileOAuth() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.3, delay: 0.5 }}
+              className="space-y-3"
             >
               <Button
                 onClick={handleOAuthLogin}
@@ -625,6 +660,20 @@ export function MobileOAuth() {
                   </div>
                 )}
               </Button>
+
+              {/* Retry Button */}
+              {lastError && retryCount < maxRetries && !isAuthenticating && (
+                <Button
+                  onClick={handleRetry}
+                  variant="outline"
+                  className="w-full h-10 border-orange-300 text-orange-700 hover:bg-orange-50"
+                  size="sm"
+                >
+                  <div className="flex items-center gap-2">
+                    🔄 Retry ({retryCount}/{maxRetries})
+                  </div>
+                </Button>
+              )}
             </motion.div>
 
             {/* Status */}
@@ -637,6 +686,28 @@ export function MobileOAuth() {
                 <Badge variant="secondary" className="bg-teal-100 text-teal-800">
                   Opening authentication browser...
                 </Badge>
+              </motion.div>
+            )}
+
+            {/* Error Display */}
+            {lastError && !isAuthenticating && (
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="p-3 bg-red-50 border border-red-200 rounded-lg"
+              >
+                <div className="flex items-start gap-2">
+                  <div className="text-red-600 text-sm">⚠️</div>
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-red-800">Authentication Error</p>
+                    <p className="text-xs text-red-700 mt-1">{lastError}</p>
+                    {retryCount >= maxRetries && (
+                      <p className="text-xs text-red-600 mt-2">
+                        Please check your internet connection and try again later.
+                      </p>
+                    )}
+                  </div>
+                </div>
               </motion.div>
             )}
 

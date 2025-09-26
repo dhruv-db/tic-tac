@@ -170,9 +170,10 @@ const MobileIndex = () => {
   useEffect(() => {
     console.log('🔄 ===== LOAD STORED CREDENTIALS EFFECT START =====');
     console.log('🔄 Calling loadStoredCredentials from MobileIndex...');
-    const result = loadStoredCredentials();
-    console.log('🔄 loadStoredCredentials result:', result);
-    console.log('🔄 ===== LOAD STORED CREDENTIALS EFFECT END =====');
+    loadStoredCredentials().then((result) => {
+      console.log('🔄 loadStoredCredentials result:', result);
+      console.log('🔄 ===== LOAD STORED CREDENTIALS EFFECT END =====');
+    });
   }, []); // Only run once on mount
 
   // Track authentication state changes

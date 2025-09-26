@@ -3,24 +3,17 @@ import { useToast } from '@/hooks/use-toast';
 import { Capacitor } from '@capacitor/core';
 import { DateRange } from "react-day-picker";
 import { format } from "date-fns";
+import SecureStorage from '@/lib/secureStorage';
 
 // Helper function to get the correct server URL based on platform
 const getServerUrl = () => {
-  // For mobile apps, always use production server
   if (Capacitor.isNativePlatform()) {
-    // Use production server for mobile apps
-    return 'https://tic-tac-puce-chi.vercel.app';
+    return import.meta.env.VITE_MOBILE_SERVER_URL || import.meta.env.VITE_SERVER_URL || 'http://localhost:3001';
   }
-
-  // For web, check if we're in production (Vercel)
-  if (import.meta.env.PROD || window.location.hostname !== 'localhost') {
-    // Use production URL from environment or Vercel domain
-    return import.meta.env.VITE_WEB_SERVER_URL || `https://${window.location.hostname}`;
-  }
-
-  // For local development
-  return import.meta.env.VITE_WEB_SERVER_URL || 'http://localhost:3001';
+  return import.meta.env.VITE_SERVER_URL || 'http://localhost:3001';
 };
+
+// Secure storage utility functions for production-ready credential persistence
 
 interface Contact {
   id: number;
@@ -108,7 +101,7 @@ interface BexioUser {
   is_accountant: boolean;
 }
 
-interface BexioCredentials {
+export interface BexioCredentials {
   apiKey?: string;
   companyId: string;
   accessToken?: string;
@@ -178,7 +171,7 @@ interface AuthContextType {
   connect: (apiKey: string, companyId: string) => Promise<void>;
   connectWithOAuth: (accessToken: string, refreshToken: string, companyId: string, userEmail: string) => Promise<void>;
   disconnect: () => void;
-  loadStoredCredentials: () => boolean;
+  loadStoredCredentials: () => Promise<boolean>;
 
   // Data fetching
   fetchContacts: () => Promise<void>;
@@ -213,20 +206,7 @@ let globalCredentials: BexioCredentials | null = null;
 let globalIsLoading = false;
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [credentials, setCredentials] = useState<BexioCredentials | null>(() => {
-    // Initialize from localStorage on first load
-    try {
-      const stored = localStorage.getItem('bexio_credentials');
-      if (stored) {
-        const parsed = JSON.parse(stored) as BexioCredentials;
-        globalCredentials = parsed;
-        return parsed;
-      }
-    } catch (error) {
-      console.error('Error initializing credentials from localStorage:', error);
-    }
-    return null;
-  });
+  const [credentials, setCredentials] = useState<BexioCredentials | null>(null);
 
   const [isLoading, setIsLoading] = useState(globalIsLoading);
 
@@ -269,6 +249,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const { toast } = useToast();
   const credentialsRef = useRef<BexioCredentials | null>(credentials);
+  const refreshPromiseRef = useRef<Promise<string | null> | null>(null);
 
   // Sync ref with state
   useEffect(() => {
@@ -282,6 +263,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setIsLoading(globalIsLoading);
   }, [isLoading]);
 
+  // Load stored credentials on mount
+  useEffect(() => {
+    const loadCredentials = async () => {
+      try {
+        const storedCreds = await SecureStorage.getStoredCredentials();
+        if (storedCreds) {
+          globalCredentials = storedCreds;
+          setCredentials(storedCreds);
+          console.log('🔐 Loaded stored credentials securely');
+        }
+      } catch (error) {
+        console.error('❌ Error loading stored credentials:', error);
+      }
+    };
+
+    loadCredentials();
+  }, []);
+
   const setOAuthConnectHandler = useCallback((handler: (accessToken: string, refreshToken: string, companyId: string, userEmail: string) => void) => {
     setOnOAuthConnect(() => handler);
   }, []);
@@ -294,53 +293,100 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return credentials.apiKey || null;
     }
 
-    if (credentials.authType === 'oauth') {
-      // Check if token is still valid (with 5 minute buffer)
-      if (credentials.expiresAt && credentials.expiresAt > Date.now() + (5 * 60 * 1000)) {
-        return credentials.accessToken || null;
-      }
+    // Check if token is still valid (with 5 minute buffer)
+    if (credentials.expiresAt && credentials.expiresAt > Date.now() + (5 * 60 * 1000)) {
+      return credentials.accessToken || null;
+    }
 
-      // Token expired or about to expire, refresh it
-      if (credentials.refreshToken) {
-        try {
-          const response = await fetch(`${getServerUrl()}/api/bexio-oauth/refresh`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ refreshToken: credentials.refreshToken }),
-          });
+    // Use existing refresh promise if one is in progress
+    if (refreshPromiseRef.current) {
+      return refreshPromiseRef.current;
+    }
 
-          if (response.ok) {
-            const { accessToken, refreshToken, expiresIn } = await response.json();
-            const expiresAt = Date.now() + (expiresIn * 1000);
+    // Create new refresh promise
+    refreshPromiseRef.current = performTokenRefresh();
+    const result = await refreshPromiseRef.current;
+    refreshPromiseRef.current = null;
+    return result;
+  }, [credentials, toast]);
 
-            const updatedCreds: BexioCredentials = {
-              ...credentials,
-              accessToken,
-              refreshToken: refreshToken || credentials.refreshToken,
-              expiresAt
-            };
-
-            localStorage.setItem('bexio_credentials', JSON.stringify(updatedCreds));
-            setCredentials(updatedCreds);
-            return accessToken;
-          }
-        } catch (error) {
-          console.error('Failed to refresh token:', error);
-        }
-      }
-
+  // Extract token refresh logic into separate function
+  const performTokenRefresh = useCallback(async (): Promise<string | null> => {
+    if (!credentials?.refreshToken) {
+      console.log('🔄 No refresh token available');
       // Refresh failed, clear credentials
-      localStorage.removeItem('bexio_credentials');
+      await SecureStorage.removeStoredCredentials();
       setCredentials(null);
       toast({
-        title: "Session expired",
-        description: "Please log in again.",
+        title: "Session Expired",
+        description: "Your session has expired. Please log in again to continue.",
         variant: "destructive",
       });
       return null;
     }
 
-    return null;
+    try {
+      console.log('🔄 Attempting token refresh...');
+      const response = await fetch(`${getServerUrl()}/api/bexio-oauth/refresh`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refreshToken: credentials.refreshToken }),
+      });
+
+      if (response.ok) {
+        const { accessToken, refreshToken, expiresIn } = await response.json();
+        const expiresAt = Date.now() + (expiresIn * 1000);
+
+        const updatedCreds: BexioCredentials = {
+          ...credentials,
+          accessToken,
+          refreshToken: refreshToken || credentials.refreshToken,
+          expiresAt
+        };
+
+        await SecureStorage.storeCredentials(updatedCreds);
+        setCredentials(updatedCreds);
+        console.log('✅ Token refresh successful');
+        return accessToken;
+      } else if (response.status === 429) {
+        // Rate limited
+        toast({
+          title: "Too Many Requests",
+          description: "Please wait a moment before trying again.",
+          variant: "destructive",
+        });
+        return null;
+      } else if (response.status === 401) {
+        // Invalid refresh token
+        console.log('❌ Invalid refresh token');
+        await SecureStorage.removeStoredCredentials();
+        setCredentials(null);
+        toast({
+          title: "Authentication Required",
+          description: "Your session is no longer valid. Please log in again.",
+          variant: "destructive",
+        });
+        return null;
+      } else {
+        // Other server errors
+        const errorData = await response.json().catch(() => ({}));
+        console.error('❌ Token refresh failed:', response.status, errorData);
+        toast({
+          title: "Connection Error",
+          description: "Unable to refresh your session. Please check your internet connection.",
+          variant: "destructive",
+        });
+        return null;
+      }
+    } catch (error) {
+      console.error('❌ Token refresh network error:', error);
+      toast({
+        title: "Network Error",
+        description: "Unable to connect to the server. Please check your internet connection.",
+        variant: "destructive",
+      });
+      return null;
+    }
   }, [credentials, toast]);
 
   const connect = useCallback(async (apiKey: string, companyId: string) => {
@@ -350,7 +396,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         companyId,
         authType: 'api'
       };
-      localStorage.setItem('bexio_credentials', JSON.stringify(creds));
+      await SecureStorage.storeCredentials(creds);
       setCredentials(creds);
 
       toast({
@@ -396,9 +442,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         expiresAt
       };
 
-      console.log('💾 Storing credentials in localStorage...');
-      localStorage.setItem('bexio_credentials', JSON.stringify(creds));
-      console.log('✅ Credentials stored in localStorage');
+      console.log('💾 Storing credentials using cross-platform storage...');
+      await SecureStorage.storeCredentials(creds);
+      console.log('✅ Credentials stored using cross-platform storage');
 
       console.log('🎯 Setting credentials state...');
       setCredentials(creds);
@@ -424,8 +470,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [credentials, toast]);
 
-  const disconnect = useCallback(() => {
-    localStorage.removeItem('bexio_credentials');
+  const disconnect = useCallback(async () => {
+    await SecureStorage.removeStoredCredentials();
     setCredentials(null);
     setContacts([]);
     setProjects([]);
@@ -447,11 +493,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
   }, [toast]);
 
-  const loadStoredCredentials = useCallback(() => {
+  const loadStoredCredentials = useCallback(async () => {
     try {
-      const stored = localStorage.getItem('bexio_credentials');
-      if (stored) {
-        const creds = JSON.parse(stored);
+      const creds = await SecureStorage.getStoredCredentials();
+      if (creds) {
         setCredentials(creds);
         return true;
       }

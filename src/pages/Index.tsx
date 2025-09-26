@@ -95,7 +95,7 @@ const Index = () => {
 
   useEffect(() => {
     loadStoredCredentials();
-  }, [loadStoredCredentials]);
+  }, []); // Remove loadStoredCredentials from dependency array since it's now async
 
   // Handle OAuth callback from URL parameters
   useEffect(() => {
