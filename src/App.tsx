@@ -13,6 +13,7 @@ import { OAuthCallback } from "./components/OAuthCallback";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useToast } from "@/hooks/use-toast";
 import { AuthProvider, useAuth } from "@/context/OAuthContext";
+import { getConfig } from "@/lib/secureStorage";
 
 // Image debugging utility
 const debugImageLoading = () => {
@@ -272,8 +273,19 @@ const App = () => {
     console.log('🔧 Environment check:', {
       isNative: Capacitor.isNativePlatform(),
       platform: Capacitor.getPlatform(),
-      userAgent: navigator.userAgent
+      userAgent: navigator.userAgent,
+      hostname: window.location.hostname,
+      protocol: window.location.protocol,
+      port: window.location.port
     });
+
+    // Debug server URL configuration
+    console.log('🔗 Server URL config:', {
+      serverUrl: getConfig ? getConfig.serverUrl() : 'getConfig not available',
+      isProduction: getConfig ? getConfig.isProduction() : 'unknown',
+      isDevelopment: getConfig ? getConfig.isDevelopment() : 'unknown'
+    });
+
     debugImageLoading();
   }, []);
 

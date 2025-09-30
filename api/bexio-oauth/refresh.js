@@ -1,78 +1,82 @@
-import { BEXIO_CONFIG } from '../_utils.js';
-
+// Token refresh endpoint for Bexio OAuth
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  console.log('🔄 ===== REFRESH TOKEN REQUEST =====');
-  console.log('⏰ Timestamp:', new Date().toISOString());
-
   try {
     const { refreshToken } = req.body;
 
-    console.log('🔄 Refresh token request:', {
-      refreshToken: refreshToken ? 'present' : 'missing',
-      tokenLength: refreshToken?.length
-    });
-
     if (!refreshToken) {
-      return res.status(400).json({ error: 'Refresh token is required' });
+      return res.status(400).json({
+        error: 'Missing required parameter',
+        message: 'refreshToken is required'
+      });
     }
 
-    // Exchange refresh token for new access token
-    const tokenParams = new URLSearchParams({
+    const clientId = process.env.BEXIO_CLIENT_ID;
+    const clientSecret = process.env.BEXIO_CLIENT_SECRET;
+    const tokenUrl = 'https://idp.bexio.com/token';
+
+    if (!clientId || !clientSecret) {
+      return res.status(500).json({
+        error: 'Server configuration error',
+        message: 'BEXIO_CLIENT_ID or BEXIO_CLIENT_SECRET not configured'
+      });
+    }
+
+    // Prepare token refresh request
+    const refreshRequestBody = new URLSearchParams({
       grant_type: 'refresh_token',
-      client_id: BEXIO_CONFIG.clientId,
-      client_secret: BEXIO_CONFIG.clientSecret,
+      client_id: clientId,
+      client_secret: clientSecret,
       refresh_token: refreshToken
     });
 
-    console.log('📡 Refreshing tokens...');
+    console.log('Refreshing access token...');
 
-    const tokenResponse = await fetch(BEXIO_CONFIG.tokenUrl, {
+    // Make request to Bexio token endpoint
+    const response = await fetch(tokenUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
         'Accept': 'application/json'
       },
-      body: tokenParams.toString()
+      body: refreshRequestBody.toString()
     });
 
-    if (!tokenResponse.ok) {
-      const errorText = await tokenResponse.text();
-      console.error('❌ Token refresh failed:', tokenResponse.status, errorText);
-      return res.status(tokenResponse.status).json({
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Token refresh failed:', response.status, errorText);
+
+      return res.status(response.status).json({
         error: 'Token refresh failed',
+        message: `Bexio responded with status ${response.status}`,
         details: errorText
       });
     }
 
-    const tokenData = await tokenResponse.json();
-    console.log('✅ Token refresh successful');
+    const tokenData = await response.json();
+    console.log('Token refresh successful');
 
-    // Return the refreshed token data
-    const response = {
+    // Calculate new expiration time
+    const expiresAt = Date.now() + (tokenData.expires_in * 1000);
+
+    // Return refreshed token data
+    res.status(200).json({
       accessToken: tokenData.access_token,
-      refreshToken: tokenData.refresh_token || refreshToken, // Use new refresh token if provided, otherwise keep old one
-      expiresIn: tokenData.expires_in || 3600
-    };
-
-    console.log('📦 Returning refreshed tokens:', {
-      hasAccessToken: !!response.accessToken,
-      hasRefreshToken: !!response.refreshToken,
-      expiresIn: response.expiresIn
+      refreshToken: tokenData.refresh_token || refreshToken, // Bexio may or may not return a new refresh token
+      expiresAt,
+      tokenType: tokenData.token_type,
+      scope: tokenData.scope,
+      timestamp: new Date().toISOString()
     });
 
-    console.log('🔄 ===== REFRESH TOKEN REQUEST END (SUCCESS) =====');
-    res.json(response);
-
   } catch (error) {
-    console.error('❌ Token refresh error:', error);
-    console.log('🔄 ===== REFRESH TOKEN REQUEST END (ERROR) =====');
+    console.error('Token refresh error:', error);
     res.status(500).json({
-      error: 'Token refresh failed',
-      details: error.message
+      error: 'Internal server error',
+      message: 'Failed to refresh token'
     });
   }
 }

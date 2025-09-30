@@ -3,34 +3,11 @@ import { useToast } from '@/hooks/use-toast';
 import { Capacitor } from '@capacitor/core';
 import { DateRange } from "react-day-picker";
 import { format } from "date-fns";
-import SecureStorage from '@/lib/secureStorage';
+import SecureStorage, { getConfig } from '@/lib/secureStorage';
 
-// Helper function to get the correct server URL based on platform
-const getServerUrl = () => {
-  const isNative = Capacitor.isNativePlatform();
-  const mobileUrl = import.meta.env.VITE_MOBILE_SERVER_URL;
-  const serverUrl = import.meta.env.VITE_SERVER_URL;
-  const fallbackUrl = 'http://localhost:3001';
+// Helper function to get the correct server URL using centralized config
+const getServerUrl = () => getConfig.serverUrl();
 
-  let finalUrl: string;
-  if (isNative) {
-    finalUrl = mobileUrl || serverUrl || fallbackUrl;
-  } else {
-    finalUrl = serverUrl || fallbackUrl;
-  }
-
-  console.log('🔗 [DEBUG] getServerUrl called:', {
-    isNative,
-    platform: Capacitor.getPlatform(),
-    mobileUrl,
-    serverUrl,
-    fallbackUrl,
-    finalUrl,
-    allEnvVars: Object.keys(import.meta.env).filter(key => key.includes('SERVER'))
-  });
-
-  return finalUrl;
-};
 
 // Secure storage utility functions for production-ready credential persistence
 
@@ -213,9 +190,6 @@ interface AuthContextType {
   setCurrentLanguage: (language: string) => void;
   getWorkPackageName: (projectId: number | undefined, packageId: string | undefined) => string;
 
-  // Legacy OAuth callback support
-  onOAuthConnect: ((accessToken: string, refreshToken: string, companyId: string, userEmail: string) => void) | null;
-  setOAuthConnectHandler: (handler: (accessToken: string, refreshToken: string, companyId: string, userEmail: string) => void) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -263,8 +237,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [currentBexioUserId, setCurrentBexioUserId] = useState<number | null>(null);
   const [isCurrentUserAdmin, setIsCurrentUserAdmin] = useState(false);
 
-  // Legacy OAuth support
-  const [onOAuthConnect, setOnOAuthConnect] = useState<((accessToken: string, refreshToken: string, companyId: string, userEmail: string) => void) | null>(null);
 
   const { toast } = useToast();
   const credentialsRef = useRef<BexioCredentials | null>(credentials);
@@ -300,9 +272,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     loadCredentials();
   }, []);
 
-  const setOAuthConnectHandler = useCallback((handler: (accessToken: string, refreshToken: string, companyId: string, userEmail: string) => void) => {
-    setOnOAuthConnect(() => handler);
-  }, []);
 
   // Helper function to refresh OAuth token if needed
   const ensureValidToken = useCallback(async (): Promise<string | null> => {
@@ -346,9 +315,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     try {
       console.log('🔄 Attempting token refresh...');
-      const response = await fetch(`${getServerUrl()}/api/bexio-oauth/refresh`, {
+      const serverUrl = getServerUrl();
+      const response = await fetch(`${serverUrl}/api/bexio-oauth/refresh`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify({ refreshToken: credentials.refreshToken }),
       });
 
@@ -534,9 +506,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     setIsLoadingContacts(true);
     try {
-      const response = await fetch(`${getServerUrl()}/api/bexio-proxy`, {
+      const response = await fetch('/api/bexio-proxy', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify({
           endpoint: '/3.0/contacts?limit=200',
           apiKey: authToken,
@@ -584,9 +558,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     setIsLoadingProjects(true);
     try {
-      const response = await fetch(`${getServerUrl()}/api/bexio-proxy`, {
+      const response = await fetch('/api/bexio-proxy', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify({
           endpoint: '/3.0/projects',
           apiKey: authToken,
@@ -640,9 +616,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         endpoint += `?${params.join('&')}`;
       }
 
-      const response = await fetch(`${getServerUrl()}/api/bexio-proxy`, {
+      const response = await fetch('/api/bexio-proxy', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify({
           endpoint: endpoint,
           apiKey: authToken,
@@ -700,9 +678,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     console.log('👥 [DEBUG] Starting user fetch...');
 
     try {
-      const response = await fetch(`${getServerUrl()}/api/bexio-proxy`, {
+      const response = await fetch('/api/bexio-proxy', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify({
           endpoint: '/3.0/users',
           apiKey: authToken,
@@ -768,9 +748,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!authToken) return null;
 
     try {
-      const meResponse = await fetch(`${getServerUrl()}/api/bexio-proxy`, {
+      const meResponse = await fetch('/api/bexio-proxy', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify({
           endpoint: '/3.0/users/me',
           apiKey: authToken,
@@ -865,9 +847,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     console.log('🔍 Fetching timesheet statuses from Bexio');
 
     try {
-      const response = await fetch(`${getServerUrl()}/api/bexio-proxy`, {
+      const response = await fetch('/api/bexio-proxy', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify({
           endpoint: '/timesheet_status',
           apiKey: authToken,
@@ -922,9 +906,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     console.log('🔍 Fetching business activities from Bexio');
 
     try {
-      const response = await fetch(`${getServerUrl()}/api/bexio-proxy`, {
+      const response = await fetch('/api/bexio-proxy', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify({
           endpoint: '/client_service',
           apiKey: authToken,
@@ -1075,9 +1061,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const maxRetries = 3;
         for (let attempt = 1; attempt <= maxRetries; attempt++) {
           try {
-            const response = await fetch(`${getServerUrl()}/api/bexio-proxy`, {
+            const response = await fetch('/api/bexio-proxy', {
               method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
+              headers: {
+                'Content-Type': 'application/json',
+              },
               body: JSON.stringify({
                 endpoint: '/timesheet',
                 method: 'POST',
@@ -1220,9 +1208,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       console.log('Updating time entry with data:', { id, data: bexioData });
 
-      const putResponse = await fetch(`${getServerUrl()}/api/bexio-proxy`, {
+      const putResponse = await fetch('/api/bexio-proxy', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify({
           endpoint: `/2.0/timesheet/${id}`,
           method: 'POST',
@@ -1272,7 +1262,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!authToken) return;
 
     try {
-      const response = await fetch(`${getServerUrl()}/api/bexio-proxy`, {
+      const response = await fetch('/api/bexio-proxy', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -1344,9 +1334,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
           console.log(`📝 Updating entry ${entry.id} with:`, mergedData);
 
-          const putResponse = await fetch(`${getServerUrl()}/api/bexio-proxy`, {
+          const putResponse = await fetch('/api/bexio-proxy', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+              'Content-Type': 'application/json',
+            },
             body: JSON.stringify({
               endpoint: `/2.0/timesheet/${entry.id}`,
               method: 'POST',
@@ -1513,9 +1505,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setCurrentLanguage: setCurrentLanguageWithPersistence,
     getWorkPackageName,
 
-    // Legacy OAuth callback support
-    onOAuthConnect,
-    setOAuthConnectHandler,
   };
 
   return (

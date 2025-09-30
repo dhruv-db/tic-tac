@@ -2,6 +2,73 @@ import { Capacitor } from '@capacitor/core';
 import { Preferences } from '@capacitor/preferences';
 import { BexioCredentials } from '@/context/OAuthContext';
 
+// Configuration utility for environment variables
+export const getConfig = {
+  // Server URLs
+  serverUrl: (): string => {
+    // Check environment variables in order of priority
+    if (typeof import.meta !== 'undefined' && import.meta.env.VITE_SERVER_URL) {
+      return import.meta.env.VITE_SERVER_URL;
+    }
+
+    // For mobile apps, check mobile-specific URL
+    if (Capacitor.isNativePlatform() && typeof import.meta !== 'undefined' && import.meta.env.VITE_MOBILE_SERVER_URL) {
+      return import.meta.env.VITE_MOBILE_SERVER_URL;
+    }
+
+    // Check production URL
+    if (typeof import.meta !== 'undefined' && import.meta.env.VITE_PRODUCTION_URL) {
+      return import.meta.env.VITE_PRODUCTION_URL;
+    }
+
+    // For production builds (deployed apps), use the current domain
+    if (typeof window !== 'undefined' && window.location.hostname.includes('vercel.app')) {
+      return `https://${window.location.hostname}`;
+    }
+
+    // For mobile native platforms, ensure we use production URL
+    if (Capacitor.isNativePlatform()) {
+      return 'https://tic-tac-puce-chi.vercel.app';
+    }
+
+    // Fallback for development
+    if (typeof import.meta !== 'undefined' && import.meta.env.DEV) {
+      return 'http://localhost:3001';
+    }
+
+    return 'http://localhost:3001';
+  },
+
+  // Bexio OAuth Configuration
+  bexioClientId: (): string => {
+    return typeof import.meta !== 'undefined' && import.meta.env.VITE_BEXIO_CLIENT_ID
+      ? import.meta.env.VITE_BEXIO_CLIENT_ID
+      : 'your_bexio_client_id_here';
+  },
+
+  bexioClientSecret: (): string => {
+    return typeof import.meta !== 'undefined' && import.meta.env.VITE_BEXIO_CLIENT_SECRET
+      ? import.meta.env.VITE_BEXIO_CLIENT_SECRET
+      : 'your_bexio_client_secret_here';
+  },
+
+  // Logging
+  logLevel: (): string => {
+    return typeof import.meta !== 'undefined' && import.meta.env.VITE_LOG_LEVEL
+      ? import.meta.env.VITE_LOG_LEVEL
+      : 'info';
+  },
+
+  // Environment
+  isProduction: (): boolean => {
+    return typeof import.meta !== 'undefined' && import.meta.env.PROD;
+  },
+
+  isDevelopment: (): boolean => {
+    return typeof import.meta !== 'undefined' && import.meta.env.DEV;
+  }
+};
+
 // Encryption utilities for production-ready token storage
 class SecureStorage {
   private static readonly STORAGE_KEY = 'bexio_secure_credentials';
@@ -17,8 +84,9 @@ class SecureStorage {
     const baseKey = this.ENCRYPTION_KEY;
 
     if (Capacitor.isNativePlatform()) {
-      // On native platforms, we can use device-specific data
-      const deviceId = Capacitor.getPlatform() + '_' + Date.now().toString();
+      // On native platforms, use a consistent key for the same device
+      // Use platform name only, not timestamp to ensure consistency across app restarts
+      const deviceId = Capacitor.getPlatform();
       return this.hashString(baseKey + deviceId);
     } else {
       // For web, use a consistent key (less secure but functional)
@@ -184,13 +252,25 @@ class SecureStorage {
 
       if (Capacitor.isNativePlatform()) {
         console.log('🔐 [DEBUG] Using Capacitor Preferences for storage');
-        await Preferences.set({
-          key: this.STORAGE_KEY,
-          value: encryptedData,
-        });
+        try {
+          await Preferences.set({
+            key: this.STORAGE_KEY,
+            value: encryptedData,
+          });
+          console.log('🔐 [DEBUG] Successfully stored in Capacitor Preferences');
+        } catch (capError) {
+          console.error('❌ [DEBUG] Capacitor Preferences storage failed:', capError);
+          throw capError;
+        }
       } else {
         console.log('🔐 [DEBUG] Using localStorage for storage');
-        localStorage.setItem(this.STORAGE_KEY, encryptedData);
+        try {
+          localStorage.setItem(this.STORAGE_KEY, encryptedData);
+          console.log('🔐 [DEBUG] Successfully stored in localStorage');
+        } catch (lsError) {
+          console.error('❌ [DEBUG] localStorage storage failed:', lsError);
+          throw lsError;
+        }
       }
 
       console.log('🔐 [DEBUG] Credentials stored securely');
@@ -217,11 +297,23 @@ class SecureStorage {
 
       if (Capacitor.isNativePlatform()) {
         console.log('🔓 [DEBUG] Using Capacitor Preferences for retrieval');
-        const { value } = await Preferences.get({ key: this.STORAGE_KEY });
-        encryptedData = value;
+        try {
+          const { value } = await Preferences.get({ key: this.STORAGE_KEY });
+          encryptedData = value;
+          console.log('🔓 [DEBUG] Capacitor Preferences get result:', !!value);
+        } catch (capError) {
+          console.error('❌ [DEBUG] Capacitor Preferences get failed:', capError);
+          return null;
+        }
       } else {
         console.log('🔓 [DEBUG] Using localStorage for retrieval');
-        encryptedData = localStorage.getItem(this.STORAGE_KEY);
+        try {
+          encryptedData = localStorage.getItem(this.STORAGE_KEY);
+          console.log('🔓 [DEBUG] localStorage get result:', !!encryptedData);
+        } catch (lsError) {
+          console.error('❌ [DEBUG] localStorage get failed:', lsError);
+          return null;
+        }
       }
 
       console.log('🔓 [DEBUG] Encrypted data exists:', !!encryptedData);
@@ -319,6 +411,43 @@ class SecureStorage {
       typeof credentials.authType === 'string' &&
       (credentials.authType === 'api' || credentials.authType === 'oauth')
     );
+  }
+
+  /**
+   * Test credential storage and retrieval (for debugging)
+   */
+  static async testCredentialStorage(): Promise<boolean> {
+    try {
+      console.log('🧪 [DEBUG] Testing credential storage...');
+
+      // Create test credentials
+      const testCredentials: BexioCredentials = {
+        companyId: 'test-company',
+        authType: 'oauth',
+        accessToken: 'test-access-token',
+        refreshToken: 'test-refresh-token',
+        userEmail: 'test@example.com',
+        expiresAt: Date.now() + 3600000
+      };
+
+      console.log('🧪 [DEBUG] Storing test credentials...');
+      await this.storeCredentials(testCredentials);
+
+      console.log('🧪 [DEBUG] Retrieving test credentials...');
+      const retrieved = await this.getStoredCredentials();
+
+      if (retrieved && retrieved.companyId === testCredentials.companyId) {
+        console.log('🧪 [DEBUG] Test successful! Cleaning up...');
+        await this.removeStoredCredentials();
+        return true;
+      } else {
+        console.log('🧪 [DEBUG] Test failed - credentials mismatch');
+        return false;
+      }
+    } catch (error) {
+      console.error('🧪 [DEBUG] Test failed with error:', error);
+      return false;
+    }
   }
 }
 

@@ -1,110 +1,112 @@
-import { BEXIO_CONFIG } from '../_utils.js';
-
+// OAuth initiation endpoint for Bexio
 export default async function handler(req, res) {
-  console.log('🔧 ===== OAUTH AUTH ENDPOINT START =====');
-  console.log('🔧 Method:', req.method);
-  console.log('🔧 URL:', req.url);
-  console.log('🔧 User-Agent:', req.headers['user-agent']);
-  console.log('🔧 Content-Type:', req.headers['content-type']);
-  console.log('🔧 Timestamp:', new Date().toISOString());
-  console.log('🔧 Request body keys:', req.body ? Object.keys(req.body) : 'null');
-
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
   try {
-    const { state, scope: requestedScope, codeChallenge, codeChallengeMethod, codeVerifier, returnUrl, sessionId, platform } = req.body;
+    const { redirectUri, state } = req.body;
 
-    console.log('🔐 OAuth initiation request:', {
-      state: state ? 'present' : 'missing',
-      scope: requestedScope,
-      codeChallengeMethod,
-      returnUrl,
-      environment: process.env.NODE_ENV,
-      vercelEnv: process.env.VERCEL_ENV
-    });
-
-    // Allow OIDC scopes and API scopes that are configured for the app
-    const allowedScopes = [
-      'openid',
-      'profile',
-      'email',
-      'offline_access',
-      'company_profile',
-      'contact_show',
-      'contact_edit',
-      'project_show',
-      'project_edit',
-      'accounting',
-      'monitoring_show',
-      'monitoring_edit'
-    ];
-
-    const requested = (requestedScope || '').split(/\s+/).filter((s) => allowedScopes.includes(s));
-    const finalScope = (requested.length ? requested : [
-      'openid',
-      'profile',
-      'email',
-      'offline_access'
-    ]).join(' ');
-
-    // Determine redirect URI based on platform
-    const isMobile = platform === 'mobile' || platform === 'ios' || platform === 'android';
-    const redirectUri = isMobile ? BEXIO_CONFIG.mobileRedirectUri : BEXIO_CONFIG.webRedirectUri;
-
-    console.log(`🔗 Using ${isMobile ? 'mobile' : 'web'} redirect URI: ${redirectUri}`);
-
-    // Pack state with code_verifier, return URL, platform, and session ID for redirect
-    let packedState = state;
-    try {
-      packedState = Buffer.from(JSON.stringify({
-        s: state,
-        cv: codeVerifier || null,
-        ru: returnUrl || '',
-        sid: sessionId || null,
-        platform: platform || 'web'
-      })).toString('base64');
-    } catch (e) {
-      console.warn('Failed to pack state:', e);
+    if (!redirectUri || !state) {
+      return res.status(400).json({
+        error: 'Missing required parameters',
+        message: 'redirectUri and state are required'
+      });
     }
 
-    // Use server's callback endpoint as redirect URI
-    const serverRedirectUri = BEXIO_CONFIG.serverCallbackUri;
+    // Bexio OAuth configuration
+    const clientId = process.env.BEXIO_CLIENT_ID;
+    const baseAuthUrl = 'https://idp.bexio.com/authorize';
 
+    if (!clientId) {
+      return res.status(500).json({
+        error: 'Server configuration error',
+        message: 'BEXIO_CLIENT_ID not configured'
+      });
+    }
+
+    // Generate PKCE code verifier and challenge
+    const codeVerifier = generateCodeVerifier();
+    const codeChallenge = await generateCodeChallenge(codeVerifier);
+
+    // Construct Bexio authorization URL
     const params = new URLSearchParams({
-      client_id: BEXIO_CONFIG.clientId,
-      redirect_uri: serverRedirectUri,
       response_type: 'code',
-      scope: finalScope,
-      state: packedState
+      client_id: clientId,
+      redirect_uri: redirectUri,
+      scope: 'openid profile email offline_access contact_show contact_edit monitoring_show monitoring_edit project_show',
+      state: state,
+      code_challenge: codeChallenge,
+      code_challenge_method: 'S256'
     });
 
-    // Add PKCE parameters if provided
-    if (codeChallenge && codeChallengeMethod) {
-      params.set('code_challenge', codeChallenge);
-      params.set('code_challenge_method', codeChallengeMethod);
-    }
+    const authorizationUrl = `${baseAuthUrl}?${params.toString()}`;
 
-    const authUrl = `${BEXIO_CONFIG.authUrl}?${params.toString()}`;
+    // In a production environment, you'd want to store the code_verifier
+    // associated with the state for later use during token exchange
+    // For now, we'll return it in the response (not recommended for production)
 
-    console.log('🔗 Generated OAuth URL (OIDC scopes):', authUrl.substring(0, 100) + '...');
-    console.log('✅ ===== OAUTH AUTH ENDPOINT END (SUCCESS) =====');
-
-    res.json({
-      authUrl
+    res.status(200).json({
+      authorizationUrl,
+      codeVerifier,
+      state,
+      timestamp: new Date().toISOString()
     });
 
   } catch (error) {
-    console.error('❌ ===== OAUTH AUTH ENDPOINT END (ERROR) =====');
-    console.error('❌ Error type:', error.constructor.name);
-    console.error('❌ Error message:', error.message);
-    console.error('❌ Error stack:', error.stack);
-    console.log('🔧 ===== OAUTH AUTH ENDPOINT END =====');
-
+    console.error('OAuth initiation error:', error);
     res.status(500).json({
-      error: 'OAuth initiation failed',
-      details: error.message
+      error: 'Internal server error',
+      message: 'Failed to initiate OAuth flow'
     });
   }
+}
+
+// Generate a cryptographically secure random code verifier
+function generateCodeVerifier() {
+  const array = new Uint8Array(32);
+  if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
+    crypto.getRandomValues(array);
+  } else {
+    // Fallback for environments without crypto.getRandomValues
+    for (let i = 0; i < array.length; i++) {
+      array[i] = Math.floor(Math.random() * 256);
+    }
+  }
+
+  // Convert to base64url format
+  return base64URLEncode(array);
+}
+
+// Generate code challenge from code verifier
+async function generateCodeChallenge(codeVerifier) {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(codeVerifier);
+
+  let digest;
+  if (typeof crypto !== 'undefined' && crypto.subtle) {
+    digest = await crypto.subtle.digest('SHA-256', data);
+  } else {
+    // Fallback for environments without crypto.subtle
+    // This is not secure, but provides basic functionality
+    let hash = 0;
+    for (let i = 0; i < data.length; i++) {
+      hash = ((hash << 5) - hash) + data[i];
+      hash = hash & hash; // Convert to 32-bit integer
+    }
+    digest = new ArrayBuffer(8);
+    const view = new DataView(digest);
+    view.setInt32(0, hash, true);
+  }
+
+  return base64URLEncode(new Uint8Array(digest));
+}
+
+// Base64URL encode function
+function base64URLEncode(array) {
+  const base64 = btoa(String.fromCharCode.apply(null, Array.from(array)));
+  return base64
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=/g, '');
 }

@@ -7,7 +7,7 @@ import path from "path";
 export default defineConfig(({ mode }) => ({
   server: {
     host: "0.0.0.0",
-    port: 5173, // Use Vite's default port
+    port: 3000, // Use port 3000 as specified in task
     proxy: {
       // Proxy API requests to the Express server
       '/api': {

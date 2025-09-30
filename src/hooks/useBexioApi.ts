@@ -3,16 +3,15 @@ import { useToast } from "@/hooks/use-toast";
 import { DateRange } from "react-day-picker";
 import { format } from "date-fns";
 import { Capacitor } from "@capacitor/core";
+import { getConfig } from "@/lib/secureStorage";
 
-// Helper function to get the correct server URL based on platform
-const getServerUrl = () => {
-  // For mobile apps, use the host machine's IP address
-  if (Capacitor.isNativePlatform()) {
-    // Use the same IP as configured in .env
-    return 'http://192.168.29.13:3001';
-  }
-  // For web, use localhost
-  return 'http://localhost:3001';
+// Helper function to get the correct server URL using centralized config
+const getServerUrl = () => getConfig.serverUrl();
+
+// Helper function to get the backend API URL for Bexio proxy
+const getBackendApiUrl = () => {
+  const serverUrl = getServerUrl();
+  return `${serverUrl}/api/bexio-proxy`;
 };
 
 interface Contact {
@@ -356,7 +355,7 @@ export const useBexioApi = () => {
 
     try {
       // Try /3.0/users/me first (OAuth preferred)
-      const meResponse = await fetch(`https://opcjifbdwpyttaxqlqbf.supabase.co/functions/v1/bexio-proxy`, {
+      const meResponse = await fetch(getBackendApiUrl(), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -392,7 +391,7 @@ export const useBexioApi = () => {
     // Fallback: Try to identify via email matching if OAuth user
     if (credentials.authType === 'oauth' && credentials.userEmail) {
       try {
-        const usersResponse = await fetch(`https://opcjifbdwpyttaxqlqbf.supabase.co/functions/v1/bexio-proxy`, {
+        const usersResponse = await fetch(getBackendApiUrl(), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -589,7 +588,7 @@ export const useBexioApi = () => {
 
     setIsLoadingContacts(true);
     try {
-      const response = await fetch(`https://opcjifbdwpyttaxqlqbf.supabase.co/functions/v1/bexio-proxy`, {
+      const response = await fetch(`getBackendApiUrl()`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -641,7 +640,7 @@ export const useBexioApi = () => {
 
     setIsLoadingProjects(true);
     try {
-      const response = await fetch(`https://opcjifbdwpyttaxqlqbf.supabase.co/functions/v1/bexio-proxy`, {
+      const response = await fetch(`getBackendApiUrl()`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -730,7 +729,7 @@ export const useBexioApi = () => {
 
     setIsLoadingTimeEntries(true);
     try {
-      const response = await fetch(`https://opcjifbdwpyttaxqlqbf.supabase.co/functions/v1/bexio-proxy`, {
+      const response = await fetch(`getBackendApiUrl()`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -809,7 +808,7 @@ export const useBexioApi = () => {
     console.log(`🔍 Fetching work packages for project ID: ${projectId}`);
     
     try {
-      const response = await fetch(`https://opcjifbdwpyttaxqlqbf.supabase.co/functions/v1/bexio-proxy`, {
+      const response = await fetch(`getBackendApiUrl()`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -1040,7 +1039,7 @@ export const useBexioApi = () => {
         const maxRetries = 3;
         for (let attempt = 1; attempt <= maxRetries; attempt++) {
           try {
-            const response = await fetch(`https://opcjifbdwpyttaxqlqbf.supabase.co/functions/v1/bexio-proxy`, {
+            const response = await fetch(`getBackendApiUrl()`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
@@ -1144,7 +1143,7 @@ export const useBexioApi = () => {
     console.log('🔍 Fetching timesheet statuses from Bexio');
     
     try {
-      const response = await fetch(`https://opcjifbdwpyttaxqlqbf.supabase.co/functions/v1/bexio-proxy`, {
+      const response = await fetch(`getBackendApiUrl()`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1205,7 +1204,7 @@ export const useBexioApi = () => {
     console.log('🔍 Fetching business activities from Bexio');
 
     try {
-      const response = await fetch(`https://opcjifbdwpyttaxqlqbf.supabase.co/functions/v1/bexio-proxy`, {
+      const response = await fetch(`getBackendApiUrl()`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1359,7 +1358,7 @@ export const useBexioApi = () => {
       console.log('Updating time entry with data:', { id, data: bexioData });
 
       // Use POST method with 2.0 API (per Bexio docs)
-      const putResponse = await fetch(`https://opcjifbdwpyttaxqlqbf.supabase.co/functions/v1/bexio-proxy`, {
+      const putResponse = await fetch(`getBackendApiUrl()`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1413,7 +1412,7 @@ export const useBexioApi = () => {
     if (!authToken) return;
 
     try {
-      const response = await fetch(`https://opcjifbdwpyttaxqlqbf.supabase.co/functions/v1/bexio-proxy`, {
+      const response = await fetch(`getBackendApiUrl()`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -1493,7 +1492,7 @@ export const useBexioApi = () => {
           console.log(`📝 Updating entry ${entry.id} with:`, mergedData);
 
           // Use POST method with 2.0 API (per Bexio docs)
-          const putResponse = await fetch(`https://opcjifbdwpyttaxqlqbf.supabase.co/functions/v1/bexio-proxy`, {
+          const putResponse = await fetch(`getBackendApiUrl()`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -1627,7 +1626,7 @@ export const useBexioApi = () => {
     console.log('🔍 Fetching users from Bexio');
 
     try {
-      const response = await fetch(`https://opcjifbdwpyttaxqlqbf.supabase.co/functions/v1/bexio-proxy`, {
+      const response = await fetch(`getBackendApiUrl()`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
