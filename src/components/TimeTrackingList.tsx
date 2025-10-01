@@ -203,7 +203,7 @@ export const TimeTrackingList = ({
     const duration = entry?.duration || (entry as any)?.tracking?.duration;
     const hasValidDuration = duration != null && duration !== '';
 
-    const isValid = entry && entry.id != null && entry.date && hasValidDuration;
+    const isValid = entry && typeof entry.id === 'number' && entry.id != null && entry.date && hasValidDuration;
     if (!isValid) {
       console.log('🔍 [DEBUG] Filtering out invalid entry:', {
         hasEntry: !!entry,
@@ -227,17 +227,18 @@ export const TimeTrackingList = ({
   // Get unique month/year options from time entries
   const getMonthYearOptions = () => {
     const monthYears = new Set<string>();
-    (timeEntries || []).forEach(entry => {
-      if (!entry.date) return; // Skip entries without date
-      try {
-        const date = new Date(entry.date);
-        if (isNaN(date.getTime())) return; // Skip invalid dates
-        const monthYear = format(date, "yyyy-MM");
-        monthYears.add(monthYear);
-      } catch {
-        // Skip invalid dates
-      }
-    });
+    (timeEntries || [])
+      .filter(entry => entry && typeof entry.id === 'number' && entry.id != null && entry.date)
+      .forEach(entry => {
+        try {
+          const date = new Date(entry.date);
+          if (isNaN(date.getTime())) return; // Skip invalid dates
+          const monthYear = format(date, "yyyy-MM");
+          monthYears.add(monthYear);
+        } catch {
+          // Skip invalid dates
+        }
+      });
     return Array.from(monthYears).sort().reverse();
   };
 
@@ -469,7 +470,7 @@ export const TimeTrackingList = ({
           <div className="space-y-2">
             {filteredAndSortedTimeEntries.map((entry) => {
               const isExpanded = expandedCards.has(entry.id);
-              const projectName = projects.find(p => p.id === ((entry as any).pr_project_id || entry.project_id))?.name;
+              const projectName = (projects || []).filter(p => p && typeof p.id === 'number').find(p => p.id === ((entry as any).pr_project_id || entry.project_id))?.name;
 
               return (
                 <Card
