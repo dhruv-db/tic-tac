@@ -150,7 +150,7 @@ export const BexioConnector = ({
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          redirectUri: productionUrl,
+          redirectUri: `${productionUrl}/api/bexio-oauth/callback`,
           state: packedState,
           platform: platform
         })
