@@ -283,7 +283,7 @@ const Index = () => {
                         .filter(user => user && typeof user.id === 'number' && user.id != null)
                         .map((user) => (
                           <SelectItem key={user.id} value={user.id.toString()}>
-                            {user.firstname} {user.lastname}
+                            {typeof user.firstname === 'string' ? user.firstname : 'Unknown'} {typeof user.lastname === 'string' ? user.lastname : 'User'}
                           </SelectItem>
                         ))}
                     </SelectContent>

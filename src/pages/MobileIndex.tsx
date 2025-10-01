@@ -493,7 +493,7 @@ const MobileIndex = () => {
                             <SelectItem value="all">All Projects</SelectItem>
                             {projects.map((project) => (
                               <SelectItem key={project.id} value={project.id?.toString() || ''}>
-                                {project.name}
+                                {typeof project.name === 'string' ? project.name : 'Unknown Project'}
                               </SelectItem>
                             ))}
                           </SelectContent>

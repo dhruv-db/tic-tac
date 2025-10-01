@@ -331,7 +331,7 @@ export const Analytics = ({ timeEntries, contacts, projects, users, isCurrentUse
                   <SelectItem value="all">All</SelectItem>
                   {contacts.slice(0, 10).map(contact => (
                     <SelectItem key={contact.id} value={contact.id?.toString() || ''}>
-                      {contact.name_1}
+                      {typeof contact.name_1 === 'string' ? contact.name_1 : 'Unknown Contact'}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -349,7 +349,7 @@ export const Analytics = ({ timeEntries, contacts, projects, users, isCurrentUse
                   <SelectItem value="all">All Projects</SelectItem>
                   {projects.slice(0, 15).map(project => (
                     <SelectItem key={project.id} value={project.id?.toString() || ''}>
-                      {project.name}
+                      {typeof project.name === 'string' ? project.name : 'Unknown Project'}
                     </SelectItem>
                   ))}
                 </SelectContent>
