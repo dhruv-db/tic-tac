@@ -175,6 +175,11 @@ export const TimeTrackingList = ({
     return 0;
   };
 
+  // Helper function to get duration from entry (checking multiple locations)
+  const getEntryDuration = (entry: TimeEntry): string | number => {
+    return entry.duration || (entry as any).tracking?.duration || '';
+  };
+
   const formatDuration = (seconds: number) => {
     const hours = Math.floor(seconds / 3600);
     const minutes = Math.floor((seconds % 3600) / 60);
@@ -193,9 +198,31 @@ export const TimeTrackingList = ({
   };
 
   // Use the timeEntries directly since filtering is handled by parent component
-  const filteredAndSortedTimeEntries = (timeEntries || []).filter(entry =>
-    entry && entry.id != null && entry.date && entry.duration != null
-  );
+  const filteredAndSortedTimeEntries = (timeEntries || []).filter(entry => {
+    // Check for duration in multiple possible locations
+    const duration = entry?.duration || (entry as any)?.tracking?.duration;
+    const hasValidDuration = duration != null && duration !== '';
+
+    const isValid = entry && entry.id != null && entry.date && hasValidDuration;
+    if (!isValid) {
+      console.log('🔍 [DEBUG] Filtering out invalid entry:', {
+        hasEntry: !!entry,
+        id: entry?.id,
+        hasDate: !!entry?.date,
+        date: entry?.date,
+        hasDuration: hasValidDuration,
+        duration: duration,
+        durationFromEntry: entry?.duration,
+        durationFromTracking: (entry as any)?.tracking?.duration,
+        allKeys: entry ? Object.keys(entry) : 'no entry',
+        trackingKeys: (entry as any)?.tracking ? Object.keys((entry as any).tracking) : 'no tracking'
+      });
+    }
+    return isValid;
+  });
+
+  console.log('🔍 [DEBUG] TimeTrackingList - Original entries:', timeEntries?.length || 0);
+  console.log('🔍 [DEBUG] TimeTrackingList - Filtered entries:', filteredAndSortedTimeEntries.length);
 
   // Get unique month/year options from time entries
   const getMonthYearOptions = () => {
@@ -501,7 +528,7 @@ export const TimeTrackingList = ({
                           <div className="flex items-center gap-1 flex-shrink-0">
                             <div className="text-right">
                               <div className="text-base font-bold text-teal-600">
-                                {formatDuration(toSeconds(entry.duration))}
+                                {formatDuration(toSeconds(getEntryDuration(entry)))}
                               </div>
                             </div>
                             {isMobile && (

@@ -766,6 +766,15 @@ export const useBexioApi = () => {
       const timeEntriesData = Array.isArray(data) ? data : [];
       console.log('🔍 [DEBUG] fetchTimeEntries - processed entries count:', timeEntriesData.length);
 
+      // Log the structure of the first few entries to understand the API response
+      if (timeEntriesData.length > 0) {
+        console.log('🔍 [DEBUG] fetchTimeEntries - First entry structure:', Object.keys(timeEntriesData[0]));
+        console.log('🔍 [DEBUG] fetchTimeEntries - First entry sample:', timeEntriesData[0]);
+        if (timeEntriesData.length > 1) {
+          console.log('🔍 [DEBUG] fetchTimeEntries - Second entry sample:', timeEntriesData[1]);
+        }
+      }
+
       // Check for malformed duration data
       const malformedEntries = timeEntriesData.filter(entry => {
         if (entry.duration === undefined || entry.duration === null) {
@@ -1518,6 +1527,7 @@ export const useBexioApi = () => {
       for (const entry of entries) {
         try {
           // Merge existing entry data with updates, preserving existing user_id
+          const entryDuration = entry.duration || (entry as any).tracking?.duration || '';
           const mergedData = {
             // Always preserve the existing user_id from the entry
             user_id: entry.user_id,
@@ -1527,7 +1537,7 @@ export const useBexioApi = () => {
             tracking: {
               type: "duration",
               date: entry.date,
-              duration: entry.duration,
+              duration: entryDuration,
             },
             contact_id: updateData.contact_id !== undefined ? updateData.contact_id : entry.contact_id,
             pr_project_id: updateData.project_id !== undefined ? updateData.project_id : entry.pr_project_id,
