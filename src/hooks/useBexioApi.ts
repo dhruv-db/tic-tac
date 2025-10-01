@@ -360,7 +360,7 @@ export const useBexioApi = () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           endpoint: '/3.0/users/me',
-          apiKey: authToken,
+          accessToken: authToken,
           companyId: credentials.companyId,
           acceptLanguage: 'en',
         }),
@@ -396,7 +396,7 @@ export const useBexioApi = () => {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             endpoint: '/3.0/users',
-            apiKey: authToken,
+            accessToken: authToken,
             companyId: credentials.companyId,
             acceptLanguage: 'en',
           }),
@@ -592,7 +592,7 @@ export const useBexioApi = () => {
      console.log('🔍 [DEBUG] fetchContacts - API URL:', apiUrl);
      console.log('🔍 [DEBUG] fetchContacts - Full request body:', {
        endpoint: '/3.0/contacts?limit=200',
-       apiKey: authToken.substring(0, 20) + '...',
+       accessToken: authToken.substring(0, 20) + '...',
        companyId: credentials.companyId,
        acceptLanguage: currentLanguage,
      });
@@ -602,7 +602,7 @@ export const useBexioApi = () => {
        headers: { 'Content-Type': 'application/json' },
        body: JSON.stringify({
          endpoint: '/3.0/contacts?limit=200',
-         apiKey: authToken,
+         accessToken: authToken,
          companyId: credentials.companyId,
          acceptLanguage: currentLanguage,
        }),
@@ -656,7 +656,7 @@ export const useBexioApi = () => {
         },
           body: JSON.stringify({
             endpoint: '/3.0/projects',
-            apiKey: authToken,
+            accessToken: authToken,
             companyId: credentials.companyId,
             acceptLanguage: currentLanguage,
           }),
@@ -743,7 +743,7 @@ export const useBexioApi = () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           endpoint: endpoint,
-          apiKey: authToken,
+          accessToken: authToken,
           companyId: credentials.companyId,
         }),
       });
@@ -824,7 +824,7 @@ export const useBexioApi = () => {
         },
         body: JSON.stringify({
           endpoint: `/3.0/projects/${projectId}/packages`,
-          apiKey: authToken,
+          accessToken: authToken,
           companyId: credentials.companyId,
           acceptLanguage: currentLanguage,
         }),
@@ -1054,7 +1054,7 @@ export const useBexioApi = () => {
               body: JSON.stringify({
                 endpoint: '/2.0/timesheet',
                 method: 'POST',
-                apiKey: authToken,
+                accessToken: authToken,
                 companyId: credentials.companyId,
                 data: bexioData,
               }),
@@ -1157,7 +1157,7 @@ export const useBexioApi = () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           endpoint: '/2.0/timesheet_status',
-          apiKey: authToken,
+          accessToken: authToken,
           companyId: credentials.companyId,
           acceptLanguage: 'en', // Always fetch in English
         }),
@@ -1218,7 +1218,7 @@ export const useBexioApi = () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           endpoint: '/2.0/client_service',
-          apiKey: authToken,
+          accessToken: authToken,
           companyId: credentials.companyId,
           acceptLanguage: 'en', // Always fetch in English
         }),
@@ -1373,7 +1373,7 @@ export const useBexioApi = () => {
         body: JSON.stringify({
           endpoint: `/2.0/timesheet/${id}`,
           method: 'POST',
-          apiKey: authToken,
+          accessToken: authToken,
           companyId: credentials.companyId,
           data: bexioData,
         }),
@@ -1429,7 +1429,7 @@ export const useBexioApi = () => {
         body: JSON.stringify({
           endpoint: `/2.0/timesheet/${id}`,
           method: 'DELETE',
-          apiKey: authToken,
+          accessToken: authToken,
           companyId: credentials.companyId,
         }),
       });
@@ -1507,7 +1507,7 @@ export const useBexioApi = () => {
             body: JSON.stringify({
               endpoint: `/2.0/timesheet/${entry.id}`,
               method: 'POST',
-              apiKey: authToken,
+              accessToken: authToken,
               companyId: credentials.companyId,
               data: mergedData,
             }),
@@ -1640,7 +1640,7 @@ export const useBexioApi = () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           endpoint: '/3.0/users',
-          apiKey: authToken,
+          accessToken: authToken,
           companyId: credentials.companyId,
           acceptLanguage: 'en',
         }),

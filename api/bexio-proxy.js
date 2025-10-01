@@ -5,7 +5,11 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { endpoint, method = 'GET', body, accessToken } = req.body;
+    const { endpoint, method = 'GET', body, accessToken, apiKey } = req.body;
+
+    console.log('🔍 [DEBUG] Proxy received request body keys:', Object.keys(req.body));
+    console.log('🔍 [DEBUG] accessToken present:', !!accessToken);
+    console.log('🔍 [DEBUG] apiKey present:', !!apiKey);
 
     if (!endpoint || !accessToken) {
       return res.status(400).json({
