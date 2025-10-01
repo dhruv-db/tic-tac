@@ -17,7 +17,7 @@ const getServerUrl = (): string => {
 
   // For iOS production builds, default to Vercel URL
   // This ensures the app connects to the correct backend
-  return 'https://tic-tac-puce-chi.vercel.app';
+  return process.env.VITE_PRODUCTION_URL || 'https://tic-tac-puce-chi.vercel.app';
 };
 
 const config: CapacitorConfig = {
@@ -46,7 +46,7 @@ const config: CapacitorConfig = {
     }
   },
   ios: {
-    scheme: 'App',
+    scheme: 'bexio-sync',
     loggingBehavior: 'none'
   }
 };

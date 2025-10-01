@@ -57,7 +57,8 @@ export default async function handler(req, res) {
     const { oauthSessions } = await import('./status/[sessionId].js');
     oauthSessions.set(sessionId, sessionData);
 
-    console.log(`OAuth session created: ${sessionId} for platform: ${sessionData.platform}`);
+    console.log(`🆕 [API] OAuth session created: ${sessionId} for platform: ${sessionData.platform} at ${new Date().toISOString()}`);
+    console.log(`🆕 [API] Total active sessions after creation: ${oauthSessions.size}`);
 
     res.status(200).json({
       authorizationUrl,

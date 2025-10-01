@@ -81,7 +81,7 @@ export default async function handler(req, res) {
           body: JSON.stringify({
             code,
             codeVerifier: 'fallback_verifier', // In production, retrieve from session storage
-            redirectUri: 'https://tic-tac-puce-chi.vercel.app/api/bexio-oauth/callback'
+            redirectUri: process.env.BEXIO_SERVER_CALLBACK_URI || `${process.env.VITE_SERVER_URL || 'https://tic-tac-puce-chi.vercel.app'}/api/bexio-oauth/callback`
           })
         });
 

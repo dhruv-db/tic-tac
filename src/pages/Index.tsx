@@ -78,7 +78,7 @@ const Index = () => {
   const [isTestingConnection, setIsTestingConnection] = useState(false);
   const [editingEntry, setEditingEntry] = useState<any>(null);
   const [calendarInitialData, setCalendarInitialData] = useState<any>(null);
-  const [logoUrl, setLogoUrl] = useState<string>(() => localStorage.getItem('adminLogoUrl') || 'https://cdn.prod.website-files.com/644a6e413354d12887abce48/678e77dc82ed84dfe2ede9f8_db%20icon%20(1).png');
+  const [logoUrl, setLogoUrl] = useState<string>(() => localStorage.getItem('adminLogoUrl') || (import.meta.env.VITE_DEFAULT_LOGO_URL || 'https://cdn.prod.website-files.com/644a6e413354d12887abce48/678e77dc82ed84dfe2ede9f8_db%20icon%20(1).png'));
   const [isLogoDialogOpen, setIsLogoDialogOpen] = useState(false);
   const [logoUrlInput, setLogoUrlInput] = useState<string>(logoUrl);
   const [selectedUserId, setSelectedUserId] = useState<number | "all" | null>(null);

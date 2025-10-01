@@ -15,7 +15,7 @@ export default async function handler(req, res) {
     }
 
     // Construct the full Bexio API URL
-    const baseUrl = 'https://api.bexio.com';
+    const baseUrl = process.env.BEXIO_API_BASE_URL || 'https://api.bexio.com';
     const apiUrl = endpoint.startsWith('http')
       ? endpoint
       : `${baseUrl}${endpoint.startsWith('/') ? '' : '/'}${endpoint}`;

@@ -55,7 +55,7 @@ export const getConfig = {
 
     // For mobile native platforms, ensure we use production URL
     if (Capacitor.isNativePlatform()) {
-      return 'https://tic-tac-puce-chi.vercel.app';
+      return import.meta.env.VITE_PRODUCTION_URL || 'https://tic-tac-puce-chi.vercel.app';
     }
 
     // Fallback for development

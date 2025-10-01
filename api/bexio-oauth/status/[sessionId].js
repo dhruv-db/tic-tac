@@ -40,7 +40,8 @@ function handleGetStatus(req, res) {
       });
     }
 
-    console.log(`OAuth status check for session: ${sessionId}`);
+    console.log(`🔄 [API] OAuth status check for session: ${sessionId} at ${new Date().toISOString()}`);
+    console.log(`🔄 [API] Total active sessions: ${oauthSessions.size}`);
 
     const session = oauthSessions.get(sessionId);
 
@@ -111,7 +112,8 @@ function handleUpdateStatus(req, res) {
     };
 
     oauthSessions.set(sessionId, sessionData);
-    console.log(`OAuth session ${sessionId} updated:`, sessionData);
+    console.log(`📝 [API] OAuth session ${sessionId} updated to status: ${sessionData.status} at ${new Date().toISOString()}`);
+    console.log(`📝 [API] Total active sessions after update: ${oauthSessions.size}`);
 
     res.status(200).json({
       success: true,
@@ -141,7 +143,8 @@ function handleDeleteSession(req, res) {
     }
 
     const deleted = oauthSessions.delete(sessionId);
-    console.log(`OAuth session ${sessionId} deleted:`, deleted);
+    console.log(`🗑️ [API] OAuth session ${sessionId} deleted: ${deleted} at ${new Date().toISOString()}`);
+    console.log(`🗑️ [API] Total active sessions after deletion: ${oauthSessions.size}`);
 
     res.status(200).json({
       success: true,

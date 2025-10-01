@@ -164,7 +164,7 @@ const RouterContent = () => {
     if (Capacitor.isNativePlatform()) {
       console.log('🔗 Setting up deep link listener for OAuth callbacks');
 
-      const handleDeepLink = (event: any) => {
+      const handleDeepLink = async (event: any) => {
          try {
            console.log('🔗 ===== DEEP LINK RECEIVED =====');
            console.log('🔗 Deep link event:', event);
@@ -186,33 +186,94 @@ const RouterContent = () => {
              host: url.host
            });
 
-           // Check if this is an OAuth callback
-           if (url.pathname === '/oauth/callback' || url.href.includes('oauth/callback')) {
+           // Check if this is an OAuth callback (either web or custom scheme)
+           if (url.pathname === '/oauth/callback' || url.href.includes('oauth/callback') || (url.protocol === 'bexio-sync:' && url.pathname === '/oauth-complete')) {
              console.log('🔗 ✅ OAuth callback detected via deep link');
 
              const params = new URLSearchParams(url.search);
              const code = params.get('code');
              const state = params.get('state');
+             const sessionId = params.get('sessionId');
              const error = params.get('error');
 
              console.log('🔗 OAuth callback params:', {
                code: code ? `${code.substring(0, 20)}...` : 'missing',
                state: state ? `${state.substring(0, 20)}...` : 'missing',
+               sessionId: sessionId ? `${sessionId.substring(0, 20)}...` : 'missing',
                error
              });
 
              if (error) {
                console.error('❌ OAuth error via deep link:', error);
+               // Handle error by showing toast
+               toast({
+                 title: 'Authentication Failed',
+                 description: `OAuth error: ${error}`,
+                 variant: 'destructive',
+               });
                return;
              }
 
-             if (code) {
+             if (sessionId) {
+               console.log('✅ Processing OAuth sessionId from custom scheme redirect...');
+               // Handle the custom scheme redirect with sessionId
+               // Poll for the OAuth status using the sessionId
+               try {
+                 const response = await fetch(`${getConfig.serverUrl()}/api/bexio-oauth/status/${sessionId}`, {
+                   method: 'GET',
+                   headers: {
+                     'Content-Type': 'application/json',
+                   },
+                 });
+
+                 if (response.ok) {
+                   const statusData = await response.json();
+                   console.log('✅ OAuth status retrieved:', statusData);
+
+                   if (statusData.status === 'completed' && statusData.tokens) {
+                     console.log('🎉 OAuth completed via custom scheme redirect');
+                     await connectWithOAuth(
+                       statusData.tokens.access_token,
+                       statusData.tokens.refresh_token,
+                       statusData.company_id || statusData.tokens.company_id,
+                       statusData.user_email || statusData.tokens.user_email
+                     );
+
+                     toast({
+                       title: 'Authentication Successful!',
+                       description: 'You have been successfully connected to Bexio.',
+                     });
+                   } else if (statusData.status === 'failed') {
+                     console.error('❌ OAuth failed:', statusData.error);
+                     toast({
+                       title: 'Authentication Failed',
+                       description: statusData.error || 'OAuth authentication failed.',
+                       variant: 'destructive',
+                     });
+                   }
+                 } else {
+                   console.error('❌ Failed to get OAuth status');
+                   toast({
+                     title: 'Authentication Error',
+                     description: 'Failed to retrieve authentication status.',
+                     variant: 'destructive',
+                   });
+                 }
+               } catch (statusError) {
+                 console.error('❌ Error retrieving OAuth status:', statusError);
+                 toast({
+                   title: 'Authentication Error',
+                   description: 'Failed to complete authentication.',
+                   variant: 'destructive',
+                 });
+               }
+             } else if (code) {
                console.log('✅ Processing OAuth code from deep link, navigating to callback route...');
                // Navigate to the OAuth callback route to handle the code
                navigate(`/oauth/callback${url.search}`, { replace: true });
                console.log('🔗 Navigation triggered to:', `/oauth/callback${url.search}`);
              } else {
-               console.warn('🔗 No authorization code found in deep link');
+               console.warn('🔗 No authorization code or sessionId found in deep link');
              }
            } else {
              console.log('🔗 Not an OAuth callback URL, ignoring');

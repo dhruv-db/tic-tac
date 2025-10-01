@@ -1,6 +1,5 @@
 // Simple Express server to serve API endpoints for development
 const express = require('express');
-const path = require('path');
 const cors = require('cors');
 
 const app = express();
@@ -55,7 +54,7 @@ app.post('/api/bexio-oauth/auth', (req, res) => {
 
   // Return mock OAuth URL for development
   res.json({
-    authorizationUrl: `https://auth.bexio.com/realms/bexio/protocol/openid-connect/auth?client_id=test&redirect_uri=test&response_type=code&scope=openid&state=${state}`,
+    authorizationUrl: `${process.env.BEXIO_OAUTH_AUTH_URL || 'https://auth.bexio.com/realms/bexio/protocol/openid-connect/auth'}?client_id=test&redirect_uri=test&response_type=code&scope=openid&state=${state}`,
     codeVerifier: 'test_verifier',
     state,
     sessionId: state,
