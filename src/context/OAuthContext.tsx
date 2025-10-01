@@ -523,12 +523,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
       }
 
-      const data = await response.json();
-      const items = Array.isArray(data)
-        ? data
-        : (Array.isArray((data as any)?.data)
-            ? (data as any).data
-            : (data && typeof data === 'object' ? [data as any] : []));
+      const responseWrapper = await response.json();
+      const data = responseWrapper.data;
+      const items = Array.isArray(data) ? data : [];
       setContacts(items.filter(c => c && typeof c.id === 'number' && c.id != null));
       setHasInitiallyLoaded(prev => ({ ...prev, contacts: true }));
 
@@ -575,7 +572,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
       }
 
-      const data = await response.json();
+      const responseWrapper = await response.json();
+      const data = responseWrapper.data;
       setProjects(Array.isArray(data) ? data.filter(p => p && typeof p.id === 'number' && p.id != null) : []);
       setHasInitiallyLoaded(prev => ({ ...prev, projects: true }));
 
@@ -633,7 +631,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         throw new Error(errorData.error || `Bexio API error: ${response.status}`);
       }
 
-      const data = await response.json();
+      const responseWrapper = await response.json();
+      const data = responseWrapper.data;
       console.log('🔍 [DEBUG] OAuthContext fetchTimeEntries - raw data:', data);
       const timeEntriesData = Array.isArray(data) ? data : [];
       console.log('🔍 [DEBUG] OAuthContext fetchTimeEntries - processed entries count:', timeEntriesData.length);
@@ -721,7 +720,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
       }
 
-      const data = await response.json();
+      const responseWrapper = await response.json();
+      const data = responseWrapper.data;
       console.log('👥 [DEBUG] Raw users data:', data);
 
       const fetchedUsers = Array.isArray(data) ? data.map((u: any) => ({
@@ -784,7 +784,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
 
       if (meResponse.ok) {
-        const userData = await meResponse.json();
+        const responseWrapper = await meResponse.json();
+        const userData = responseWrapper.data;
         const currentUser: BexioUser = {
           id: userData.id,
           salutation_type: userData.salutation_type,
@@ -889,7 +890,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
       }
 
-      const data = await response.json();
+      const responseWrapper = await response.json();
+      const data = responseWrapper.data;
       console.log('✅ Received timesheet statuses:', data);
 
       const statuses = Array.isArray(data) ? data.map((status: any) => ({
@@ -948,7 +950,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
       }
 
-      const data = await response.json();
+      const responseWrapper = await response.json();
+      const data = responseWrapper.data;
       console.log('✅ Received business activities:', data);
 
       const activities = Array.isArray(data) ? data.map((a: any) => ({
