@@ -581,23 +581,32 @@ export const useBexioApi = () => {
 
 
   const fetchContacts = useCallback(async () => {
-    if (!credentials || isLoadingContacts) return;
+   if (!credentials || isLoadingContacts) return;
 
-    const authToken = await ensureValidToken();
-    if (!authToken) return;
+   const authToken = await ensureValidToken();
+   if (!authToken) return;
 
-    setIsLoadingContacts(true);
-    try {
-      const response = await fetch(`getBackendApiUrl()`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          endpoint: '/3.0/contacts?limit=200',
-          apiKey: authToken,
-          companyId: credentials.companyId,
-          acceptLanguage: currentLanguage,
-        }),
-      });
+   setIsLoadingContacts(true);
+   try {
+     const apiUrl = getBackendApiUrl();
+     console.log('🔍 [DEBUG] fetchContacts - API URL:', apiUrl);
+     console.log('🔍 [DEBUG] fetchContacts - Full request body:', {
+       endpoint: '/3.0/contacts?limit=200',
+       apiKey: authToken.substring(0, 20) + '...',
+       companyId: credentials.companyId,
+       acceptLanguage: currentLanguage,
+     });
+
+     const response = await fetch(getBackendApiUrl(), {
+       method: 'POST',
+       headers: { 'Content-Type': 'application/json' },
+       body: JSON.stringify({
+         endpoint: '/3.0/contacts?limit=200',
+         apiKey: authToken,
+         companyId: credentials.companyId,
+         acceptLanguage: currentLanguage,
+       }),
+     });
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
@@ -640,7 +649,7 @@ export const useBexioApi = () => {
 
     setIsLoadingProjects(true);
     try {
-      const response = await fetch(`getBackendApiUrl()`, {
+      const response = await fetch(getBackendApiUrl(), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -689,7 +698,7 @@ export const useBexioApi = () => {
     if (!credentials || isLoadingTimeEntries) return;
 
     // Build endpoint with optional date filtering
-    let endpoint = '/timesheet';
+    let endpoint = '/2.0/timesheet';
     const params: string[] = [];
     
     if (dateRange) {
@@ -729,7 +738,7 @@ export const useBexioApi = () => {
 
     setIsLoadingTimeEntries(true);
     try {
-      const response = await fetch(`getBackendApiUrl()`, {
+      const response = await fetch(getBackendApiUrl(), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -808,7 +817,7 @@ export const useBexioApi = () => {
     console.log(`🔍 Fetching work packages for project ID: ${projectId}`);
     
     try {
-      const response = await fetch(`getBackendApiUrl()`, {
+      const response = await fetch(getBackendApiUrl(), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -1039,11 +1048,11 @@ export const useBexioApi = () => {
         const maxRetries = 3;
         for (let attempt = 1; attempt <= maxRetries; attempt++) {
           try {
-            const response = await fetch(`getBackendApiUrl()`, {
+            const response = await fetch(getBackendApiUrl(), {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
-                endpoint: '/timesheet',
+                endpoint: '/2.0/timesheet',
                 method: 'POST',
                 apiKey: authToken,
                 companyId: credentials.companyId,
@@ -1143,11 +1152,11 @@ export const useBexioApi = () => {
     console.log('🔍 Fetching timesheet statuses from Bexio');
     
     try {
-      const response = await fetch(`getBackendApiUrl()`, {
+      const response = await fetch(getBackendApiUrl(), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          endpoint: '/timesheet_status',
+          endpoint: '/2.0/timesheet_status',
           apiKey: authToken,
           companyId: credentials.companyId,
           acceptLanguage: 'en', // Always fetch in English
@@ -1204,11 +1213,11 @@ export const useBexioApi = () => {
     console.log('🔍 Fetching business activities from Bexio');
 
     try {
-      const response = await fetch(`getBackendApiUrl()`, {
+      const response = await fetch(getBackendApiUrl(), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          endpoint: '/client_service',
+          endpoint: '/2.0/client_service',
           apiKey: authToken,
           companyId: credentials.companyId,
           acceptLanguage: 'en', // Always fetch in English
@@ -1358,7 +1367,7 @@ export const useBexioApi = () => {
       console.log('Updating time entry with data:', { id, data: bexioData });
 
       // Use POST method with 2.0 API (per Bexio docs)
-      const putResponse = await fetch(`getBackendApiUrl()`, {
+      const putResponse = await fetch(getBackendApiUrl(), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1412,13 +1421,13 @@ export const useBexioApi = () => {
     if (!authToken) return;
 
     try {
-      const response = await fetch(`getBackendApiUrl()`, {
+      const response = await fetch(getBackendApiUrl(), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          endpoint: `/timesheet/${id}`,
+          endpoint: `/2.0/timesheet/${id}`,
           method: 'DELETE',
           apiKey: authToken,
           companyId: credentials.companyId,
@@ -1492,7 +1501,7 @@ export const useBexioApi = () => {
           console.log(`📝 Updating entry ${entry.id} with:`, mergedData);
 
           // Use POST method with 2.0 API (per Bexio docs)
-          const putResponse = await fetch(`getBackendApiUrl()`, {
+          const putResponse = await fetch(getBackendApiUrl(), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -1626,7 +1635,7 @@ export const useBexioApi = () => {
     console.log('🔍 Fetching users from Bexio');
 
     try {
-      const response = await fetch(`getBackendApiUrl()`, {
+      const response = await fetch(getBackendApiUrl(), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

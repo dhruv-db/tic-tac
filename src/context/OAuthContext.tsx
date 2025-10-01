@@ -603,7 +603,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     setIsLoadingTimeEntries(true);
     try {
-      let endpoint = '/timesheet';
+      let endpoint = '/2.0/timesheet';
       const params: string[] = [];
 
       if (dateRange) {
@@ -853,7 +853,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          endpoint: '/timesheet_status',
+          endpoint: '/2.0/timesheet_status',
           apiKey: authToken,
           companyId: credentials.companyId,
         }),
@@ -912,7 +912,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          endpoint: '/client_service',
+          endpoint: '/2.0/client_service',
           apiKey: authToken,
           companyId: credentials.companyId,
         }),
@@ -1067,7 +1067,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 'Content-Type': 'application/json',
               },
               body: JSON.stringify({
-                endpoint: '/timesheet',
+                endpoint: '/2.0/timesheet',
                 method: 'POST',
                 apiKey: authToken,
                 companyId: credentials.companyId,
@@ -1268,7 +1268,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          endpoint: `/timesheet/${id}`,
+          endpoint: `/2.0/timesheet/${id}`,
           method: 'DELETE',
           apiKey: authToken,
           companyId: credentials.companyId,
