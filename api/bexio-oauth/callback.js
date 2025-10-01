@@ -72,15 +72,19 @@ export default async function handler(req, res) {
           throw new Error('OAuth credentials not configured');
         }
 
-        // Retrieve codeVerifier from session
-        const { oauthSessions } = await import('./status/[sessionId].js');
-        const session = oauthSessions.get(state);
-        const retrievedCodeVerifier = session?.codeVerifier || 'fallback_verifier';
+        // Parse state parameter to extract sessionId and codeVerifier
+        // Format: sessionId:codeVerifier
+        const stateParts = state.split(':');
+        if (stateParts.length !== 2) {
+          throw new Error('Invalid state parameter format');
+        }
+        const sessionId = stateParts[0];
+        const retrievedCodeVerifier = stateParts[1];
 
-        console.log('🔍 [DEBUG] Session data for state:', state, {
-          sessionExists: !!session,
-          hasCodeVerifier: !!session?.codeVerifier,
-          codeVerifierLength: session?.codeVerifier?.length,
+        console.log('🔍 [DEBUG] Parsed state data:', {
+          originalState: state,
+          sessionId,
+          codeVerifierLength: retrievedCodeVerifier?.length,
           retrievedCodeVerifier: retrievedCodeVerifier
         });
 
@@ -109,7 +113,7 @@ export default async function handler(req, res) {
         try {
           const { oauthSessions } = await import('./status/[sessionId].js');
           const sessionUpdate = {
-            sessionId: state,
+            sessionId,
             status: 'completed',
             tokens: {
               access_token: tokenData.accessToken,
@@ -123,10 +127,10 @@ export default async function handler(req, res) {
           };
 
           // Update session in storage
-          const existingSession = oauthSessions.get(state);
+          const existingSession = oauthSessions.get(sessionId);
           if (existingSession) {
-            oauthSessions.set(state, { ...existingSession, ...sessionUpdate });
-            console.log(`✅ OAuth session ${state} marked as completed`);
+            oauthSessions.set(sessionId, { ...existingSession, ...sessionUpdate });
+            console.log(`✅ OAuth session ${sessionId} marked as completed`);
           }
         } catch (sessionError) {
           console.error('❌ Failed to update OAuth session status:', sessionError);

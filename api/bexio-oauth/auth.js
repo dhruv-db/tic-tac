@@ -30,13 +30,17 @@ export default async function handler(req, res) {
     const codeVerifier = generateCodeVerifier();
     const codeChallenge = await generateCodeChallenge(codeVerifier);
 
+    // Encode codeVerifier in state parameter for serverless compatibility
+    // Format: sessionId:codeVerifier
+    const encodedState = `${state}:${codeVerifier}`;
+
     // Construct Bexio authorization URL
     const params = new URLSearchParams({
       response_type: 'code',
       client_id: clientId,
       redirect_uri: redirectUri,
       scope: 'openid profile email offline_access contact_show contact_edit monitoring_show monitoring_edit project_show',
-      state: state,
+      state: encodedState,
       code_challenge: codeChallenge,
       code_challenge_method: 'S256'
     });
