@@ -762,7 +762,28 @@ export const useBexioApi = () => {
       }
 
       const data = await response.json();
-      setTimeEntries(Array.isArray(data) ? data : []);
+      console.log('🔍 [DEBUG] fetchTimeEntries - raw data:', data);
+      const timeEntriesData = Array.isArray(data) ? data : [];
+      console.log('🔍 [DEBUG] fetchTimeEntries - processed entries count:', timeEntriesData.length);
+
+      // Check for malformed duration data
+      const malformedEntries = timeEntriesData.filter(entry => {
+        if (entry.duration === undefined || entry.duration === null) {
+          console.error('❌ [ERROR] Time entry with undefined/null duration:', entry);
+          return true;
+        }
+        if (typeof entry.duration === 'string' && !entry.duration.includes(':')) {
+          console.warn('⚠️ [WARN] Time entry with malformed duration string (no colon):', entry.duration, entry);
+          return true;
+        }
+        return false;
+      });
+
+      if (malformedEntries.length > 0) {
+        console.error('❌ [ERROR] Found malformed time entries:', malformedEntries);
+      }
+
+      setTimeEntries(timeEntriesData);
       setHasInitiallyLoaded(prev => ({ ...prev, timeEntries: true }));
 
       const quiet = options?.quiet !== false; // default quiet
@@ -965,7 +986,15 @@ export const useBexioApi = () => {
       
       if (timeEntryData.useDuration && timeEntryData.duration) {
         // Use direct duration input
-        const [hours, minutes] = timeEntryData.duration.split(':').map(Number);
+        console.log('🔍 [DEBUG] Parsing duration string:', timeEntryData.duration);
+        const durationParts = timeEntryData.duration.split(':').map(Number);
+        console.log('🔍 [DEBUG] Duration parts:', durationParts);
+        const [hours, minutes] = durationParts;
+        console.log('🔍 [DEBUG] Hours:', hours, 'Minutes:', minutes, 'Minutes type:', typeof minutes);
+        if (minutes === undefined) {
+          console.error('❌ [ERROR] Minutes is undefined! Duration string malformed:', timeEntryData.duration);
+          throw new Error(`Invalid duration format: ${timeEntryData.duration}. Expected HH:MM format.`);
+        }
         durationString = `${hours}:${minutes.toString().padStart(2, '0')}`;
       } else {
         // Calculate from start/end times
@@ -1332,7 +1361,15 @@ export const useBexioApi = () => {
       let durationString: string;
       
       if (timeEntryData.useDuration && timeEntryData.duration) {
-        const [hours, minutes] = timeEntryData.duration.split(':').map(Number);
+        console.log('🔍 [DEBUG] Parsing duration string in update:', timeEntryData.duration);
+        const durationParts = timeEntryData.duration.split(':').map(Number);
+        console.log('🔍 [DEBUG] Duration parts in update:', durationParts);
+        const [hours, minutes] = durationParts;
+        console.log('🔍 [DEBUG] Hours:', hours, 'Minutes:', minutes, 'Minutes type:', typeof minutes);
+        if (minutes === undefined) {
+          console.error('❌ [ERROR] Minutes is undefined in update! Duration string malformed:', timeEntryData.duration);
+          throw new Error(`Invalid duration format: ${timeEntryData.duration}. Expected HH:MM format.`);
+        }
         durationString = `${hours}:${minutes.toString().padStart(2, '0')}`;
       } else {
         const [startHours, startMinutes] = (timeEntryData.startTime || "09:00").split(':').map(Number);

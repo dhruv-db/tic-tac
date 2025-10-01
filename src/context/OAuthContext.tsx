@@ -634,7 +634,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       const data = await response.json();
-      setTimeEntries(Array.isArray(data) ? data : []);
+      console.log('🔍 [DEBUG] OAuthContext fetchTimeEntries - raw data:', data);
+      const timeEntriesData = Array.isArray(data) ? data : [];
+      console.log('🔍 [DEBUG] OAuthContext fetchTimeEntries - processed entries count:', timeEntriesData.length);
+
+      // Check for malformed duration data
+      const malformedEntries = timeEntriesData.filter(entry => {
+        if (entry.duration === undefined || entry.duration === null) {
+          console.error('❌ [ERROR] OAuthContext - Time entry with undefined/null duration:', entry);
+          return true;
+        }
+        if (typeof entry.duration === 'string' && !entry.duration.includes(':')) {
+          console.warn('⚠️ [WARN] OAuthContext - Time entry with malformed duration string (no colon):', entry.duration, entry);
+          return true;
+        }
+        return false;
+      });
+
+      if (malformedEntries.length > 0) {
+        console.error('❌ [ERROR] OAuthContext - Found malformed time entries:', malformedEntries);
+      }
+
+      setTimeEntries(timeEntriesData);
       setHasInitiallyLoaded(prev => ({ ...prev, timeEntries: true }));
 
       const quiet = options?.quiet !== false;
@@ -982,7 +1003,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       let durationString: string;
 
       if (timeEntryData.useDuration && timeEntryData.duration) {
-        const [hours, minutes] = timeEntryData.duration.split(':').map(Number);
+        console.log('🔍 [DEBUG] OAuthContext - Parsing duration string:', timeEntryData.duration);
+        const durationParts = timeEntryData.duration.split(':').map(Number);
+        console.log('🔍 [DEBUG] OAuthContext - Duration parts:', durationParts);
+        const [hours, minutes] = durationParts;
+        console.log('🔍 [DEBUG] OAuthContext - Hours:', hours, 'Minutes:', minutes, 'Minutes type:', typeof minutes);
+        if (minutes === undefined) {
+          console.error('❌ [ERROR] OAuthContext - Minutes is undefined! Duration string malformed:', timeEntryData.duration);
+          throw new Error(`Invalid duration format: ${timeEntryData.duration}. Expected HH:MM format.`);
+        }
         durationString = `${hours}:${minutes.toString().padStart(2, '0')}`;
       } else {
         const [startHours, startMinutes] = (timeEntryData.startTime || "09:00").split(':').map(Number);
@@ -1175,7 +1204,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       let durationString: string;
 
       if (timeEntryData.useDuration && timeEntryData.duration) {
-        const [hours, minutes] = timeEntryData.duration.split(':').map(Number);
+        console.log('🔍 [DEBUG] OAuthContext update - Parsing duration string:', timeEntryData.duration);
+        const durationParts = timeEntryData.duration.split(':').map(Number);
+        console.log('🔍 [DEBUG] OAuthContext update - Duration parts:', durationParts);
+        const [hours, minutes] = durationParts;
+        console.log('🔍 [DEBUG] OAuthContext update - Hours:', hours, 'Minutes:', minutes, 'Minutes type:', typeof minutes);
+        if (minutes === undefined) {
+          console.error('❌ [ERROR] OAuthContext update - Minutes is undefined! Duration string malformed:', timeEntryData.duration);
+          throw new Error(`Invalid duration format: ${timeEntryData.duration}. Expected HH:MM format.`);
+        }
         durationString = `${hours}:${minutes.toString().padStart(2, '0')}`;
       } else {
         const [startHours, startMinutes] = (timeEntryData.startTime || "09:00").split(':').map(Number);
