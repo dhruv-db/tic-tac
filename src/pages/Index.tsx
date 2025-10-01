@@ -88,7 +88,7 @@ const Index = () => {
 
   // Set default user filter to current user when available
   useEffect(() => {
-    if (currentBexioUserId && selectedUserId === null) {
+    if (typeof currentBexioUserId === 'number' && selectedUserId === null) {
       setSelectedUserId(currentBexioUserId);
     }
   }, [currentBexioUserId, selectedUserId]);

@@ -368,6 +368,11 @@ export const useBexioApi = () => {
 
       if (meResponse.ok) {
         const userData = await meResponse.json();
+        if (typeof userData.id !== 'number') {
+          console.error('Invalid user id type:', typeof userData.id, userData.id);
+          return null;
+        }
+
         const currentUser: BexioUser = {
           id: userData.id,
           salutation_type: userData.salutation_type,
@@ -409,6 +414,11 @@ export const useBexioApi = () => {
             : null;
             
           if (currentUser) {
+            if (typeof currentUser.id !== 'number') {
+              console.error('Invalid user id type from email match:', typeof currentUser.id, currentUser.id);
+              return null;
+            }
+
             const user: BexioUser = {
               id: currentUser.id,
               salutation_type: currentUser.salutation_type,
@@ -435,11 +445,13 @@ export const useBexioApi = () => {
     const storedUserId = localStorage.getItem('selectedBexioUserId');
     if (storedUserId) {
       const userId = parseInt(storedUserId);
-      const isAdmin = localStorage.getItem('isCurrentUserAdmin') === 'true';
-      setCurrentBexioUserId(userId);
-      setIsCurrentUserAdmin(isAdmin);
-      console.log(`🔐 Using stored user ID: ${userId} (admin: ${isAdmin})`);
-      return { id: userId, is_superadmin: isAdmin, is_accountant: false } as BexioUser;
+      if (!isNaN(userId)) {
+        const isAdmin = localStorage.getItem('isCurrentUserAdmin') === 'true';
+        setCurrentBexioUserId(userId);
+        setIsCurrentUserAdmin(isAdmin);
+        console.log(`🔐 Using stored user ID: ${userId} (admin: ${isAdmin})`);
+        return { id: userId, is_superadmin: isAdmin, is_accountant: false } as BexioUser;
+      }
     }
 
     console.warn('❌ Could not identify current user');
