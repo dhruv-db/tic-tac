@@ -72,6 +72,18 @@ export default async function handler(req, res) {
           throw new Error('OAuth credentials not configured');
         }
 
+        // Retrieve codeVerifier from session
+        const { oauthSessions } = await import('./status/[sessionId].js');
+        const session = oauthSessions.get(state);
+        const retrievedCodeVerifier = session?.codeVerifier || 'fallback_verifier';
+
+        console.log('🔍 [DEBUG] Session data for state:', state, {
+          sessionExists: !!session,
+          hasCodeVerifier: !!session?.codeVerifier,
+          codeVerifierLength: session?.codeVerifier?.length,
+          retrievedCodeVerifier: retrievedCodeVerifier
+        });
+
         // Exchange code for tokens using our exchange endpoint
         const exchangeResponse = await fetch(`${process.env.VITE_SERVER_URL || 'https://tic-tac-puce-chi.vercel.app'}/api/bexio-oauth/exchange`, {
           method: 'POST',
@@ -80,7 +92,7 @@ export default async function handler(req, res) {
           },
           body: JSON.stringify({
             code,
-            codeVerifier: 'fallback_verifier', // In production, retrieve from session storage
+            codeVerifier: retrievedCodeVerifier,
             redirectUri: process.env.BEXIO_SERVER_CALLBACK_URI || `${process.env.VITE_SERVER_URL || 'https://tic-tac-puce-chi.vercel.app'}/api/bexio-oauth/callback`
           })
         });

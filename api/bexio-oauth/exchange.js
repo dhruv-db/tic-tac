@@ -7,6 +7,15 @@ export default async function handler(req, res) {
   try {
     const { code, codeVerifier, redirectUri } = req.body;
 
+    console.log('🔍 [DEBUG] Exchange request received:', {
+      hasCode: !!code,
+      codeLength: code?.length,
+      hasCodeVerifier: !!codeVerifier,
+      codeVerifierLength: codeVerifier?.length,
+      codeVerifierValue: codeVerifier,
+      hasRedirectUri: !!redirectUri
+    });
+
     if (!code || !codeVerifier || !redirectUri) {
       return res.status(400).json({
         error: 'Missing required parameters',
