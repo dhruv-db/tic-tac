@@ -91,7 +91,7 @@ export function MobileOAuth() {
       }
 
       const redirectUri = isNativePlatform
-        ? import.meta.env.VITE_BEXIO_MOBILE_REDIRECT_URI || 'bexiosyncbuddy://oauth/callback'
+        ? import.meta.env.VITE_BEXIO_MOBILE_REDIRECT_URI || 'https://tic-tac-puce-chi.vercel.app/api/bexio-oauth/callback'
         : import.meta.env.VITE_BEXIO_WEB_REDIRECT_URI || `${window.location.origin}/oauth-complete.html`;
 
       console.log('🔗 Exchanging code for tokens directly with Bexio...');
@@ -233,6 +233,8 @@ export function MobileOAuth() {
       setRetryCount(0);
     }
 
+    let currentSessionId = null;
+
     try {
       // Get Bexio OAuth credentials from environment
       const clientId = import.meta.env.VITE_BEXIO_CLIENT_ID;
@@ -310,7 +312,7 @@ export function MobileOAuth() {
       localStorage.setItem('bexio_oauth_state', state);
 
       const redirectUri = isNativePlatform
-        ? import.meta.env.VITE_BEXIO_MOBILE_REDIRECT_URI || 'bexiosyncbuddy://oauth/callback'
+        ? import.meta.env.VITE_BEXIO_MOBILE_REDIRECT_URI || 'https://tic-tac-puce-chi.vercel.app/api/bexio-oauth/callback'
         : import.meta.env.VITE_BEXIO_WEB_REDIRECT_URI || `${window.location.origin}/oauth-complete.html`;
 
       const params = new URLSearchParams({
@@ -399,18 +401,36 @@ export function MobileOAuth() {
         }
       }
 
+      // Store session ID for polling
+      currentSessionId = state;
+      console.log('💾 Stored session ID for polling:', currentSessionId);
+
       // Step 4: Set timeout for OAuth flow (5 minutes)
       const timeoutId = setTimeout(() => {
         console.log('⏰ OAuth timeout reached');
         setIsAuthenticating(false);
         localStorage.removeItem('bexio_oauth_code_verifier');
         localStorage.removeItem('bexio_oauth_state');
+
+        // Clean up session on timeout
+        if (currentSessionId) {
+          fetch(`${getConfig.serverUrl()}/api/bexio-oauth/status/${currentSessionId}`, {
+            method: 'DELETE'
+          }).catch(console.error);
+        }
+
         toast({
           title: 'Authentication Timeout',
           description: 'OAuth authentication timed out. Please try again.',
           variant: 'destructive',
         });
       }, 5 * 60 * 1000);
+
+      // Step 5: Start polling for OAuth completion with a small delay to ensure session is created
+      console.log('🔄 Starting OAuth status polling...');
+      setTimeout(() => {
+        pollOAuthStatus(currentSessionId);
+      }, 1000); // 1 second delay to ensure session is created
 
       console.log('✅ OAuth flow initiated successfully');
       console.log('🚀 ===== MOBILE OAUTH LOGIN END =====');
@@ -431,6 +451,19 @@ export function MobileOAuth() {
       // Clean up OAuth state on error
       localStorage.removeItem('bexio_oauth_code_verifier');
       localStorage.removeItem('bexio_oauth_state');
+
+      // Clean up server-side session on error
+      if (currentSessionId) {
+        try {
+          await fetch(`${getConfig.serverUrl()}/api/bexio-oauth/status/${currentSessionId}`, {
+            method: 'DELETE'
+          });
+          console.log('🧹 Cleaned up OAuth session after error:', currentSessionId);
+        } catch (cleanupError) {
+          console.error('❌ Failed to cleanup session after error:', cleanupError);
+        }
+      }
+
       setIsRetrying(false);
 
       // Show retry option for certain errors
@@ -487,6 +520,156 @@ export function MobileOAuth() {
     console.log('🚀 [DEBUG] Not connected, starting OAuth directly...');
     await performOAuthLogin(false);
   };
+
+  // Enhanced polling for OAuth status with reduced frequency to prevent WebView crashes
+  const pollOAuthStatus = useCallback(async (sessionId: string, maxAttempts: number = 60) => {
+    console.log('🔄 [DEBUG] Starting OAuth status polling for session:', sessionId);
+    let attempts = 0;
+    let pollInterval: NodeJS.Timeout;
+
+    const performPoll = async () => {
+      attempts++;
+      console.log(`🔄 [DEBUG] OAuth polling attempt ${attempts}/${maxAttempts}`);
+
+      if (attempts >= maxAttempts) {
+        console.log('⏰ [DEBUG] OAuth polling timeout reached');
+        if (pollInterval) clearInterval(pollInterval);
+
+        // Clean up session on timeout
+        try {
+          await fetch(`${getConfig.serverUrl()}/api/bexio-oauth/status/${sessionId}`, {
+            method: 'DELETE'
+          });
+        } catch (cleanupError) {
+          console.error('Failed to cleanup session:', cleanupError);
+        }
+
+        toast({
+          title: 'Authentication Timeout',
+          description: 'OAuth authentication timed out. Please try again.',
+          variant: 'destructive',
+        });
+        setIsAuthenticating(false);
+        return;
+      }
+
+      try {
+        const serverUrl = getConfig.serverUrl();
+        console.log(`🔄 [DEBUG] Polling URL: ${serverUrl}/api/bexio-oauth/status/${sessionId}`);
+
+        const response = await fetch(`${serverUrl}/api/bexio-oauth/status/${sessionId}`, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        });
+
+        console.log(`🔄 [DEBUG] Poll response status: ${response.status}`);
+
+        if (response.ok) {
+          const statusData = await response.json();
+          console.log('✅ [DEBUG] OAuth status check successful:', statusData);
+
+          if (statusData.status === 'completed' && statusData.completed) {
+            console.log('🎉 [DEBUG] OAuth completed via polling!');
+            if (pollInterval) clearInterval(pollInterval);
+
+            // Clean up session after successful completion
+            try {
+              await fetch(`${serverUrl}/api/bexio-oauth/status/${sessionId}`, {
+                method: 'DELETE'
+              });
+            } catch (cleanupError) {
+              console.error('Failed to cleanup session:', cleanupError);
+            }
+
+            // Process the completed OAuth
+            if (statusData.tokens) {
+              await connectWithOAuth(
+                statusData.tokens.access_token,
+                statusData.tokens.refresh_token,
+                statusData.company_id || statusData.tokens.company_id,
+                statusData.user_email || statusData.tokens.user_email
+              );
+            }
+
+            toast({
+              title: 'Authentication Successful!',
+              description: 'You have been successfully connected to Bexio.',
+            });
+
+            setIsAuthenticating(false);
+            return;
+          } else if (statusData.status === 'failed') {
+            console.log('❌ [DEBUG] OAuth failed via polling:', statusData.error);
+            if (pollInterval) clearInterval(pollInterval);
+
+            // Clean up session after failure
+            try {
+              await fetch(`${serverUrl}/api/bexio-oauth/status/${sessionId}`, {
+                method: 'DELETE'
+              });
+            } catch (cleanupError) {
+              console.error('Failed to cleanup session:', cleanupError);
+            }
+
+            toast({
+              title: 'Authentication Failed',
+              description: statusData.error || 'OAuth authentication failed.',
+              variant: 'destructive',
+            });
+            setIsAuthenticating(false);
+            return;
+          } else {
+            console.log('⏳ [DEBUG] OAuth still pending, continuing to poll...');
+          }
+        } else if (response.status === 404) {
+          // Session not found or expired, continue polling for a bit longer
+          console.log('⏳ [DEBUG] OAuth session not found yet, continuing to poll...');
+        } else {
+          console.error('❌ [DEBUG] OAuth status check failed:', response.status, response.statusText);
+          // For server errors, continue polling but with exponential backoff
+          if (attempts > 3) {
+            if (pollInterval) clearInterval(pollInterval);
+            setIsAuthenticating(false);
+            toast({
+              title: 'Server Error',
+              description: 'Unable to check authentication status. Please try again.',
+              variant: 'destructive',
+            });
+            return;
+          }
+        }
+      } catch (error) {
+        console.error('❌ [DEBUG] Error in enhanced polling:', error);
+        console.error('❌ [DEBUG] Error details:', {
+          message: error.message,
+          stack: error.stack,
+          name: error.name,
+          sessionId,
+          attempt: attempts
+        });
+
+        // Continue polling on network errors but don't spam
+        if (attempts > maxAttempts * 0.8) {
+          if (pollInterval) clearInterval(pollInterval);
+          setIsAuthenticating(false);
+          toast({
+            title: 'Network Error',
+            description: 'Unable to connect to server. Please check your connection.',
+            variant: 'destructive',
+          });
+          return;
+        }
+      }
+    };
+
+    // Start polling immediately, then every 5 seconds
+    await performPoll();
+    pollInterval = setInterval(performPoll, 5000);
+
+    return pollInterval;
+  }, [connectWithOAuth, toast]);
 
   const handleRetry = () => {
     performOAuthLogin(true);

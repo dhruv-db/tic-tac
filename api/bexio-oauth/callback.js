@@ -93,6 +93,34 @@ export default async function handler(req, res) {
         const tokenData = await exchangeResponse.json();
         console.log('✅ Token exchange successful');
 
+        // Update OAuth session status to completed
+        try {
+          const { oauthSessions } = await import('./status/[sessionId].js');
+          const sessionUpdate = {
+            sessionId: state,
+            status: 'completed',
+            tokens: {
+              access_token: tokenData.accessToken,
+              refresh_token: tokenData.refreshToken,
+              company_id: tokenData.companyId,
+              user_email: tokenData.userEmail
+            },
+            userEmail: tokenData.userEmail,
+            companyId: tokenData.companyId,
+            completed: true
+          };
+
+          // Update session in storage
+          const existingSession = oauthSessions.get(state);
+          if (existingSession) {
+            oauthSessions.set(state, { ...existingSession, ...sessionUpdate });
+            console.log(`✅ OAuth session ${state} marked as completed`);
+          }
+        } catch (sessionError) {
+          console.error('❌ Failed to update OAuth session status:', sessionError);
+          // Continue with response even if session update fails
+        }
+
         // Return success HTML that communicates back to the mobile app
         return res.status(200).send(`
           <!DOCTYPE html>

@@ -42,14 +42,28 @@ export default async function handler(req, res) {
 
     const authorizationUrl = `${baseAuthUrl}?${params.toString()}`;
 
-    // In a production environment, you'd want to store the code_verifier
-    // associated with the state for later use during token exchange
-    // For now, we'll return it in the response (not recommended for production)
+    // Create OAuth session for status tracking
+    const sessionId = state; // Use state as session ID for simplicity
+    const sessionData = {
+      status: 'pending',
+      codeVerifier,
+      state,
+      createdAt: Date.now(),
+      platform: req.body.platform || 'web'
+    };
+
+    // Store session data (in production, use Redis or database)
+    // For now, we'll use the same in-memory storage as the status endpoint
+    const { oauthSessions } = await import('./status/[sessionId].js');
+    oauthSessions.set(sessionId, sessionData);
+
+    console.log(`OAuth session created: ${sessionId} for platform: ${sessionData.platform}`);
 
     res.status(200).json({
       authorizationUrl,
       codeVerifier,
       state,
+      sessionId,
       timestamp: new Date().toISOString()
     });
 

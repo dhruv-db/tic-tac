@@ -2,6 +2,33 @@ import { Capacitor } from '@capacitor/core';
 import { Preferences } from '@capacitor/preferences';
 import { BexioCredentials } from '@/context/OAuthContext';
 
+// Logging utility that respects environment settings
+export const logger = {
+  info: (message: string, ...args: any[]) => {
+    if (import.meta.env.DEV && import.meta.env.VITE_DEBUG_LOGS === 'true') {
+      console.log(`[INFO] ${message}`, ...args);
+    }
+  },
+  warn: (message: string, ...args: any[]) => {
+    if (import.meta.env.DEV && import.meta.env.VITE_DEBUG_LOGS === 'true') {
+      console.warn(`[WARN] ${message}`, ...args);
+    }
+  },
+  error: (message: string, ...args: any[]) => {
+    // Always show errors, but in a cleaner format for production
+    if (import.meta.env.DEV && import.meta.env.VITE_DEBUG_LOGS === 'true') {
+      console.error(`[ERROR] ${message}`, ...args);
+    } else {
+      console.error(message);
+    }
+  },
+  debug: (message: string, ...args: any[]) => {
+    if (import.meta.env.DEV && import.meta.env.VITE_DEBUG_LOGS === 'true') {
+      console.debug(`[DEBUG] ${message}`, ...args);
+    }
+  }
+};
+
 // Configuration utility for environment variables
 export const getConfig = {
   // Server URLs

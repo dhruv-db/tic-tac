@@ -44,6 +44,10 @@ const config: CapacitorConfig = {
     CapacitorHttp: {
       enabled: true
     }
+  },
+  ios: {
+    scheme: 'App',
+    loggingBehavior: 'none'
   }
 };
 
