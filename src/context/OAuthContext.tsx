@@ -529,7 +529,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         : (Array.isArray((data as any)?.data)
             ? (data as any).data
             : (data && typeof data === 'object' ? [data as any] : []));
-      setContacts(items);
+      setContacts(items.filter(c => c && typeof c.id === 'number' && c.id != null));
       setHasInitiallyLoaded(prev => ({ ...prev, contacts: true }));
 
       toast({
@@ -576,7 +576,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       const data = await response.json();
-      setProjects(Array.isArray(data) ? data : []);
+      setProjects(Array.isArray(data) ? data.filter(p => p && typeof p.id === 'number' && p.id != null) : []);
       setHasInitiallyLoaded(prev => ({ ...prev, projects: true }));
 
       toast({
@@ -655,7 +655,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         console.error('❌ [ERROR] OAuthContext - Found malformed time entries:', malformedEntries);
       }
 
-      setTimeEntries(timeEntriesData);
+      // Filter out undefined and invalid entries
+      const validTimeEntries = timeEntriesData.filter(entry => entry && typeof entry.id === 'number' && entry.id != null);
+      setTimeEntries(validTimeEntries);
       setHasInitiallyLoaded(prev => ({ ...prev, timeEntries: true }));
 
       const quiet = options?.quiet !== false;
