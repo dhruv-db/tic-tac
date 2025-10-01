@@ -158,6 +158,7 @@ export const TimeTrackingList = ({
   }, [isCreatingTimeEntry, calendarInitialData]);
   
   const toSeconds = (duration: string | number): number => {
+    console.log('🔍 [DEBUG] toSeconds called with duration:', duration, 'type:', typeof duration);
     if (typeof duration === 'number') return duration; // already in seconds
     if (typeof duration === 'string') {
       // Handle formats like "HH:MM" or "H:MM"
@@ -171,6 +172,7 @@ export const TimeTrackingList = ({
       const parsed = Number(duration);
       return isNaN(parsed) ? 0 : parsed;
     }
+    console.log('🔍 [DEBUG] toSeconds returning 0 for invalid duration:', duration);
     return 0;
   };
 
@@ -181,10 +183,12 @@ export const TimeTrackingList = ({
   };
 
   const formatDate = (dateString: string) => {
+    console.log('🔍 [DEBUG] formatDate called with dateString:', dateString, 'type:', typeof dateString);
     try {
       return format(new Date(dateString), "MMM dd, yyyy");
-    } catch {
-      return dateString;
+    } catch (error) {
+      console.error('🔍 [DEBUG] formatDate error:', error, 'for dateString:', dateString);
+      return dateString || 'Invalid Date';
     }
   };
 
@@ -195,11 +199,13 @@ export const TimeTrackingList = ({
   const getMonthYearOptions = () => {
     const monthYears = new Set<string>();
     (timeEntries || []).forEach(entry => {
+      console.log('🔍 [DEBUG] getMonthYearOptions processing entry.date:', entry.date, 'for entry.id:', entry.id);
       try {
         const date = new Date(entry.date);
         const monthYear = format(date, "yyyy-MM");
         monthYears.add(monthYear);
-      } catch {
+      } catch (error) {
+        console.error('🔍 [DEBUG] getMonthYearOptions error:', error, 'for entry.date:', entry.date);
         // Skip invalid dates
       }
     });
@@ -430,6 +436,7 @@ export const TimeTrackingList = ({
           {/* Mobile-Optimized Time Entries List */}
           <div className="space-y-2">
             {filteredAndSortedTimeEntries.map((entry) => {
+              console.log('🔍 [DEBUG] Mapping entry:', { id: entry.id, date: entry.date, duration: entry.duration, project_id: entry.project_id, pr_project_id: (entry as any).pr_project_id });
               const isExpanded = expandedCards.has(entry.id);
               const projectName = projects.find(p => p.id === ((entry as any).pr_project_id || entry.project_id))?.name;
 
