@@ -4,6 +4,7 @@ import { DateRange } from "react-day-picker";
 import { format } from "date-fns";
 import { Capacitor } from "@capacitor/core";
 import { getConfig } from "@/lib/secureStorage";
+import { filterValidObjects, isValidProject, isValidContact, isValidTimeEntry } from "@/lib/dataValidation";
 
 // Helper function to get the correct server URL using centralized config
 const getServerUrl = () => getConfig.serverUrl();
@@ -631,12 +632,13 @@ export const useBexioApi = () => {
         : (Array.isArray((data as any)?.data)
             ? (data as any).data
             : (data && typeof data === 'object' ? [data as any] : []));
-      setContacts(items);
+      const validContacts = filterValidObjects(items, ['id', 'name_1'], isValidContact) as Contact[];
+      setContacts(validContacts);
       setHasInitiallyLoaded(prev => ({ ...prev, contacts: true }));
 
       toast({
         title: "Contacts loaded",
-        description: `Fetched ${items.length} contacts.`,
+        description: `Fetched ${validContacts.length} contacts.`,
       });
     } catch (error) {
       console.error('Error fetching contacts:', error);
@@ -680,12 +682,13 @@ export const useBexioApi = () => {
       }
 
       const data = await response.json();
-      setProjects(Array.isArray(data) ? data : []);
+      const validProjects = filterValidObjects(data, ['id', 'name'], isValidProject) as Project[];
+      setProjects(validProjects);
       setHasInitiallyLoaded(prev => ({ ...prev, projects: true }));
-      
+
       toast({
         title: "Projects loaded successfully",
-        description: `Successfully fetched ${Array.isArray(data) ? data.length : 0} projects.`,
+        description: `Successfully fetched ${validProjects.length} projects.`,
       });
     } catch (error) {
       console.error('Error fetching projects:', error);
@@ -784,7 +787,7 @@ export const useBexioApi = () => {
         rawEntries = data.data;
       }
       
-      const timeEntriesData = rawEntries.filter(item => item != null && typeof item === 'object');
+      const timeEntriesData = filterValidObjects(rawEntries, ['id', 'date', 'allowable_bill'], isValidTimeEntry) as TimeEntry[];
       console.log('🔍 [DEBUG] fetchTimeEntries - processed entries count:', timeEntriesData.length);
 
       // Log the structure of the first few entries to understand the API response

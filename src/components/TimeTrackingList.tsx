@@ -18,6 +18,15 @@ import { useToast } from "@/hooks/use-toast";
 import { DateRange } from "react-day-picker";
 import { useBexioApi } from "@/hooks/useBexioApi";
 import { useIsMobile } from "@/hooks/use-mobile";
+import {
+  safeNumberToString,
+  safeFormatDuration,
+  safeParseDuration,
+  safeGetProjectName,
+  safeGetTimeEntryText,
+  isValidProject,
+  isValidTimeEntry
+} from "@/lib/dataValidation";
 
 export interface TimeEntry {
   id: number;
@@ -157,33 +166,9 @@ export const TimeTrackingList = ({
     }
   }, [isCreatingTimeEntry, calendarInitialData]);
   
-  const toSeconds = (duration: string | number): number => {
-    if (duration == null) return 0; // Handle null/undefined
-    if (typeof duration === 'number') return duration; // already in seconds
-    if (typeof duration === 'string') {
-      // Handle formats like "HH:MM" or "H:MM"
-      if (duration.includes(':')) {
-        const [h, m] = duration.split(':').map((v) => parseInt(v, 10));
-        const hours = isNaN(h) ? 0 : h;
-        const minutes = isNaN(m) ? 0 : m;
-        return hours * 3600 + minutes * 60;
-      }
-      // Fallback: numeric string representing seconds
-      const parsed = Number(duration);
-      return isNaN(parsed) ? 0 : parsed;
-    }
-    return 0;
-  };
-
   // Helper function to get duration from entry (checking multiple locations)
   const getEntryDuration = (entry: TimeEntry): string | number => {
     return entry.duration || (entry as any).tracking?.duration || '';
-  };
-
-  const formatDuration = (seconds: number) => {
-    const hours = Math.floor(seconds / 3600);
-    const minutes = Math.floor((seconds % 3600) / 60);
-    return `${hours}h ${minutes}m`;
   };
 
   const formatDate = (dateString: string) => {
@@ -370,7 +355,7 @@ export const TimeTrackingList = ({
                 </div>
 
                 {/* Project Filter */}
-                <Select value={selectedProject?.toString() || 'all'} onValueChange={(value) => {
+                <Select value={safeNumberToString(selectedProject, 'all')} onValueChange={(value) => {
                   const parsed = parseInt(value);
                   onProjectFilterChange?.(isNaN(parsed) ? null : parsed);
                 }}>
@@ -380,10 +365,10 @@ export const TimeTrackingList = ({
                   <SelectContent>
                   <SelectItem value="all">All Projects</SelectItem>
                   {projects
-                    .filter(project => project && typeof project.id === 'number' && project.id != null && !isNaN(project.id))
+                    .filter(isValidProject)
                     .map((project) => (
-                      <SelectItem key={project.id} value={project.id.toString()}>
-                        {typeof project.name === 'string' ? project.name : 'Unknown Project'}
+                      <SelectItem key={project.id} value={safeNumberToString(project.id)}>
+                        {safeGetProjectName(project)}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -469,8 +454,9 @@ export const TimeTrackingList = ({
           {/* Mobile-Optimized Time Entries List */}
           <div className="space-y-2">
             {filteredAndSortedTimeEntries.map((entry) => {
-              const isExpanded = expandedCards.has(entry.id);
-              const projectName = (projects || []).filter(p => p && typeof p.id === 'number').find(p => p.id === ((entry as any).pr_project_id || entry.project_id))?.name;
+               const isExpanded = expandedCards.has(entry.id);
+               const project = (projects || []).filter(isValidProject).find(p => p.id === ((entry as any).pr_project_id || entry.project_id));
+               const projectName = safeGetProjectName(project);
 
               return (
                 <Card
@@ -501,7 +487,7 @@ export const TimeTrackingList = ({
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 mb-0.5">
                               <span className="text-sm font-medium text-gray-900 truncate leading-tight">
-                                {entry.text || 'Time Entry'}
+                                {safeGetTimeEntryText(entry)}
                               </span>
                               <Badge
                                 variant="outline"
@@ -532,7 +518,7 @@ export const TimeTrackingList = ({
                           <div className="flex items-center gap-1 flex-shrink-0">
                             <div className="text-right">
                               <div className="text-base font-bold text-teal-600">
-                                {formatDuration(toSeconds(getEntryDuration(entry)))}
+                                {safeFormatDuration(safeParseDuration(getEntryDuration(entry)))}
                               </div>
                             </div>
                             {isMobile && (

@@ -41,6 +41,7 @@ import { useHapticFeedback } from '@/hooks/useHapticFeedback';
 import { BexioConnector } from '@/components/BexioConnector';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { cn } from '@/lib/utils';
+import { safeNumberToString, safeGetProjectName, isValidProject } from '@/lib/dataValidation';
 import ticTacLogo from '@/assets/Tic-Tac_Dark.png';
 
 const TikTakLogo = ({ className = "" }: { className?: string }) => {
@@ -482,7 +483,7 @@ const MobileIndex = () => {
                       {/* Project Filter */}
                       <div className="space-y-3">
                         <label className="text-sm font-medium text-gray-700">Project</label>
-                        <Select value={selectedProject?.toString() || 'all'} onValueChange={(value) => {
+                        <Select value={safeNumberToString(selectedProject, 'all')} onValueChange={(value) => {
                           setSelectedProject(value === 'all' ? null : parseInt(value));
                           lightImpact();
                         }}>
@@ -492,10 +493,10 @@ const MobileIndex = () => {
                           <SelectContent>
                             <SelectItem value="all">All Projects</SelectItem>
                             {projects
-                              .filter(project => project && typeof project.id === 'number' && project.id != null && !isNaN(project.id))
+                              .filter(isValidProject)
                               .map((project) => (
-                                <SelectItem key={project.id} value={project.id.toString()}>
-                                  {typeof project.name === 'string' ? project.name : 'Unknown Project'}
+                                <SelectItem key={project.id} value={safeNumberToString(project.id)}>
+                                  {safeGetProjectName(project)}
                                 </SelectItem>
                               ))}
                           </SelectContent>

@@ -4,6 +4,7 @@ import { Capacitor } from '@capacitor/core';
 import { DateRange } from "react-day-picker";
 import { format } from "date-fns";
 import SecureStorage, { getConfig } from '@/lib/secureStorage';
+import { filterValidObjects, isValidProject, isValidContact, isValidTimeEntry } from '@/lib/dataValidation';
 
 // Helper function to get the correct server URL using centralized config
 const getServerUrl = () => getConfig.serverUrl();
@@ -525,13 +526,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       const responseWrapper = await response.json();
       const data = responseWrapper.data;
-      const items = Array.isArray(data) ? data : [];
-      setContacts(items.filter(c => c && typeof c.id === 'number' && c.id != null));
+      const validContacts = filterValidObjects(data, ['id', 'name_1'], isValidContact) as Contact[];
+      setContacts(validContacts);
       setHasInitiallyLoaded(prev => ({ ...prev, contacts: true }));
 
       toast({
         title: "Contacts loaded",
-        description: `Fetched ${items.length} contacts.`,
+        description: `Fetched ${validContacts.length} contacts.`,
       });
     } catch (error) {
       console.error('Error fetching contacts:', error);
@@ -574,7 +575,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       const responseWrapper = await response.json();
       const data = responseWrapper.data;
-      setProjects(Array.isArray(data) ? data.filter(p => p && typeof p.id === 'number' && p.id != null) : []);
+      const validProjects = filterValidObjects(data, ['id', 'name'], isValidProject) as Project[];
+      setProjects(validProjects);
       setHasInitiallyLoaded(prev => ({ ...prev, projects: true }));
 
       toast({
@@ -655,7 +657,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       // Filter out undefined and invalid entries
-      const validTimeEntries = timeEntriesData.filter(entry => entry && typeof entry.id === 'number' && entry.id != null);
+      const validTimeEntries = filterValidObjects(timeEntriesData, ['id', 'date', 'allowable_bill'], isValidTimeEntry) as TimeEntry[];
       setTimeEntries(validTimeEntries);
       setHasInitiallyLoaded(prev => ({ ...prev, timeEntries: true }));
 
