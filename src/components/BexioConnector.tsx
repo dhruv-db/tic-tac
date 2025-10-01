@@ -159,7 +159,7 @@ export const BexioConnector = ({
         throw new Error(`OAuth initiation failed: ${response.status}`);
       }
       const {
-        authUrl
+        authorizationUrl
       } = await response.json();
 
       // Open in popup to avoid iframe X-Frame-Options issues
@@ -168,13 +168,13 @@ export const BexioConnector = ({
       const left = window.screenX + (window.outerWidth - width) / 2;
       const top = window.screenY + (window.outerHeight - height) / 2;
       const features = `popup=yes,toolbar=no,location=no,status=no,menubar=no,scrollbars=yes,resizable=yes,width=${width},height=${height},left=${left},top=${top}`;
-      const popup = window.open(authUrl, 'bexio_oauth', features);
+      const popup = window.open(authorizationUrl, 'bexio_oauth', features);
       if (!popup) {
         // Fallback to top-level navigation
         if (window.top) {
-          window.top.location.href = authUrl;
+          window.top.location.href = authorizationUrl;
         } else {
-          window.location.href = authUrl;
+          window.location.href = authorizationUrl;
         }
       }
     } catch (error) {
