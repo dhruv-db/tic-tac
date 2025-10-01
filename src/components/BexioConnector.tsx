@@ -150,12 +150,8 @@ export const BexioConnector = ({
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
+          redirectUri: productionUrl,
           state: packedState,
-          scope: scope,
-          codeChallenge: codeChallenge,
-          codeChallengeMethod: 'S256',
-          codeVerifier: codeVerifier,
-          returnUrl: productionUrl,
           platform: platform
         })
       });
