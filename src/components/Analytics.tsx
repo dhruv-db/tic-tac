@@ -330,7 +330,7 @@ export const Analytics = ({ timeEntries, contacts, projects, users, isCurrentUse
                 <SelectContent>
                   <SelectItem value="all">All</SelectItem>
                   {contacts.slice(0, 10).map(contact => (
-                    <SelectItem key={contact.id} value={contact.id.toString()}>
+                    <SelectItem key={contact.id} value={contact.id?.toString() || ''}>
                       {contact.name_1}
                     </SelectItem>
                   ))}
@@ -348,7 +348,7 @@ export const Analytics = ({ timeEntries, contacts, projects, users, isCurrentUse
                 <SelectContent className="bg-card border border-border shadow-lg z-50">
                   <SelectItem value="all">All Projects</SelectItem>
                   {projects.slice(0, 15).map(project => (
-                    <SelectItem key={project.id} value={project.id.toString()}>
+                    <SelectItem key={project.id} value={project.id?.toString() || ''}>
                       {project.name}
                     </SelectItem>
                   ))}

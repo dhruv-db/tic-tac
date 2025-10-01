@@ -203,12 +203,11 @@ const Index = () => {
       // Non-admin users only see their own entries
       return (timeEntries || []).filter(entry => entry.user_id === currentBexioUserId);
     }
-    
+
     // Admin users - fix "All users" filtering
-    if (selectedUserId && selectedUserId !== "all") {
+    if (selectedUserId !== null && selectedUserId !== "all" && typeof selectedUserId === 'number') {
       // Specific user selected - show only their entries
-      const userId = parseInt(selectedUserId.toString());
-      return (timeEntries || []).filter(entry => entry.user_id === userId);
+      return (timeEntries || []).filter(entry => entry.user_id === selectedUserId);
     } else {
       // "All users" or no selection - show all entries
       return timeEntries || [];
@@ -264,20 +263,29 @@ const Index = () => {
               {isCurrentUserAdmin && users.length > 0 && (
                 <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2">
                   <label className="text-sm text-muted-foreground whitespace-nowrap">View user:</label>
-                  <Select 
-                    value={selectedUserId?.toString() || "all"} 
-                    onValueChange={(value) => setSelectedUserId(value === "all" ? "all" : parseInt(value))}
+                  <Select
+                    value={selectedUserId?.toString() || "all"}
+                    onValueChange={(value) => {
+                      if (value === "all") {
+                        setSelectedUserId("all");
+                      } else {
+                        const parsed = parseInt(value);
+                        setSelectedUserId(isNaN(parsed) ? "all" : parsed);
+                      }
+                    }}
                   >
                     <SelectTrigger className="w-full sm:w-48">
                       <SelectValue placeholder="Select user" />
                     </SelectTrigger>
                     <SelectContent className="z-[1000] bg-popover border border-border shadow-lg">
                       <SelectItem value="all">All Users</SelectItem>
-                      {users.map((user) => (
-                        <SelectItem key={user.id} value={user.id.toString()}>
-                          {user.firstname} {user.lastname}
-                        </SelectItem>
-                      ))}
+                      {users
+                        .filter(user => user && typeof user.id === 'number' && user.id != null)
+                        .map((user) => (
+                          <SelectItem key={user.id} value={user.id.toString()}>
+                            {user.firstname} {user.lastname}
+                          </SelectItem>
+                        ))}
                     </SelectContent>
                   </Select>
                 </div>

@@ -249,8 +249,8 @@ export const useBexioApi = () => {
 
   // Helper: get work package name from cache, handle both project_id and pr_project_id
   const getWorkPackageName = (projectId: number | undefined, packageId: string | undefined): string => {
-    if (!packageId) return 'No Work Package';
-    if (!projectId) return `WP ${packageId}`;
+    if (!packageId || typeof packageId !== 'string') return 'No Work Package';
+    if (!projectId || typeof projectId !== 'number') return `WP ${packageId}`;
     const list = workPackagesByProject[projectId] || [];
     const found = list.find(wp => wp.id === packageId || wp.id === String(packageId));
     return found?.name || `WP ${packageId}`;

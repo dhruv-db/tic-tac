@@ -257,7 +257,7 @@ export const TimeTrackingList = ({
 
   // Helper function to get work package name via cache - handle both project_id and pr_project_id
   const getWorkPackageName = (entry: TimeEntry): string => {
-    if (!entry.pr_package_id) return 'No Work Package';
+    if (!entry.pr_package_id || typeof entry.pr_package_id !== 'string') return 'No Work Package';
     // Try pr_project_id first (from Bexio API), then project_id as fallback
     const projectId = (entry as any).pr_project_id || entry.project_id;
     if (!projectId) return `WP ${entry.pr_package_id}`;
@@ -370,20 +370,21 @@ export const TimeTrackingList = ({
 
                 {/* Project Filter */}
                 <Select value={selectedProject?.toString() || 'all'} onValueChange={(value) => {
-                  onProjectFilterChange?.(value === 'all' ? null : parseInt(value));
+                  const parsed = parseInt(value);
+                  onProjectFilterChange?.(isNaN(parsed) ? null : parsed);
                 }}>
                   <SelectTrigger className="w-48">
                     <SelectValue placeholder="All Projects" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">All Projects</SelectItem>
-                    {projects
-                      .filter(project => project && project.id != null)
-                      .map((project) => (
-                        <SelectItem key={project.id} value={project.id.toString()}>
-                          {project.name}
-                        </SelectItem>
-                      ))}
+                  <SelectItem value="all">All Projects</SelectItem>
+                  {projects
+                    .filter(project => project && typeof project.id === 'number' && project.id != null)
+                    .map((project) => (
+                      <SelectItem key={project.id} value={project.id.toString()}>
+                        {project.name}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
 
