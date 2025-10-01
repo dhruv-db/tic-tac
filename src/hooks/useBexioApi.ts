@@ -763,7 +763,16 @@ export const useBexioApi = () => {
 
       const data = await response.json();
       console.log('🔍 [DEBUG] fetchTimeEntries - raw data:', data);
-      const timeEntriesData = Array.isArray(data) ? data : [];
+      
+      // Handle both direct array responses and wrapped responses with data property
+      let rawEntries: any[] = [];
+      if (Array.isArray(data)) {
+        rawEntries = data;
+      } else if (data && typeof data === 'object' && Array.isArray(data.data)) {
+        rawEntries = data.data;
+      }
+      
+      const timeEntriesData = rawEntries.filter(item => item != null && typeof item === 'object');
       console.log('🔍 [DEBUG] fetchTimeEntries - processed entries count:', timeEntriesData.length);
 
       // Log the structure of the first few entries to understand the API response

@@ -377,11 +377,13 @@ export const TimeTrackingList = ({
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Projects</SelectItem>
-                    {projects.map((project) => (
-                      <SelectItem key={project.id} value={project.id.toString()}>
-                        {project.name}
-                      </SelectItem>
-                    ))}
+                    {projects
+                      .filter(project => project && project.id != null)
+                      .map((project) => (
+                        <SelectItem key={project.id} value={project.id.toString()}>
+                          {project.name}
+                        </SelectItem>
+                      ))}
                   </SelectContent>
                 </Select>
 
