@@ -16,7 +16,8 @@ export default async function handler(req, res) {
 
     // Bexio OAuth configuration
     const clientId = process.env.BEXIO_CLIENT_ID;
-    const baseAuthUrl = 'https://idp.bexio.com/authorize';
+    const baseAuthUrl = 'https://auth.bexio.com/realms/bexio/protocol/openid-connect/auth';
+    console.log('🔗 Using Bexio auth URL:', baseAuthUrl);
 
     if (!clientId) {
       return res.status(500).json({

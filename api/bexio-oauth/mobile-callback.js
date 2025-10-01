@@ -47,7 +47,8 @@ export default async function handler(req, res) {
         }
 
         // Exchange code for tokens directly with Bexio
-        const tokenUrl = 'https://idp.bexio.com/token';
+        const tokenUrl = 'https://auth.bexio.com/realms/bexio/protocol/openid-connect/token';
+        console.log('🔗 Using Bexio token URL:', tokenUrl);
         const tokenRequestBody = new URLSearchParams({
           grant_type: 'authorization_code',
           client_id: clientId,

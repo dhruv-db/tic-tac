@@ -16,7 +16,8 @@ export default async function handler(req, res) {
 
     const clientId = process.env.BEXIO_CLIENT_ID;
     const clientSecret = process.env.BEXIO_CLIENT_SECRET;
-    const tokenUrl = 'https://idp.bexio.com/token';
+    const tokenUrl = 'https://auth.bexio.com/realms/bexio/protocol/openid-connect/token';
+    console.log('🔗 Using Bexio token URL:', tokenUrl);
 
     if (!clientId || !clientSecret) {
       return res.status(500).json({
