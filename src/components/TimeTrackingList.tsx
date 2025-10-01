@@ -379,7 +379,7 @@ export const TimeTrackingList = ({
                   <SelectContent>
                   <SelectItem value="all">All Projects</SelectItem>
                   {projects
-                    .filter(project => project && typeof project.id === 'number' && project.id != null)
+                    .filter(project => project && typeof project.id === 'number' && project.id != null && !isNaN(project.id))
                     .map((project) => (
                       <SelectItem key={project.id} value={project.id.toString()}>
                         {typeof project.name === 'string' ? project.name : 'Unknown Project'}

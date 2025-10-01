@@ -491,11 +491,13 @@ const MobileIndex = () => {
                           </SelectTrigger>
                           <SelectContent>
                             <SelectItem value="all">All Projects</SelectItem>
-                            {projects.map((project) => (
-                              <SelectItem key={project.id} value={project.id?.toString() || ''}>
-                                {typeof project.name === 'string' ? project.name : 'Unknown Project'}
-                              </SelectItem>
-                            ))}
+                            {projects
+                              .filter(project => project && typeof project.id === 'number' && project.id != null && !isNaN(project.id))
+                              .map((project) => (
+                                <SelectItem key={project.id} value={project.id.toString()}>
+                                  {typeof project.name === 'string' ? project.name : 'Unknown Project'}
+                                </SelectItem>
+                              ))}
                           </SelectContent>
                         </Select>
                       </div>

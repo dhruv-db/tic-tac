@@ -329,11 +329,13 @@ export const Analytics = ({ timeEntries, contacts, projects, users, isCurrentUse
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All</SelectItem>
-                  {contacts.slice(0, 10).map(contact => (
-                    <SelectItem key={contact.id} value={contact.id?.toString() || ''}>
-                      {typeof contact.name_1 === 'string' ? contact.name_1 : 'Unknown Contact'}
-                    </SelectItem>
-                  ))}
+                  {contacts.slice(0, 10)
+                    .filter(contact => contact && typeof contact.id === 'number' && contact.id != null && !isNaN(contact.id))
+                    .map(contact => (
+                      <SelectItem key={contact.id} value={contact.id.toString()}>
+                        {typeof contact.name_1 === 'string' ? contact.name_1 : 'Unknown Contact'}
+                      </SelectItem>
+                    ))}
                 </SelectContent>
               </Select>
             </div>
@@ -347,11 +349,13 @@ export const Analytics = ({ timeEntries, contacts, projects, users, isCurrentUse
                 </SelectTrigger>
                 <SelectContent className="bg-card border border-border shadow-lg z-50">
                   <SelectItem value="all">All Projects</SelectItem>
-                  {projects.slice(0, 15).map(project => (
-                    <SelectItem key={project.id} value={project.id?.toString() || ''}>
-                      {typeof project.name === 'string' ? project.name : 'Unknown Project'}
-                    </SelectItem>
-                  ))}
+                  {projects.slice(0, 15)
+                    .filter(project => project && typeof project.id === 'number' && project.id != null && !isNaN(project.id))
+                    .map(project => (
+                      <SelectItem key={project.id} value={project.id.toString()}>
+                        {typeof project.name === 'string' ? project.name : 'Unknown Project'}
+                      </SelectItem>
+                    ))}
                 </SelectContent>
               </Select>
             </div>

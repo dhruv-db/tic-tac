@@ -280,7 +280,7 @@ const Index = () => {
                     <SelectContent className="z-[1000] bg-popover border border-border shadow-lg">
                       <SelectItem value="all">All Users</SelectItem>
                       {users
-                        .filter(user => user && typeof user.id === 'number' && user.id != null)
+                        .filter(user => user && typeof user.id === 'number' && user.id != null && !isNaN(user.id))
                         .map((user) => (
                           <SelectItem key={user.id} value={user.id.toString()}>
                             {typeof user.firstname === 'string' ? user.firstname : 'Unknown'} {typeof user.lastname === 'string' ? user.lastname : 'User'}
