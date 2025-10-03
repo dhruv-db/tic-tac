@@ -45,7 +45,7 @@ export const LoginPage = ({
     title: "Performance Analytics",
     description: "Detailed reports on productivity and time utilization"
   }];
-  return <div className="min-h-screen bg-gradient-to-br from-background via-primary/5 to-accent/10">
+  return <div className="min-h-screen bg-gradient-to-br from-primary/20 via-background to-accent/20">
       {/* Desktop Layout */}
       <div className="hidden lg:flex min-h-screen">
         {/* Left Side - Branding & Features */}
@@ -138,7 +138,7 @@ export const LoginPage = ({
       </div>
 
       {/* Mobile Layout */}
-      <div className="lg:hidden min-h-screen flex flex-col bg-gradient-to-br from-background via-primary/5 to-accent/10">
+      <div className="lg:hidden min-h-screen flex flex-col bg-gradient-to-br from-primary/20 via-background to-accent/20">
         {/* Mobile Header - Compact */}
         <div className="flex-shrink-0 px-4 py-6 text-center">
           <TikTakLogo className="mb-3 mx-auto" />
