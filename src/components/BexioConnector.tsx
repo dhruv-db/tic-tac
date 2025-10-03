@@ -144,13 +144,27 @@ export const BexioConnector = ({
       // Use the configured server to initiate OAuth with proper scope including contact, projects and monitoring scopes
       const scope = 'openid profile email offline_access contact_show contact_edit monitoring_show monitoring_edit project_show';
       const serverUrl = getConfig.serverUrl();
+      console.log('🔗 [DEBUG] BexioConnector - Initiating OAuth with:', {
+        serverUrl,
+        productionUrl,
+        packedState,
+        platform
+      });
+
+      // For web platform, use oauth-complete.html as redirect URI
+      const redirectUri = platform === 'web'
+        ? `${productionUrl}/oauth-complete.html`
+        : `${productionUrl}/api/bexio-oauth/callback`;
+
+      console.log('🔗 [DEBUG] BexioConnector - Using redirect URI:', redirectUri);
+
       const response = await fetch(`${serverUrl}/api/bexio-oauth/auth`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          redirectUri: `${productionUrl}/api/bexio-oauth/callback`,
+          redirectUri,
           state: packedState,
           platform: platform
         })

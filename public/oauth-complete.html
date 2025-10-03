@@ -94,12 +94,27 @@
         function handleCallback() {
             console.log('🔍 OAuth completion page loaded');
             console.log('📍 Current URL:', window.location.href);
+            console.log('📍 URL search params:', window.location.search);
 
             const urlParams = new URLSearchParams(window.location.search);
+            const code = urlParams.get('code');
+            const state = urlParams.get('state');
             const sessionId = urlParams.get('sessionId') || urlParams.get('session');
             const isMobile = urlParams.get('mobile') === 'true';
             const status = urlParams.get('status');
             const error = urlParams.get('error');
+
+            console.log('🔍 OAuth callback parameters:', {
+                hasCode: !!code,
+                codeLength: code?.length,
+                hasState: !!state,
+                stateLength: state?.length,
+                statePreview: state?.substring(0, 50) + '...',
+                sessionId,
+                isMobile,
+                status,
+                error
+            });
 
             const content = document.getElementById('content');
 

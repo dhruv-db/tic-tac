@@ -15,6 +15,12 @@ export default async function handler(req, res) {
   try {
     const { redirectUri, state } = req.body;
 
+    console.log('🔗 [DEBUG] Auth API received:', {
+      redirectUri,
+      stateLength: state?.length,
+      statePreview: state?.substring(0, 50) + '...'
+    });
+
     if (!redirectUri || !state) {
       return res.status(400).json({
         error: 'Missing required parameters',
