@@ -330,8 +330,39 @@ export function MobileOAuth() {
       localStorage.setItem('bexio_oauth_state', state);
 
       const redirectUri = isNativePlatform
-        ? import.meta.env.VITE_BEXIO_MOBILE_REDIRECT_URI || 'bexio-sync://oauth-complete'
+        ? import.meta.env.VITE_BEXIO_SERVER_CALLBACK_URI || `${window.location.origin}/api/bexio-oauth/mobile-callback`
         : import.meta.env.VITE_BEXIO_WEB_REDIRECT_URI || `${window.location.origin}/oauth-complete.html`;
+
+      // For mobile, create session on server with PKCE data
+      if (isNativePlatform) {
+        try {
+          console.log('🔄 Creating OAuth session on server for mobile...');
+          const sessionData = {
+            codeVerifier: codeVerifier,
+            state: state,
+            redirectUri: redirectUri,
+            created: new Date().toISOString(),
+            status: 'pending'
+          };
+
+          const createSessionResponse = await fetch(`${getConfig.serverUrl()}/api/bexio-oauth/status/${state}`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(sessionData)
+          });
+
+          if (!createSessionResponse.ok) {
+            throw new Error(`Failed to create session: ${createSessionResponse.status}`);
+          }
+
+          console.log('✅ OAuth session created on server');
+        } catch (sessionError) {
+          console.error('❌ Failed to create OAuth session:', sessionError);
+          throw new Error('Failed to initialize authentication session');
+        }
+      }
 
       const params = new URLSearchParams({
         client_id: clientId,

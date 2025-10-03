@@ -92,12 +92,13 @@ function handleGetStatus(req, res) {
 
 function handleUpdateStatus(req, res) {
   try {
-    const { sessionId, status, tokens, userEmail, companyId, error } = req.body;
+    const { sessionId } = req.query;
+    const { status, tokens, userEmail, companyId, error, codeVerifier, redirectUri, created } = req.body;
 
     if (!sessionId) {
       return res.status(400).json({
         error: 'Missing sessionId parameter',
-        message: 'sessionId is required in request body'
+        message: 'sessionId is required in the URL path'
       });
     }
 
@@ -107,8 +108,11 @@ function handleUpdateStatus(req, res) {
       userEmail,
       companyId,
       error,
+      codeVerifier,
+      redirectUri,
+      created,
       updatedAt: Date.now(),
-      createdAt: Date.now()
+      createdAt: created ? new Date(created).getTime() : Date.now()
     };
 
     oauthSessions.set(sessionId, sessionData);

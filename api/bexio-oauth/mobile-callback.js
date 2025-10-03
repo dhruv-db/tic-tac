@@ -46,6 +46,15 @@ export default async function handler(req, res) {
           throw new Error('OAuth credentials not configured');
         }
 
+        // Retrieve session data
+        const { oauthSessions } = await import('./status/[sessionId].js');
+        const session = oauthSessions.get(state);
+        if (!session || !session.codeVerifier) {
+          throw new Error('OAuth session not found or invalid');
+        }
+
+        console.log('✅ Retrieved OAuth session for token exchange');
+
         // Exchange code for tokens directly with Bexio
         const tokenUrl = 'https://auth.bexio.com/realms/bexio/protocol/openid-connect/token';
         console.log('🔗 Using Bexio token URL:', tokenUrl);
@@ -54,8 +63,8 @@ export default async function handler(req, res) {
           client_id: clientId,
           client_secret: clientSecret,
           code: code,
-          redirect_uri: process.env.BEXIO_MOBILE_REDIRECT_URI || 'bexio-sync://oauth-complete',
-          code_verifier: 'fallback_verifier' // In production, retrieve from session storage
+          redirect_uri: process.env.BEXIO_SERVER_CALLBACK_URI || 'https://tic-tac-puce-chi.vercel.app/api/bexio-oauth/mobile-callback',
+          code_verifier: session.codeVerifier
         });
 
         const exchangeResponse = await fetch(tokenUrl, {
