@@ -24,10 +24,11 @@ const config: CapacitorConfig = {
   appId: 'app.bexiosyncbuddy.app',
   appName: 'bexio-sync-buddy',
   webDir: 'dist',
-  server: {
-    url: getServerUrl(),
-    cleartext: getServerUrl().startsWith('http:') // Allow cleartext for development
-  },
+  // Server config removed for production mobile builds - loads from bundled assets
+  // server: {
+  //   url: getServerUrl(),
+  //   cleartext: getServerUrl().startsWith('http:') // Allow cleartext for development
+  // },
   plugins: {
     SplashScreen: {
       launchShowDuration: 3000,
@@ -46,7 +47,7 @@ const config: CapacitorConfig = {
     }
   },
   ios: {
-    scheme: 'bexio-sync',
+    scheme: 'bexio-sync-buddy',
     loggingBehavior: 'none'
   }
 };
