@@ -255,14 +255,43 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setIsLoading(globalIsLoading);
   }, [isLoading]);
 
+  // Helper function to decode JWT token
+  const decodeJwt = (token?: string) => {
+    try {
+      if (!token) return null;
+      const payload = token.split('.')[1];
+      const json = atob(payload.replace(/-/g, '+').replace(/_/g, '/'));
+      return JSON.parse(json);
+    } catch {
+      return null;
+    }
+  };
+
   // Load stored credentials on mount
   useEffect(() => {
     const loadCredentials = async () => {
       try {
         const storedCreds = await SecureStorage.getStoredCredentials();
         if (storedCreds) {
-          globalCredentials = storedCreds;
-          setCredentials(storedCreds);
+          // Check if companyId needs to be extracted from token
+          let updatedCreds = storedCreds;
+          if (storedCreds.authType === 'oauth' && storedCreds.companyId === 'unknown' && storedCreds.accessToken) {
+            const decoded = decodeJwt(storedCreds.accessToken);
+            const extractedCompanyId = decoded?.company_id || decoded?.companyId;
+            if (extractedCompanyId && extractedCompanyId !== 'unknown') {
+              console.log('🔍 Extracted company ID from stored token:', extractedCompanyId);
+              updatedCreds = {
+                ...storedCreds,
+                companyId: extractedCompanyId
+              };
+              // Update stored credentials with the extracted companyId
+              await SecureStorage.storeCredentials(updatedCreds);
+              console.log('💾 Updated stored credentials with extracted companyId');
+            }
+          }
+
+          globalCredentials = updatedCreds;
+          setCredentials(updatedCreds);
           console.log('🔐 Loaded stored credentials securely');
         }
       } catch (error) {

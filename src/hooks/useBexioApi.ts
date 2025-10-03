@@ -369,19 +369,19 @@ export const useBexioApi = () => {
 
       if (meResponse.ok) {
         const userData = await meResponse.json();
-        if (typeof userData.id !== 'number') {
-          console.error('Invalid user id type:', typeof userData.id, userData.id);
+        if (typeof userData.data.id !== 'number') {
+          console.error('Invalid user id type:', typeof userData.data.id, userData.data.id);
           return null;
         }
 
         const currentUser: BexioUser = {
-          id: userData.id,
-          salutation_type: userData.salutation_type,
-          firstname: userData.firstname || 'Unknown',
-          lastname: userData.lastname || 'User',
-          email: userData.email || '',
-          is_superadmin: userData.is_superadmin || false,
-          is_accountant: userData.is_accountant || false,
+          id: userData.data.id,
+          salutation_type: userData.data.salutation_type,
+          firstname: userData.data.firstname || 'Unknown',
+          lastname: userData.data.lastname || 'User',
+          email: userData.data.email || '',
+          is_superadmin: userData.data.is_superadmin || false,
+          is_accountant: userData.data.is_accountant || false,
         };
 
         setCurrentBexioUserId(currentUser.id);
@@ -410,8 +410,8 @@ export const useBexioApi = () => {
 
         if (usersResponse.ok) {
           const usersData = await usersResponse.json();
-          const currentUser = Array.isArray(usersData) 
-            ? usersData.find(u => u.email === credentials.userEmail)
+          const currentUser = Array.isArray(usersData.data)
+            ? usersData.data.find(u => u.email === credentials.userEmail)
             : null;
             
           if (currentUser) {
@@ -698,7 +698,10 @@ export const useBexioApi = () => {
       }
 
       const data = await response.json();
-      const validProjects = filterValidObjects(data, ['id'], isValidProject) as Project[];
+      const projectsArray = Array.isArray(data)
+        ? data
+        : (Array.isArray((data as any)?.data) ? (data as any).data : []);
+      const validProjects = filterValidObjects(projectsArray, ['id'], isValidProject) as Project[];
       setProjects(validProjects);
       setHasInitiallyLoaded(prev => ({ ...prev, projects: true }));
 
@@ -922,9 +925,12 @@ export const useBexioApi = () => {
 
       const data = await response.json();
       console.log(`✅ Received packages for project ${projectId}:`, data);
-      
+
       // Transform the data to our expected format based on the API response structure
-      const workPackages = Array.isArray(data) ? data : [];
+      const workPackagesArray = Array.isArray(data)
+        ? data
+        : (Array.isArray((data as any)?.data) ? (data as any).data : []);
+      const workPackages = workPackagesArray;
       
       const transformedPackages = workPackages.map((pkg: any) => ({
         id: pkg.id?.toString(),
@@ -964,7 +970,7 @@ export const useBexioApi = () => {
       console.log('🔄 localStorage.getItem result:', stored ? 'present' : 'null');
 
       if (stored) {
-        const creds = JSON.parse(stored);
+        let creds = JSON.parse(stored);
         console.log('🔄 Parsed credentials:', {
           hasAccessToken: !!creds.accessToken,
           hasRefreshToken: !!creds.refreshToken,
@@ -973,6 +979,22 @@ export const useBexioApi = () => {
           userEmail: creds.userEmail,
           expiresAt: creds.expiresAt ? new Date(creds.expiresAt).toISOString() : 'null'
         });
+
+        // Check if companyId needs to be extracted from token
+        if (creds.authType === 'oauth' && creds.companyId === 'unknown' && creds.accessToken) {
+          const decoded = decodeJwt(creds.accessToken);
+          const extractedCompanyId = decoded?.company_id || decoded?.companyId;
+          if (extractedCompanyId && extractedCompanyId !== 'unknown') {
+            console.log('🔍 Extracted company ID from stored token:', extractedCompanyId);
+            creds = {
+              ...creds,
+              companyId: extractedCompanyId
+            };
+            // Update stored credentials with the extracted companyId
+            localStorage.setItem('bexio_credentials', JSON.stringify(creds));
+            console.log('💾 Updated localStorage credentials with extracted companyId');
+          }
+        }
 
         console.log('🎯 Setting credentials from localStorage...');
         setCredentials(creds);
@@ -1255,10 +1277,13 @@ export const useBexioApi = () => {
       const data = await response.json();
       console.log('✅ Received timesheet statuses:', data);
 
-      const statuses = Array.isArray(data) ? data.map((status: any) => ({
+      const statusesArray = Array.isArray(data)
+        ? data
+        : (Array.isArray((data as any)?.data) ? (data as any).data : []);
+      const statuses = statusesArray.map((status: any) => ({
         id: status.id,
         name: status.name || `Status ${status.id}`,
-      })) : [];
+      }));
 
       setTimesheetStatuses(statuses);
       if (!options?.quiet) {
@@ -1316,10 +1341,13 @@ export const useBexioApi = () => {
       const data = await response.json();
       console.log('✅ Received business activities:', data);
 
-      const activities = Array.isArray(data) ? data.map((a: any) => ({
+      const activitiesArray = Array.isArray(data)
+        ? data
+        : (Array.isArray((data as any)?.data) ? (data as any).data : []);
+      const activities = activitiesArray.map((a: any) => ({
         id: a.id,
         name: a.name || `Activity ${a.id}`,
-      })) : [];
+      }));
 
       setBusinessActivities(activities);
       if (!options?.quiet) {
@@ -1747,7 +1775,10 @@ export const useBexioApi = () => {
       }
 
       const data = await response.json();
-      const fetchedUsers = Array.isArray(data) ? data.map((u: any) => ({
+      const usersArray = Array.isArray(data)
+        ? data
+        : (Array.isArray((data as any)?.data) ? (data as any).data : []);
+      const fetchedUsers = usersArray.map((u: any) => ({
         id: u.id,
         salutation_type: u.salutation_type,
         firstname: u.firstname || 'Unknown',
@@ -1755,7 +1786,7 @@ export const useBexioApi = () => {
         email: u.email || '',
         is_superadmin: u.is_superadmin || false,
         is_accountant: u.is_accountant || false,
-      })) : [];
+      }));
 
       setUsers(fetchedUsers);
       setHasInitiallyLoaded(prev => ({ ...prev, users: true }));
