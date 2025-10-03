@@ -121,42 +121,41 @@ export function safeParseDuration(duration: string | number | null | undefined):
 }
 
 /**
- * Validates project object
+ * Validates project object - only requires ID, name is optional
  */
-export function isValidProject(project: any): project is { id: number; name: string } {
-  return hasValidProperties(project, ['id', 'name']) &&
+export function isValidProject(project: any): project is { id: number; name?: string } {
+  return project &&
+         typeof project === 'object' &&
          typeof project.id === 'number' &&
-         !isNaN(project.id) &&
-         typeof project.name === 'string';
+         !isNaN(project.id);
 }
 
 /**
- * Validates contact object
+ * Validates contact object - only requires ID, name_1 is optional
  */
-export function isValidContact(contact: any): contact is { id: number; name_1: string } {
-  return hasValidProperties(contact, ['id', 'name_1']) &&
+export function isValidContact(contact: any): contact is { id: number; name_1?: string } {
+  return contact &&
+         typeof contact === 'object' &&
          typeof contact.id === 'number' &&
-         !isNaN(contact.id) &&
-         typeof contact.name_1 === 'string';
+         !isNaN(contact.id);
 }
 
 /**
- * Validates time entry object
+ * Validates time entry object - only requires ID and date, others are optional
  */
 export function isValidTimeEntry(entry: any): entry is {
   id: number;
   date: string;
-  duration: string | number;
+  duration?: string | number;
   text?: string;
-  allowable_bill: boolean;
+  allowable_bill?: boolean;
 } {
-  return hasValidProperties(entry, ['id', 'date', 'allowable_bill']) &&
+  return entry &&
+         typeof entry === 'object' &&
          typeof entry.id === 'number' &&
          !isNaN(entry.id) &&
          typeof entry.date === 'string' &&
-         entry.date.trim() !== '' &&
-         (entry.duration != null && entry.duration !== '') &&
-         typeof entry.allowable_bill === 'boolean';
+         entry.date.trim() !== '';
 }
 
 /**

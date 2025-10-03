@@ -526,7 +526,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       const responseWrapper = await response.json();
       const data = responseWrapper.data;
-      const validContacts = filterValidObjects(data, ['id', 'name_1'], isValidContact) as Contact[];
+      const validContacts = filterValidObjects(data, ['id'], isValidContact) as Contact[];
       setContacts(validContacts);
       setHasInitiallyLoaded(prev => ({ ...prev, contacts: true }));
 
@@ -575,13 +575,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       const responseWrapper = await response.json();
       const data = responseWrapper.data;
-      const validProjects = filterValidObjects(data, ['id', 'name'], isValidProject) as Project[];
+      const validProjects = filterValidObjects(data, ['id'], isValidProject) as Project[];
       setProjects(validProjects);
       setHasInitiallyLoaded(prev => ({ ...prev, projects: true }));
 
       toast({
         title: "Projects loaded successfully",
-        description: `Successfully fetched ${Array.isArray(data) ? data.length : 0} projects.`,
+        description: `Successfully fetched ${validProjects.length} projects.`,
       });
     } catch (error) {
       console.error('Error fetching projects:', error);
