@@ -330,7 +330,7 @@ export function MobileOAuth() {
       localStorage.setItem('bexio_oauth_state', state);
 
       const redirectUri = isNativePlatform
-        ? 'bexio-sync://oauth-complete'
+        ? import.meta.env.VITE_BEXIO_MOBILE_REDIRECT_URI || 'bexio-sync://oauth-complete'
         : import.meta.env.VITE_BEXIO_WEB_REDIRECT_URI || `${window.location.origin}/oauth-complete.html`;
 
       const params = new URLSearchParams({

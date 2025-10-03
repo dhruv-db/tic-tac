@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { Capacitor } from '@capacitor/core';
 import { useAuth, getServerUrl } from '@/context/OAuthContext';
 
 export function OAuthCallback() {
@@ -44,6 +45,23 @@ export function OAuthCallback() {
          return;
        }
 
+       // Get stored PKCE verifier
+       const codeVerifier = localStorage.getItem('bexio_oauth_code_verifier');
+       if (!codeVerifier) {
+         console.error('❌ PKCE code verifier not found');
+         setError('Authentication session expired. Please try again.');
+         setStatus('error');
+         console.log('🔄 ===== OAUTH CALLBACK COMPONENT END (NO CODE VERIFIER) =====');
+         return;
+       }
+
+       // Determine redirect URI based on platform
+       const redirectUri = Capacitor.isNativePlatform()
+         ? import.meta.env.VITE_BEXIO_MOBILE_REDIRECT_URI || 'bexio-sync://oauth-complete'
+         : import.meta.env.VITE_BEXIO_WEB_REDIRECT_URI || `${window.location.origin}/oauth-complete.html`;
+
+       console.log('🔄 Redirect URI for token exchange:', redirectUri);
+
        try {
          const serverUrl = getServerUrl();
          console.log('🔄 Exchanging authorization code for tokens...');
@@ -53,7 +71,7 @@ export function OAuthCallback() {
          const response = await fetch(`${serverUrl}/api/bexio-oauth/exchange`, {
            method: 'POST',
            headers: { 'Content-Type': 'application/json' },
-           body: JSON.stringify({ code, state })
+           body: JSON.stringify({ code, codeVerifier, redirectUri, state })
          });
 
          console.log('🔄 Token exchange response status:', response.status);
@@ -92,6 +110,10 @@ export function OAuthCallback() {
          );
          console.log('✅ connectWithOAuth completed');
 
+         // Clean up stored OAuth state
+         localStorage.removeItem('bexio_oauth_code_verifier');
+         localStorage.removeItem('bexio_oauth_state');
+
          // If opened in a popup, notify and close
          if (window.opener && !window.opener.closed) {
            console.log('🔄 Opened in popup, sending message to opener...');
@@ -128,6 +150,11 @@ export function OAuthCallback() {
            message: err.message,
            stack: err.stack
          });
+
+         // Clean up stored OAuth state on error
+         localStorage.removeItem('bexio_oauth_code_verifier');
+         localStorage.removeItem('bexio_oauth_state');
+
          setError(err instanceof Error ? err.message : 'Unknown error occurred');
          setStatus('error');
          console.log('🔄 ===== OAUTH CALLBACK COMPONENT END (EXCEPTION) =====');
