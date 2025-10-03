@@ -15,6 +15,39 @@ const getBackendApiUrl = () => {
   return `${serverUrl}/api/bexio-proxy`;
 };
 
+// Mobile-aware fetch with retry logic and longer timeouts
+const mobileAwareFetch = async (url: string, options: RequestInit, maxRetries: number = 3): Promise<Response> => {
+  const isNative = Capacitor.isNativePlatform();
+  const timeout = isNative ? 30000 : 10000; // 30s for mobile, 10s for web
+
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), timeout);
+
+      const response = await fetch(url, {
+        ...options,
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeoutId);
+      return response;
+    } catch (error) {
+      console.warn(`Fetch attempt ${attempt}/${maxRetries} failed:`, error.message);
+
+      if (attempt === maxRetries) {
+        throw error;
+      }
+
+      // Wait before retry (exponential backoff)
+      const delay = Math.min(1000 * Math.pow(2, attempt - 1), 5000);
+      await new Promise(resolve => setTimeout(resolve, delay));
+    }
+  }
+
+  throw new Error('All fetch attempts failed');
+};
+
 interface Contact {
   id: number;
   nr: string;
@@ -291,11 +324,11 @@ export const useBexioApi = () => {
           const serverUrl = getServerUrl();
           console.log('🌐 Refresh endpoint:', `${serverUrl}/api/bexio-oauth/refresh`);
 
-          const response = await fetch(`${serverUrl}/api/bexio-oauth/refresh`, {
+          const response = await mobileAwareFetch(`${serverUrl}/api/bexio-oauth/refresh`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ refreshToken: credentials.refreshToken }),
-          });
+          }, 2); // Fewer retries for refresh
 
           console.log('📡 Refresh response status:', response.status);
 
@@ -356,7 +389,7 @@ export const useBexioApi = () => {
 
     try {
       // Try /3.0/users/me first (OAuth preferred)
-      const meResponse = await fetch(getBackendApiUrl(), {
+      const meResponse = await mobileAwareFetch(getBackendApiUrl(), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -397,7 +430,7 @@ export const useBexioApi = () => {
     // Fallback: Try to identify via email matching if OAuth user
     if (credentials.authType === 'oauth' && credentials.userEmail) {
       try {
-        const usersResponse = await fetch(getBackendApiUrl(), {
+        const usersResponse = await mobileAwareFetch(getBackendApiUrl(), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -620,7 +653,7 @@ export const useBexioApi = () => {
        acceptLanguage: currentLanguage,
      });
 
-     const response = await fetch(getBackendApiUrl(), {
+     const response = await mobileAwareFetch(getBackendApiUrl(), {
        method: 'POST',
        headers: { 'Content-Type': 'application/json' },
        body: JSON.stringify({
@@ -672,17 +705,17 @@ export const useBexioApi = () => {
     try {
       const endpoint = '/3.0/projects';
 
-      const response = await fetch(getBackendApiUrl(), {
+      const response = await mobileAwareFetch(getBackendApiUrl(), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-          body: JSON.stringify({
-            endpoint,
-            accessToken: authToken,
-            companyId: credentials.companyId,
-            acceptLanguage: currentLanguage,
-          }),
+        body: JSON.stringify({
+          endpoint,
+          accessToken: authToken,
+          companyId: credentials.companyId,
+          acceptLanguage: currentLanguage,
+        }),
       });
 
       if (!response.ok) {
@@ -765,7 +798,7 @@ export const useBexioApi = () => {
 
     setIsLoadingTimeEntries(true);
     try {
-      const response = await fetch(getBackendApiUrl(), {
+      const response = await mobileAwareFetch(getBackendApiUrl(), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -885,7 +918,7 @@ export const useBexioApi = () => {
     try {
       const endpoint = `/3.0/projects/${projectId}/packages`;
 
-      const response = await fetch(getBackendApiUrl(), {
+      const response = await mobileAwareFetch(getBackendApiUrl(), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -1143,7 +1176,7 @@ export const useBexioApi = () => {
         const maxRetries = 3;
         for (let attempt = 1; attempt <= maxRetries; attempt++) {
           try {
-            const response = await fetch(getBackendApiUrl(), {
+            const response = await mobileAwareFetch(getBackendApiUrl(), {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
@@ -1151,7 +1184,7 @@ export const useBexioApi = () => {
                 method: 'POST',
                 accessToken: authToken,
                 companyId: credentials.companyId,
-                data: bexioData,
+                body: bexioData,
               }),
             });
 
@@ -1246,7 +1279,7 @@ export const useBexioApi = () => {
     console.log('🔍 Fetching timesheet statuses from Bexio');
     
     try {
-      const response = await fetch(getBackendApiUrl(), {
+      const response = await mobileAwareFetch(getBackendApiUrl(), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1310,7 +1343,7 @@ export const useBexioApi = () => {
     console.log('🔍 Fetching business activities from Bexio');
 
     try {
-      const response = await fetch(getBackendApiUrl(), {
+      const response = await mobileAwareFetch(getBackendApiUrl(), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1475,7 +1508,7 @@ export const useBexioApi = () => {
       console.log('Updating time entry with data:', { id, data: bexioData });
 
       // Use POST method with 2.0 API (per Bexio docs)
-      const putResponse = await fetch(getBackendApiUrl(), {
+      const putResponse = await mobileAwareFetch(getBackendApiUrl(), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1483,7 +1516,7 @@ export const useBexioApi = () => {
           method: 'POST',
           accessToken: authToken,
           companyId: credentials.companyId,
-          data: bexioData,
+          body: bexioData,
         }),
       });
 
@@ -1529,7 +1562,7 @@ export const useBexioApi = () => {
     if (!authToken) return;
 
     try {
-      const response = await fetch(getBackendApiUrl(), {
+      const response = await mobileAwareFetch(getBackendApiUrl(), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -1610,7 +1643,7 @@ export const useBexioApi = () => {
           console.log(`📝 Updating entry ${entry.id} with:`, mergedData);
 
           // Use POST method with 2.0 API (per Bexio docs)
-          const putResponse = await fetch(getBackendApiUrl(), {
+          const putResponse = await mobileAwareFetch(getBackendApiUrl(), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -1618,7 +1651,7 @@ export const useBexioApi = () => {
               method: 'POST',
               accessToken: authToken,
               companyId: credentials.companyId,
-              data: mergedData,
+              body: mergedData,
             }),
           });
 

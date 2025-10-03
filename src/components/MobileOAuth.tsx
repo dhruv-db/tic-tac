@@ -271,80 +271,121 @@ export function MobileOAuth() {
         throw new Error('OAuth not configured - missing client ID');
       }
 
-      console.log('🔑 Using Bexio Client ID for direct OAuth');
+      console.log('🔑 Using Bexio Client ID for OAuth');
 
-      // Step 2: Generate PKCE parameters
-      const generatePKCE = async () => {
-        const length = 64;
-        const charset = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~';
-        const random = new Uint8Array(length);
+      let authUrl: string;
+      let state: string;
 
-        if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
-          crypto.getRandomValues(random);
-        } else {
-          for (let i = 0; i < length; i++) {
-            random[i] = Math.floor(Math.random() * 256);
+      // For mobile platforms, use server-side OAuth initiation for proper PKCE handling
+      if (isNativePlatform) {
+        console.log('📱 [DEBUG] Mobile platform detected, using server-side OAuth initiation');
+
+        // Generate state for session tracking
+        state = Math.random().toString(36).substring(2, 15);
+
+        // Call server OAuth initiation endpoint
+        const serverUrl = getConfig.serverUrl();
+        const authResponse = await fetch(`${serverUrl}/api/bexio-oauth/auth`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            redirectUri: `${serverUrl}/api/bexio-oauth/mobile-callback`,
+            state: state,
+            platform: 'mobile'
+          }),
+        });
+
+        if (!authResponse.ok) {
+          const errorText = await authResponse.text();
+          throw new Error(`Failed to initiate OAuth: ${authResponse.status} - ${errorText}`);
+        }
+
+        const authData = await authResponse.json();
+        console.log('✅ [DEBUG] Server OAuth initiation successful:', authData);
+
+        // Use the authorization URL from server
+        authUrl = authData.authorizationUrl;
+        currentSessionId = authData.sessionId;
+
+        console.log('✅ Server OAuth URL generated, opening browser...');
+      } else {
+        // Web platform: generate PKCE client-side
+        console.log('🌐 [DEBUG] Web platform detected, using client-side PKCE');
+
+        // Step 2: Generate PKCE parameters
+        const generatePKCE = async () => {
+          const length = 64;
+          const charset = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~';
+          const random = new Uint8Array(length);
+
+          if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
+            crypto.getRandomValues(random);
+          } else {
+            for (let i = 0; i < length; i++) {
+              random[i] = Math.floor(Math.random() * 256);
+            }
           }
-        }
 
-        let codeVerifier = '';
-        for (let i = 0; i < length; i++) {
-          codeVerifier += charset[random[i] % charset.length];
-        }
+          let codeVerifier = '';
+          for (let i = 0; i < length; i++) {
+            codeVerifier += charset[random[i] % charset.length];
+          }
 
-        if (typeof crypto !== 'undefined' && crypto.subtle && typeof crypto.subtle.digest === 'function') {
-          try {
-            const encoder = new TextEncoder();
-            const data = encoder.encode(codeVerifier);
-            const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-            const hashBytes = new Uint8Array(hashBuffer);
-            let base64 = btoa(String.fromCharCode(...hashBytes));
-            const codeChallenge = base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-            return { codeVerifier, codeChallenge };
-          } catch (error) {
-            console.error('PKCE generation failed:', error);
+          if (typeof crypto !== 'undefined' && crypto.subtle && typeof crypto.subtle.digest === 'function') {
+            try {
+              const encoder = new TextEncoder();
+              const data = encoder.encode(codeVerifier);
+              const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+              const hashBytes = new Uint8Array(hashBuffer);
+              let base64 = btoa(String.fromCharCode(...hashBytes));
+              const codeChallenge = base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+              return { codeVerifier, codeChallenge };
+            } catch (error) {
+              console.error('PKCE generation failed:', error);
+              const fallbackVerifier = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+              return {
+                codeVerifier: fallbackVerifier,
+                codeChallenge: fallbackVerifier
+              };
+            }
+          } else {
+            console.warn('Web Crypto API not available, using fallback for PKCE');
             const fallbackVerifier = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
             return {
               codeVerifier: fallbackVerifier,
               codeChallenge: fallbackVerifier
             };
           }
-        } else {
-          console.warn('Web Crypto API not available, using fallback for PKCE');
-          const fallbackVerifier = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
-          return {
-            codeVerifier: fallbackVerifier,
-            codeChallenge: fallbackVerifier
-          };
-        }
-      };
+        };
 
-      const { codeVerifier, codeChallenge } = await generatePKCE();
+        const { codeVerifier, codeChallenge } = await generatePKCE();
 
-      // Step 3: Generate direct OAuth URL
-      const scope = 'openid profile email offline_access contact_show contact_edit monitoring_show monitoring_edit project_show';
-      const state = Math.random().toString(36).substring(2, 15);
+        // Step 3: Generate direct OAuth URL
+        const scope = 'openid profile email offline_access contact_show contact_edit monitoring_show monitoring_edit project_show';
+        state = Math.random().toString(36).substring(2, 15);
 
-      // Store PKCE verifier and state for later use in callback
-      localStorage.setItem('bexio_oauth_code_verifier', codeVerifier);
-      localStorage.setItem('bexio_oauth_state', state);
+        // Store PKCE verifier and state for later use in callback
+        localStorage.setItem('bexio_oauth_code_verifier', codeVerifier);
+        localStorage.setItem('bexio_oauth_state', state);
 
-      const redirectUri = isNativePlatform
-        ? 'bexio-sync://oauth-complete'
-        : import.meta.env.VITE_BEXIO_WEB_REDIRECT_URI || `${window.location.origin}/oauth-complete.html`;
+        const redirectUri = import.meta.env.VITE_BEXIO_WEB_REDIRECT_URI || `${window.location.origin}/oauth-complete.html`;
 
-      const params = new URLSearchParams({
-        client_id: clientId,
-        redirect_uri: redirectUri,
-        response_type: 'code',
-        scope: scope,
-        state: state,
-        code_challenge: codeChallenge,
-        code_challenge_method: 'S256',
-      });
+        const params = new URLSearchParams({
+          client_id: clientId,
+          redirect_uri: redirectUri,
+          response_type: 'code',
+          scope: scope,
+          state: state,
+          code_challenge: codeChallenge,
+          code_challenge_method: 'S256',
+        });
 
-      const authUrl = `${import.meta.env.VITE_BEXIO_OAUTH_AUTH_URL || 'https://auth.bexio.com/realms/bexio/protocol/openid-connect/auth'}?${params.toString()}`;
-      console.log('✅ Direct OAuth URL generated, opening browser...');
+        authUrl = `${import.meta.env.VITE_BEXIO_OAUTH_AUTH_URL || 'https://auth.bexio.com/realms/bexio/protocol/openid-connect/auth'}?${params.toString()}`;
+        currentSessionId = state;
+        console.log('✅ Client OAuth URL generated, opening browser...');
+      }
 
       // Step 4: Open browser for OAuth
       if (Capacitor.isNativePlatform()) {
