@@ -3,24 +3,14 @@ import { useToast } from '@/hooks/use-toast';
 import { Capacitor } from '@capacitor/core';
 import { DateRange } from "react-day-picker";
 import { format } from "date-fns";
+import SecureStorage, { getConfig } from '@/lib/secureStorage';
+import { filterValidObjects, isValidProject, isValidContact, isValidTimeEntry } from '@/lib/dataValidation';
 
-// Helper function to get the correct server URL based on platform
-const getServerUrl = () => {
-  // For mobile apps, always use production server
-  if (Capacitor.isNativePlatform()) {
-    // Use production server for mobile apps
-    return 'https://tic-tac-puce-chi.vercel.app';
-  }
+// Helper function to get the correct server URL using centralized config
+const getServerUrl = () => getConfig.serverUrl();
 
-  // For web, check if we're in production (Vercel)
-  if (import.meta.env.PROD || window.location.hostname !== 'localhost') {
-    // Use production URL from environment or Vercel domain
-    return import.meta.env.VITE_WEB_SERVER_URL || `https://${window.location.hostname}`;
-  }
 
-  // For local development
-  return import.meta.env.VITE_WEB_SERVER_URL || 'http://localhost:3001';
-};
+// Secure storage utility functions for production-ready credential persistence
 
 interface Contact {
   id: number;
@@ -108,7 +98,7 @@ interface BexioUser {
   is_accountant: boolean;
 }
 
-interface BexioCredentials {
+export interface BexioCredentials {
   apiKey?: string;
   companyId: string;
   accessToken?: string;
@@ -178,7 +168,7 @@ interface AuthContextType {
   connect: (apiKey: string, companyId: string) => Promise<void>;
   connectWithOAuth: (accessToken: string, refreshToken: string, companyId: string, userEmail: string) => Promise<void>;
   disconnect: () => void;
-  loadStoredCredentials: () => boolean;
+  loadStoredCredentials: () => Promise<boolean>;
 
   // Data fetching
   fetchContacts: () => Promise<void>;
@@ -201,9 +191,6 @@ interface AuthContextType {
   setCurrentLanguage: (language: string) => void;
   getWorkPackageName: (projectId: number | undefined, packageId: string | undefined) => string;
 
-  // Legacy OAuth callback support
-  onOAuthConnect: ((accessToken: string, refreshToken: string, companyId: string, userEmail: string) => void) | null;
-  setOAuthConnectHandler: (handler: (accessToken: string, refreshToken: string, companyId: string, userEmail: string) => void) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -213,20 +200,7 @@ let globalCredentials: BexioCredentials | null = null;
 let globalIsLoading = false;
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [credentials, setCredentials] = useState<BexioCredentials | null>(() => {
-    // Initialize from localStorage on first load
-    try {
-      const stored = localStorage.getItem('bexio_credentials');
-      if (stored) {
-        const parsed = JSON.parse(stored) as BexioCredentials;
-        globalCredentials = parsed;
-        return parsed;
-      }
-    } catch (error) {
-      console.error('Error initializing credentials from localStorage:', error);
-    }
-    return null;
-  });
+  const [credentials, setCredentials] = useState<BexioCredentials | null>(null);
 
   const [isLoading, setIsLoading] = useState(globalIsLoading);
 
@@ -264,11 +238,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [currentBexioUserId, setCurrentBexioUserId] = useState<number | null>(null);
   const [isCurrentUserAdmin, setIsCurrentUserAdmin] = useState(false);
 
-  // Legacy OAuth support
-  const [onOAuthConnect, setOnOAuthConnect] = useState<((accessToken: string, refreshToken: string, companyId: string, userEmail: string) => void) | null>(null);
 
   const { toast } = useToast();
   const credentialsRef = useRef<BexioCredentials | null>(credentials);
+  const refreshPromiseRef = useRef<Promise<string | null> | null>(null);
 
   // Sync ref with state
   useEffect(() => {
@@ -282,9 +255,53 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setIsLoading(globalIsLoading);
   }, [isLoading]);
 
-  const setOAuthConnectHandler = useCallback((handler: (accessToken: string, refreshToken: string, companyId: string, userEmail: string) => void) => {
-    setOnOAuthConnect(() => handler);
+  // Helper function to decode JWT token
+  const decodeJwt = (token?: string) => {
+    try {
+      if (!token) return null;
+      const payload = token.split('.')[1];
+      const json = atob(payload.replace(/-/g, '+').replace(/_/g, '/'));
+      return JSON.parse(json);
+    } catch {
+      return null;
+    }
+  };
+
+  // Load stored credentials on mount
+  useEffect(() => {
+    const loadCredentials = async () => {
+      try {
+        const storedCreds = await SecureStorage.getStoredCredentials();
+        if (storedCreds) {
+          // Check if companyId needs to be extracted from token
+          let updatedCreds = storedCreds;
+          if (storedCreds.authType === 'oauth' && storedCreds.companyId === 'unknown' && storedCreds.accessToken) {
+            const decoded = decodeJwt(storedCreds.accessToken);
+            const extractedCompanyId = decoded?.company_id || decoded?.companyId;
+            if (extractedCompanyId && extractedCompanyId !== 'unknown') {
+              console.log('🔍 Extracted company ID from stored token:', extractedCompanyId);
+              updatedCreds = {
+                ...storedCreds,
+                companyId: extractedCompanyId
+              };
+              // Update stored credentials with the extracted companyId
+              await SecureStorage.storeCredentials(updatedCreds);
+              console.log('💾 Updated stored credentials with extracted companyId');
+            }
+          }
+
+          globalCredentials = updatedCreds;
+          setCredentials(updatedCreds);
+          console.log('🔐 Loaded stored credentials securely');
+        }
+      } catch (error) {
+        console.error('❌ Error loading stored credentials:', error);
+      }
+    };
+
+    loadCredentials();
   }, []);
+
 
   // Helper function to refresh OAuth token if needed
   const ensureValidToken = useCallback(async (): Promise<string | null> => {
@@ -294,53 +311,103 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return credentials.apiKey || null;
     }
 
-    if (credentials.authType === 'oauth') {
-      // Check if token is still valid (with 5 minute buffer)
-      if (credentials.expiresAt && credentials.expiresAt > Date.now() + (5 * 60 * 1000)) {
-        return credentials.accessToken || null;
-      }
+    // Check if token is still valid (with 5 minute buffer)
+    if (credentials.expiresAt && credentials.expiresAt > Date.now() + (5 * 60 * 1000)) {
+      return credentials.accessToken || null;
+    }
 
-      // Token expired or about to expire, refresh it
-      if (credentials.refreshToken) {
-        try {
-          const response = await fetch(`${getServerUrl()}/api/bexio-oauth/refresh`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ refreshToken: credentials.refreshToken }),
-          });
+    // Use existing refresh promise if one is in progress
+    if (refreshPromiseRef.current) {
+      return refreshPromiseRef.current;
+    }
 
-          if (response.ok) {
-            const { accessToken, refreshToken, expiresIn } = await response.json();
-            const expiresAt = Date.now() + (expiresIn * 1000);
+    // Create new refresh promise
+    refreshPromiseRef.current = performTokenRefresh();
+    const result = await refreshPromiseRef.current;
+    refreshPromiseRef.current = null;
+    return result;
+  }, [credentials, toast]);
 
-            const updatedCreds: BexioCredentials = {
-              ...credentials,
-              accessToken,
-              refreshToken: refreshToken || credentials.refreshToken,
-              expiresAt
-            };
-
-            localStorage.setItem('bexio_credentials', JSON.stringify(updatedCreds));
-            setCredentials(updatedCreds);
-            return accessToken;
-          }
-        } catch (error) {
-          console.error('Failed to refresh token:', error);
-        }
-      }
-
+  // Extract token refresh logic into separate function
+  const performTokenRefresh = useCallback(async (): Promise<string | null> => {
+    if (!credentials?.refreshToken) {
+      console.log('🔄 No refresh token available');
       // Refresh failed, clear credentials
-      localStorage.removeItem('bexio_credentials');
+      await SecureStorage.removeStoredCredentials();
       setCredentials(null);
       toast({
-        title: "Session expired",
-        description: "Please log in again.",
+        title: "Session Expired",
+        description: "Your session has expired. Please log in again to continue.",
         variant: "destructive",
       });
       return null;
     }
 
-    return null;
+    try {
+      console.log('🔄 Attempting token refresh...');
+      const serverUrl = getServerUrl();
+      const response = await fetch(`${serverUrl}/api/bexio-oauth/refresh`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ refreshToken: credentials.refreshToken }),
+      });
+
+      if (response.ok) {
+        const { accessToken, refreshToken, expiresIn } = await response.json();
+        const expiresAt = Date.now() + (expiresIn * 1000);
+
+        const updatedCreds: BexioCredentials = {
+          ...credentials,
+          accessToken,
+          refreshToken: refreshToken || credentials.refreshToken,
+          expiresAt
+        };
+
+        await SecureStorage.storeCredentials(updatedCreds);
+        setCredentials(updatedCreds);
+        console.log('✅ Token refresh successful');
+        return accessToken;
+      } else if (response.status === 429) {
+        // Rate limited
+        toast({
+          title: "Too Many Requests",
+          description: "Please wait a moment before trying again.",
+          variant: "destructive",
+        });
+        return null;
+      } else if (response.status === 401) {
+        // Invalid refresh token
+        console.log('❌ Invalid refresh token');
+        await SecureStorage.removeStoredCredentials();
+        setCredentials(null);
+        toast({
+          title: "Authentication Required",
+          description: "Your session is no longer valid. Please log in again.",
+          variant: "destructive",
+        });
+        return null;
+      } else {
+        // Other server errors
+        const errorData = await response.json().catch(() => ({}));
+        console.error('❌ Token refresh failed:', response.status, errorData);
+        toast({
+          title: "Connection Error",
+          description: "Unable to refresh your session. Please check your internet connection.",
+          variant: "destructive",
+        });
+        return null;
+      }
+    } catch (error) {
+      console.error('❌ Token refresh network error:', error);
+      toast({
+        title: "Network Error",
+        description: "Unable to connect to the server. Please check your internet connection.",
+        variant: "destructive",
+      });
+      return null;
+    }
   }, [credentials, toast]);
 
   const connect = useCallback(async (apiKey: string, companyId: string) => {
@@ -350,7 +417,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         companyId,
         authType: 'api'
       };
-      localStorage.setItem('bexio_credentials', JSON.stringify(creds));
+      await SecureStorage.storeCredentials(creds);
       setCredentials(creds);
 
       toast({
@@ -368,8 +435,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [toast]);
 
   const connectWithOAuth = useCallback(async (accessToken: string, refreshToken: string, companyId: string, userEmail: string) => {
-    console.log('🔗 ===== CONNECT WITH OAUTH START =====');
-    console.log('🔗 connectWithOAuth called with:', {
+    console.log('🔗 [DEBUG] ===== CONNECT WITH OAUTH START =====');
+    console.log('🔗 [DEBUG] Platform:', Capacitor.getPlatform(), 'isNative:', Capacitor.isNativePlatform());
+    console.log('🔗 [DEBUG] connectWithOAuth called with:', {
       hasAccessToken: !!accessToken,
       hasRefreshToken: !!refreshToken,
       companyId,
@@ -396,9 +464,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         expiresAt
       };
 
-      console.log('💾 Storing credentials in localStorage...');
-      localStorage.setItem('bexio_credentials', JSON.stringify(creds));
-      console.log('✅ Credentials stored in localStorage');
+      console.log('💾 Storing credentials using cross-platform storage...');
+      await SecureStorage.storeCredentials(creds);
+      console.log('✅ Credentials stored using cross-platform storage');
 
       console.log('🎯 Setting credentials state...');
       setCredentials(creds);
@@ -424,8 +492,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [credentials, toast]);
 
-  const disconnect = useCallback(() => {
-    localStorage.removeItem('bexio_credentials');
+  const disconnect = useCallback(async () => {
+    await SecureStorage.removeStoredCredentials();
     setCredentials(null);
     setContacts([]);
     setProjects([]);
@@ -447,11 +515,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
   }, [toast]);
 
-  const loadStoredCredentials = useCallback(() => {
+  const loadStoredCredentials = useCallback(async () => {
     try {
-      const stored = localStorage.getItem('bexio_credentials');
-      if (stored) {
-        const creds = JSON.parse(stored);
+      const creds = await SecureStorage.getStoredCredentials();
+      if (creds) {
         setCredentials(creds);
         return true;
       }
@@ -469,9 +536,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     setIsLoadingContacts(true);
     try {
-      const response = await fetch(`${getServerUrl()}/api/bexio-proxy`, {
+      const response = await fetch('/api/bexio-proxy', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify({
           endpoint: '/3.0/contacts?limit=200',
           apiKey: authToken,
@@ -484,18 +553,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
       }
 
-      const data = await response.json();
-      const items = Array.isArray(data)
-        ? data
-        : (Array.isArray((data as any)?.data)
-            ? (data as any).data
-            : (data && typeof data === 'object' ? [data as any] : []));
-      setContacts(items);
+      const responseWrapper = await response.json();
+      const data = responseWrapper.data;
+      const validContacts = filterValidObjects(data, ['id'], isValidContact) as Contact[];
+      setContacts(validContacts);
       setHasInitiallyLoaded(prev => ({ ...prev, contacts: true }));
 
       toast({
         title: "Contacts loaded",
-        description: `Fetched ${items.length} contacts.`,
+        description: `Fetched ${validContacts.length} contacts.`,
       });
     } catch (error) {
       console.error('Error fetching contacts:', error);
@@ -519,9 +585,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     setIsLoadingProjects(true);
     try {
-      const response = await fetch(`${getServerUrl()}/api/bexio-proxy`, {
+      const response = await fetch('/api/bexio-proxy', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify({
           endpoint: '/3.0/projects',
           apiKey: authToken,
@@ -534,13 +602,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
       }
 
-      const data = await response.json();
-      setProjects(Array.isArray(data) ? data : []);
+      const responseWrapper = await response.json();
+      const data = responseWrapper.data;
+      const validProjects = filterValidObjects(data, ['id'], isValidProject) as Project[];
+      setProjects(validProjects);
       setHasInitiallyLoaded(prev => ({ ...prev, projects: true }));
 
       toast({
         title: "Projects loaded successfully",
-        description: `Successfully fetched ${Array.isArray(data) ? data.length : 0} projects.`,
+        description: `Successfully fetched ${validProjects.length} projects.`,
       });
     } catch (error) {
       console.error('Error fetching projects:', error);
@@ -562,7 +632,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     setIsLoadingTimeEntries(true);
     try {
-      let endpoint = '/timesheet';
+      let endpoint = '/2.0/timesheet';
       const params: string[] = [];
 
       if (dateRange) {
@@ -575,9 +645,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         endpoint += `?${params.join('&')}`;
       }
 
-      const response = await fetch(`${getServerUrl()}/api/bexio-proxy`, {
+      const response = await fetch('/api/bexio-proxy', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify({
           endpoint: endpoint,
           apiKey: authToken,
@@ -590,8 +662,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         throw new Error(errorData.error || `Bexio API error: ${response.status}`);
       }
 
-      const data = await response.json();
-      setTimeEntries(Array.isArray(data) ? data : []);
+      const responseWrapper = await response.json();
+      const data = responseWrapper.data;
+      console.log('🔍 [DEBUG] OAuthContext fetchTimeEntries - raw data:', data);
+      const timeEntriesData = Array.isArray(data) ? data : [];
+      console.log('🔍 [DEBUG] OAuthContext fetchTimeEntries - processed entries count:', timeEntriesData.length);
+
+      // Check for malformed duration data
+      const malformedEntries = timeEntriesData.filter(entry => {
+        if (entry.duration === undefined || entry.duration === null) {
+          console.error('❌ [ERROR] OAuthContext - Time entry with undefined/null duration:', entry);
+          return true;
+        }
+        if (typeof entry.duration === 'string' && !entry.duration.includes(':')) {
+          console.warn('⚠️ [WARN] OAuthContext - Time entry with malformed duration string (no colon):', entry.duration, entry);
+          return true;
+        }
+        return false;
+      });
+
+      if (malformedEntries.length > 0) {
+        console.error('❌ [ERROR] OAuthContext - Found malformed time entries:', malformedEntries);
+      }
+
+      // Filter out undefined and invalid entries
+      const validTimeEntries = filterValidObjects(timeEntriesData, ['id', 'date', 'allowable_bill'], isValidTimeEntry) as TimeEntry[];
+      setTimeEntries(validTimeEntries);
       setHasInitiallyLoaded(prev => ({ ...prev, timeEntries: true }));
 
       const quiet = options?.quiet !== false;
@@ -635,9 +731,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     console.log('👥 [DEBUG] Starting user fetch...');
 
     try {
-      const response = await fetch(`${getServerUrl()}/api/bexio-proxy`, {
+      const response = await fetch('/api/bexio-proxy', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify({
           endpoint: '/3.0/users',
           apiKey: authToken,
@@ -653,7 +751,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
       }
 
-      const data = await response.json();
+      const responseWrapper = await response.json();
+      const data = responseWrapper.data;
       console.log('👥 [DEBUG] Raw users data:', data);
 
       const fetchedUsers = Array.isArray(data) ? data.map((u: any) => ({
@@ -703,9 +802,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!authToken) return null;
 
     try {
-      const meResponse = await fetch(`${getServerUrl()}/api/bexio-proxy`, {
+      const meResponse = await fetch('/api/bexio-proxy', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify({
           endpoint: '/3.0/users/me',
           apiKey: authToken,
@@ -714,7 +815,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
 
       if (meResponse.ok) {
-        const userData = await meResponse.json();
+        const responseWrapper = await meResponse.json();
+        const userData = responseWrapper.data;
         const currentUser: BexioUser = {
           id: userData.id,
           salutation_type: userData.salutation_type,
@@ -800,11 +902,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     console.log('🔍 Fetching timesheet statuses from Bexio');
 
     try {
-      const response = await fetch(`${getServerUrl()}/api/bexio-proxy`, {
+      const response = await fetch('/api/bexio-proxy', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify({
-          endpoint: '/timesheet_status',
+          endpoint: '/2.0/timesheet_status',
           apiKey: authToken,
           companyId: credentials.companyId,
         }),
@@ -817,7 +921,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
       }
 
-      const data = await response.json();
+      const responseWrapper = await response.json();
+      const data = responseWrapper.data;
       console.log('✅ Received timesheet statuses:', data);
 
       const statuses = Array.isArray(data) ? data.map((status: any) => ({
@@ -857,11 +962,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     console.log('🔍 Fetching business activities from Bexio');
 
     try {
-      const response = await fetch(`${getServerUrl()}/api/bexio-proxy`, {
+      const response = await fetch('/api/bexio-proxy', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify({
-          endpoint: '/client_service',
+          endpoint: '/2.0/client_service',
           apiKey: authToken,
           companyId: credentials.companyId,
         }),
@@ -874,7 +981,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
       }
 
-      const data = await response.json();
+      const responseWrapper = await response.json();
+      const data = responseWrapper.data;
       console.log('✅ Received business activities:', data);
 
       const activities = Array.isArray(data) ? data.map((a: any) => ({
@@ -931,7 +1039,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       let durationString: string;
 
       if (timeEntryData.useDuration && timeEntryData.duration) {
-        const [hours, minutes] = timeEntryData.duration.split(':').map(Number);
+        console.log('🔍 [DEBUG] OAuthContext - Parsing duration string:', timeEntryData.duration);
+        const durationParts = timeEntryData.duration.split(':').map(Number);
+        console.log('🔍 [DEBUG] OAuthContext - Duration parts:', durationParts);
+        const [hours, minutes] = durationParts;
+        console.log('🔍 [DEBUG] OAuthContext - Hours:', hours, 'Minutes:', minutes, 'Minutes type:', typeof minutes);
+        if (minutes === undefined) {
+          console.error('❌ [ERROR] OAuthContext - Minutes is undefined! Duration string malformed:', timeEntryData.duration);
+          throw new Error(`Invalid duration format: ${timeEntryData.duration}. Expected HH:MM format.`);
+        }
         durationString = `${hours}:${minutes.toString().padStart(2, '0')}`;
       } else {
         const [startHours, startMinutes] = (timeEntryData.startTime || "09:00").split(':').map(Number);
@@ -1010,11 +1126,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const maxRetries = 3;
         for (let attempt = 1; attempt <= maxRetries; attempt++) {
           try {
-            const response = await fetch(`${getServerUrl()}/api/bexio-proxy`, {
+            const response = await fetch('/api/bexio-proxy', {
               method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
+              headers: {
+                'Content-Type': 'application/json',
+              },
               body: JSON.stringify({
-                endpoint: '/timesheet',
+                endpoint: '/2.0/timesheet',
                 method: 'POST',
                 apiKey: authToken,
                 companyId: credentials.companyId,
@@ -1122,7 +1240,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       let durationString: string;
 
       if (timeEntryData.useDuration && timeEntryData.duration) {
-        const [hours, minutes] = timeEntryData.duration.split(':').map(Number);
+        console.log('🔍 [DEBUG] OAuthContext update - Parsing duration string:', timeEntryData.duration);
+        const durationParts = timeEntryData.duration.split(':').map(Number);
+        console.log('🔍 [DEBUG] OAuthContext update - Duration parts:', durationParts);
+        const [hours, minutes] = durationParts;
+        console.log('🔍 [DEBUG] OAuthContext update - Hours:', hours, 'Minutes:', minutes, 'Minutes type:', typeof minutes);
+        if (minutes === undefined) {
+          console.error('❌ [ERROR] OAuthContext update - Minutes is undefined! Duration string malformed:', timeEntryData.duration);
+          throw new Error(`Invalid duration format: ${timeEntryData.duration}. Expected HH:MM format.`);
+        }
         durationString = `${hours}:${minutes.toString().padStart(2, '0')}`;
       } else {
         const [startHours, startMinutes] = (timeEntryData.startTime || "09:00").split(':').map(Number);
@@ -1155,9 +1281,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       console.log('Updating time entry with data:', { id, data: bexioData });
 
-      const putResponse = await fetch(`${getServerUrl()}/api/bexio-proxy`, {
+      const putResponse = await fetch('/api/bexio-proxy', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify({
           endpoint: `/2.0/timesheet/${id}`,
           method: 'POST',
@@ -1207,13 +1335,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!authToken) return;
 
     try {
-      const response = await fetch(`${getServerUrl()}/api/bexio-proxy`, {
+      const response = await fetch('/api/bexio-proxy', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          endpoint: `/timesheet/${id}`,
+          endpoint: `/2.0/timesheet/${id}`,
           method: 'DELETE',
           apiKey: authToken,
           companyId: credentials.companyId,
@@ -1279,9 +1407,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
           console.log(`📝 Updating entry ${entry.id} with:`, mergedData);
 
-          const putResponse = await fetch(`${getServerUrl()}/api/bexio-proxy`, {
+          const putResponse = await fetch('/api/bexio-proxy', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+              'Content-Type': 'application/json',
+            },
             body: JSON.stringify({
               endpoint: `/2.0/timesheet/${entry.id}`,
               method: 'POST',
@@ -1448,9 +1578,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setCurrentLanguage: setCurrentLanguageWithPersistence,
     getWorkPackageName,
 
-    // Legacy OAuth callback support
-    onOAuthConnect,
-    setOAuthConnectHandler,
   };
 
   return (

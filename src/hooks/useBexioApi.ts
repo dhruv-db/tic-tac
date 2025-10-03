@@ -3,16 +3,16 @@ import { useToast } from "@/hooks/use-toast";
 import { DateRange } from "react-day-picker";
 import { format } from "date-fns";
 import { Capacitor } from "@capacitor/core";
+import { getConfig } from "@/lib/secureStorage";
+import { filterValidObjects, isValidProject, isValidContact, isValidTimeEntry } from "@/lib/dataValidation";
 
-// Helper function to get the correct server URL based on platform
-const getServerUrl = () => {
-  // For mobile apps, use the host machine's IP address
-  if (Capacitor.isNativePlatform()) {
-    // Use the same IP as configured in .env
-    return 'http://192.168.29.13:3001';
-  }
-  // For web, use localhost
-  return 'http://localhost:3001';
+// Helper function to get the correct server URL using centralized config
+const getServerUrl = () => getConfig.serverUrl();
+
+// Helper function to get the backend API URL for Bexio proxy
+const getBackendApiUrl = () => {
+  const serverUrl = getServerUrl();
+  return `${serverUrl}/api/bexio-proxy`;
 };
 
 interface Contact {
@@ -250,8 +250,8 @@ export const useBexioApi = () => {
 
   // Helper: get work package name from cache, handle both project_id and pr_project_id
   const getWorkPackageName = (projectId: number | undefined, packageId: string | undefined): string => {
-    if (!packageId) return 'No Work Package';
-    if (!projectId) return `WP ${packageId}`;
+    if (!packageId || typeof packageId !== 'string') return 'No Work Package';
+    if (!projectId || typeof projectId !== 'number') return `WP ${packageId}`;
     const list = workPackagesByProject[projectId] || [];
     const found = list.find(wp => wp.id === packageId || wp.id === String(packageId));
     return found?.name || `WP ${packageId}`;
@@ -356,12 +356,12 @@ export const useBexioApi = () => {
 
     try {
       // Try /3.0/users/me first (OAuth preferred)
-      const meResponse = await fetch(`https://opcjifbdwpyttaxqlqbf.supabase.co/functions/v1/bexio-proxy`, {
+      const meResponse = await fetch(getBackendApiUrl(), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           endpoint: '/3.0/users/me',
-          apiKey: authToken,
+          accessToken: authToken,
           companyId: credentials.companyId,
           acceptLanguage: 'en',
         }),
@@ -369,14 +369,19 @@ export const useBexioApi = () => {
 
       if (meResponse.ok) {
         const userData = await meResponse.json();
+        if (typeof userData.data.id !== 'number') {
+          console.error('Invalid user id type:', typeof userData.data.id, userData.data.id);
+          return null;
+        }
+
         const currentUser: BexioUser = {
-          id: userData.id,
-          salutation_type: userData.salutation_type,
-          firstname: userData.firstname || 'Unknown',
-          lastname: userData.lastname || 'User',
-          email: userData.email || '',
-          is_superadmin: userData.is_superadmin || false,
-          is_accountant: userData.is_accountant || false,
+          id: userData.data.id,
+          salutation_type: userData.data.salutation_type,
+          firstname: userData.data.firstname || 'Unknown',
+          lastname: userData.data.lastname || 'User',
+          email: userData.data.email || '',
+          is_superadmin: userData.data.is_superadmin || false,
+          is_accountant: userData.data.is_accountant || false,
         };
 
         setCurrentBexioUserId(currentUser.id);
@@ -392,12 +397,12 @@ export const useBexioApi = () => {
     // Fallback: Try to identify via email matching if OAuth user
     if (credentials.authType === 'oauth' && credentials.userEmail) {
       try {
-        const usersResponse = await fetch(`https://opcjifbdwpyttaxqlqbf.supabase.co/functions/v1/bexio-proxy`, {
+        const usersResponse = await fetch(getBackendApiUrl(), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             endpoint: '/3.0/users',
-            apiKey: authToken,
+            accessToken: authToken,
             companyId: credentials.companyId,
             acceptLanguage: 'en',
           }),
@@ -405,11 +410,16 @@ export const useBexioApi = () => {
 
         if (usersResponse.ok) {
           const usersData = await usersResponse.json();
-          const currentUser = Array.isArray(usersData) 
-            ? usersData.find(u => u.email === credentials.userEmail)
+          const currentUser = Array.isArray(usersData.data)
+            ? usersData.data.find(u => u.email === credentials.userEmail)
             : null;
             
           if (currentUser) {
+            if (typeof currentUser.id !== 'number') {
+              console.error('Invalid user id type from email match:', typeof currentUser.id, currentUser.id);
+              return null;
+            }
+
             const user: BexioUser = {
               id: currentUser.id,
               salutation_type: currentUser.salutation_type,
@@ -436,11 +446,13 @@ export const useBexioApi = () => {
     const storedUserId = localStorage.getItem('selectedBexioUserId');
     if (storedUserId) {
       const userId = parseInt(storedUserId);
-      const isAdmin = localStorage.getItem('isCurrentUserAdmin') === 'true';
-      setCurrentBexioUserId(userId);
-      setIsCurrentUserAdmin(isAdmin);
-      console.log(`🔐 Using stored user ID: ${userId} (admin: ${isAdmin})`);
-      return { id: userId, is_superadmin: isAdmin, is_accountant: false } as BexioUser;
+      if (!isNaN(userId)) {
+        const isAdmin = localStorage.getItem('isCurrentUserAdmin') === 'true';
+        setCurrentBexioUserId(userId);
+        setIsCurrentUserAdmin(isAdmin);
+        console.log(`🔐 Using stored user ID: ${userId} (admin: ${isAdmin})`);
+        return { id: userId, is_superadmin: isAdmin, is_accountant: false } as BexioUser;
+      }
     }
 
     console.warn('❌ Could not identify current user');
@@ -495,12 +507,20 @@ export const useBexioApi = () => {
       return;
     }
 
+    // If companyId is not provided or is 'unknown', try to extract from token
+    let finalCompanyId = companyId;
+    if (!finalCompanyId || finalCompanyId === 'unknown') {
+      const decoded = decodeJwt(accessToken);
+      finalCompanyId = decoded?.company_id || decoded?.companyId || 'unknown';
+      console.log('🔍 Extracted company ID from token in connectWithOAuth:', finalCompanyId);
+    }
+
     try {
       const expiresAt = Date.now() + (3600 * 1000); // 1 hour from now
       const creds: BexioCredentials = {
         accessToken,
         refreshToken,
-        companyId: companyId || 'unknown', // Fallback for missing company ID
+        companyId: finalCompanyId,
         userEmail: userEmail || 'OAuth User', // Fallback for missing email
         authType: 'oauth',
         expiresAt
@@ -582,23 +602,34 @@ export const useBexioApi = () => {
 
 
   const fetchContacts = useCallback(async () => {
-    if (!credentials || isLoadingContacts) return;
+   if (!credentials || isLoadingContacts) return;
 
-    const authToken = await ensureValidToken();
-    if (!authToken) return;
+   const authToken = await ensureValidToken();
+   if (!authToken) return;
 
-    setIsLoadingContacts(true);
-    try {
-      const response = await fetch(`https://opcjifbdwpyttaxqlqbf.supabase.co/functions/v1/bexio-proxy`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          endpoint: '/3.0/contacts?limit=200',
-          apiKey: authToken,
-          companyId: credentials.companyId,
-          acceptLanguage: currentLanguage,
-        }),
-      });
+   setIsLoadingContacts(true);
+   try {
+     const endpoint = '/3.0/contacts?limit=200';
+
+     const apiUrl = getBackendApiUrl();
+     console.log('🔍 [DEBUG] fetchContacts - API URL:', apiUrl);
+     console.log('🔍 [DEBUG] fetchContacts - Full request body:', {
+       endpoint,
+       accessToken: authToken.substring(0, 20) + '...',
+       companyId: credentials.companyId,
+       acceptLanguage: currentLanguage,
+     });
+
+     const response = await fetch(getBackendApiUrl(), {
+       method: 'POST',
+       headers: { 'Content-Type': 'application/json' },
+       body: JSON.stringify({
+         endpoint,
+         accessToken: authToken,
+         companyId: credentials.companyId,
+         acceptLanguage: currentLanguage,
+       }),
+     });
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
@@ -611,12 +642,13 @@ export const useBexioApi = () => {
         : (Array.isArray((data as any)?.data)
             ? (data as any).data
             : (data && typeof data === 'object' ? [data as any] : []));
-      setContacts(items);
+      const validContacts = filterValidObjects(items, ['id'], isValidContact) as Contact[];
+      setContacts(validContacts);
       setHasInitiallyLoaded(prev => ({ ...prev, contacts: true }));
 
       toast({
         title: "Contacts loaded",
-        description: `Fetched ${items.length} contacts.`,
+        description: `Fetched ${validContacts.length} contacts.`,
       });
     } catch (error) {
       console.error('Error fetching contacts:', error);
@@ -638,14 +670,16 @@ export const useBexioApi = () => {
 
     setIsLoadingProjects(true);
     try {
-      const response = await fetch(`https://opcjifbdwpyttaxqlqbf.supabase.co/functions/v1/bexio-proxy`, {
+      const endpoint = '/3.0/projects';
+
+      const response = await fetch(getBackendApiUrl(), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
           body: JSON.stringify({
-            endpoint: '/3.0/projects',
-            apiKey: authToken,
+            endpoint,
+            accessToken: authToken,
             companyId: credentials.companyId,
             acceptLanguage: currentLanguage,
           }),
@@ -657,12 +691,16 @@ export const useBexioApi = () => {
       }
 
       const data = await response.json();
-      setProjects(Array.isArray(data) ? data : []);
+      const projectsArray = Array.isArray(data)
+        ? data
+        : (Array.isArray((data as any)?.data) ? (data as any).data : []);
+      const validProjects = filterValidObjects(projectsArray, ['id'], isValidProject) as Project[];
+      setProjects(validProjects);
       setHasInitiallyLoaded(prev => ({ ...prev, projects: true }));
-      
+
       toast({
         title: "Projects loaded successfully",
-        description: `Successfully fetched ${Array.isArray(data) ? data.length : 0} projects.`,
+        description: `Successfully fetched ${validProjects.length} projects.`,
       });
     } catch (error) {
       console.error('Error fetching projects:', error);
@@ -687,7 +725,7 @@ export const useBexioApi = () => {
     if (!credentials || isLoadingTimeEntries) return;
 
     // Build endpoint with optional date filtering
-    let endpoint = '/timesheet';
+    let endpoint = '/2.0/timesheet';
     const params: string[] = [];
     
     if (dateRange) {
@@ -727,12 +765,12 @@ export const useBexioApi = () => {
 
     setIsLoadingTimeEntries(true);
     try {
-      const response = await fetch(`https://opcjifbdwpyttaxqlqbf.supabase.co/functions/v1/bexio-proxy`, {
+      const response = await fetch(getBackendApiUrl(), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           endpoint: endpoint,
-          apiKey: authToken,
+          accessToken: authToken,
           companyId: credentials.companyId,
         }),
       });
@@ -751,7 +789,46 @@ export const useBexioApi = () => {
       }
 
       const data = await response.json();
-      setTimeEntries(Array.isArray(data) ? data : []);
+      console.log('🔍 [DEBUG] fetchTimeEntries - raw data:', data);
+      
+      // Handle both direct array responses and wrapped responses with data property
+      let rawEntries: any[] = [];
+      if (Array.isArray(data)) {
+        rawEntries = data;
+      } else if (data && typeof data === 'object' && Array.isArray(data.data)) {
+        rawEntries = data.data;
+      }
+      
+      const timeEntriesData = filterValidObjects(rawEntries, ['id', 'date', 'allowable_bill'], isValidTimeEntry) as TimeEntry[];
+      console.log('🔍 [DEBUG] fetchTimeEntries - processed entries count:', timeEntriesData.length);
+
+      // Log the structure of the first few entries to understand the API response
+      if (timeEntriesData.length > 0) {
+        console.log('🔍 [DEBUG] fetchTimeEntries - First entry structure:', Object.keys(timeEntriesData[0]));
+        console.log('🔍 [DEBUG] fetchTimeEntries - First entry sample:', timeEntriesData[0]);
+        if (timeEntriesData.length > 1) {
+          console.log('🔍 [DEBUG] fetchTimeEntries - Second entry sample:', timeEntriesData[1]);
+        }
+      }
+
+      // Check for malformed duration data
+      const malformedEntries = timeEntriesData.filter(entry => {
+        if (entry.duration === undefined || entry.duration === null) {
+          console.error('❌ [ERROR] Time entry with undefined/null duration:', entry);
+          return true;
+        }
+        if (typeof entry.duration === 'string' && !entry.duration.includes(':')) {
+          console.warn('⚠️ [WARN] Time entry with malformed duration string (no colon):', entry.duration, entry);
+          return true;
+        }
+        return false;
+      });
+
+      if (malformedEntries.length > 0) {
+        console.error('❌ [ERROR] Found malformed time entries:', malformedEntries);
+      }
+
+      setTimeEntries(timeEntriesData);
       setHasInitiallyLoaded(prev => ({ ...prev, timeEntries: true }));
 
       const quiet = options?.quiet !== false; // default quiet
@@ -804,16 +881,18 @@ export const useBexioApi = () => {
 
     setIsLoadingWorkPackages(true);
     console.log(`🔍 Fetching work packages for project ID: ${projectId}`);
-    
+
     try {
-      const response = await fetch(`https://opcjifbdwpyttaxqlqbf.supabase.co/functions/v1/bexio-proxy`, {
+      const endpoint = `/3.0/projects/${projectId}/packages`;
+
+      const response = await fetch(getBackendApiUrl(), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          endpoint: `/3.0/projects/${projectId}/packages`,
-          apiKey: authToken,
+          endpoint,
+          accessToken: authToken,
           companyId: credentials.companyId,
           acceptLanguage: currentLanguage,
         }),
@@ -837,9 +916,12 @@ export const useBexioApi = () => {
 
       const data = await response.json();
       console.log(`✅ Received packages for project ${projectId}:`, data);
-      
+
       // Transform the data to our expected format based on the API response structure
-      const workPackages = Array.isArray(data) ? data : [];
+      const workPackagesArray = Array.isArray(data)
+        ? data
+        : (Array.isArray((data as any)?.data) ? (data as any).data : []);
+      const workPackages = workPackagesArray;
       
       const transformedPackages = workPackages.map((pkg: any) => ({
         id: pkg.id?.toString(),
@@ -879,7 +961,7 @@ export const useBexioApi = () => {
       console.log('🔄 localStorage.getItem result:', stored ? 'present' : 'null');
 
       if (stored) {
-        const creds = JSON.parse(stored);
+        let creds = JSON.parse(stored);
         console.log('🔄 Parsed credentials:', {
           hasAccessToken: !!creds.accessToken,
           hasRefreshToken: !!creds.refreshToken,
@@ -888,6 +970,22 @@ export const useBexioApi = () => {
           userEmail: creds.userEmail,
           expiresAt: creds.expiresAt ? new Date(creds.expiresAt).toISOString() : 'null'
         });
+
+        // Check if companyId needs to be extracted from token
+        if (creds.authType === 'oauth' && creds.companyId === 'unknown' && creds.accessToken) {
+          const decoded = decodeJwt(creds.accessToken);
+          const extractedCompanyId = decoded?.company_id || decoded?.companyId;
+          if (extractedCompanyId && extractedCompanyId !== 'unknown') {
+            console.log('🔍 Extracted company ID from stored token:', extractedCompanyId);
+            creds = {
+              ...creds,
+              companyId: extractedCompanyId
+            };
+            // Update stored credentials with the extracted companyId
+            localStorage.setItem('bexio_credentials', JSON.stringify(creds));
+            console.log('💾 Updated localStorage credentials with extracted companyId');
+          }
+        }
 
         console.log('🎯 Setting credentials from localStorage...');
         setCredentials(creds);
@@ -954,7 +1052,15 @@ export const useBexioApi = () => {
       
       if (timeEntryData.useDuration && timeEntryData.duration) {
         // Use direct duration input
-        const [hours, minutes] = timeEntryData.duration.split(':').map(Number);
+        console.log('🔍 [DEBUG] Parsing duration string:', timeEntryData.duration);
+        const durationParts = timeEntryData.duration.split(':').map(Number);
+        console.log('🔍 [DEBUG] Duration parts:', durationParts);
+        const [hours, minutes] = durationParts;
+        console.log('🔍 [DEBUG] Hours:', hours, 'Minutes:', minutes, 'Minutes type:', typeof minutes);
+        if (minutes === undefined) {
+          console.error('❌ [ERROR] Minutes is undefined! Duration string malformed:', timeEntryData.duration);
+          throw new Error(`Invalid duration format: ${timeEntryData.duration}. Expected HH:MM format.`);
+        }
         durationString = `${hours}:${minutes.toString().padStart(2, '0')}`;
       } else {
         // Calculate from start/end times
@@ -1037,13 +1143,13 @@ export const useBexioApi = () => {
         const maxRetries = 3;
         for (let attempt = 1; attempt <= maxRetries; attempt++) {
           try {
-            const response = await fetch(`https://opcjifbdwpyttaxqlqbf.supabase.co/functions/v1/bexio-proxy`, {
+            const response = await fetch(getBackendApiUrl(), {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
-                endpoint: '/timesheet',
+                endpoint: '/2.0/timesheet',
                 method: 'POST',
-                apiKey: authToken,
+                accessToken: authToken,
                 companyId: credentials.companyId,
                 data: bexioData,
               }),
@@ -1140,12 +1246,12 @@ export const useBexioApi = () => {
     console.log('🔍 Fetching timesheet statuses from Bexio');
     
     try {
-      const response = await fetch(`https://opcjifbdwpyttaxqlqbf.supabase.co/functions/v1/bexio-proxy`, {
+      const response = await fetch(getBackendApiUrl(), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          endpoint: '/timesheet_status',
-          apiKey: authToken,
+          endpoint: '/2.0/timesheet_status',
+          accessToken: authToken,
           companyId: credentials.companyId,
           acceptLanguage: 'en', // Always fetch in English
         }),
@@ -1161,10 +1267,13 @@ export const useBexioApi = () => {
       const data = await response.json();
       console.log('✅ Received timesheet statuses:', data);
 
-      const statuses = Array.isArray(data) ? data.map((status: any) => ({
+      const statusesArray = Array.isArray(data)
+        ? data
+        : (Array.isArray((data as any)?.data) ? (data as any).data : []);
+      const statuses = statusesArray.map((status: any) => ({
         id: status.id,
         name: status.name || `Status ${status.id}`,
-      })) : [];
+      }));
 
       setTimesheetStatuses(statuses);
       if (!options?.quiet) {
@@ -1201,12 +1310,12 @@ export const useBexioApi = () => {
     console.log('🔍 Fetching business activities from Bexio');
 
     try {
-      const response = await fetch(`https://opcjifbdwpyttaxqlqbf.supabase.co/functions/v1/bexio-proxy`, {
+      const response = await fetch(getBackendApiUrl(), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          endpoint: '/client_service',
-          apiKey: authToken,
+          endpoint: '/2.0/client_service',
+          accessToken: authToken,
           companyId: credentials.companyId,
           acceptLanguage: 'en', // Always fetch in English
         }),
@@ -1222,10 +1331,13 @@ export const useBexioApi = () => {
       const data = await response.json();
       console.log('✅ Received business activities:', data);
 
-      const activities = Array.isArray(data) ? data.map((a: any) => ({
+      const activitiesArray = Array.isArray(data)
+        ? data
+        : (Array.isArray((data as any)?.data) ? (data as any).data : []);
+      const activities = activitiesArray.map((a: any) => ({
         id: a.id,
         name: a.name || `Activity ${a.id}`,
-      })) : [];
+      }));
 
       setBusinessActivities(activities);
       if (!options?.quiet) {
@@ -1320,7 +1432,15 @@ export const useBexioApi = () => {
       let durationString: string;
       
       if (timeEntryData.useDuration && timeEntryData.duration) {
-        const [hours, minutes] = timeEntryData.duration.split(':').map(Number);
+        console.log('🔍 [DEBUG] Parsing duration string in update:', timeEntryData.duration);
+        const durationParts = timeEntryData.duration.split(':').map(Number);
+        console.log('🔍 [DEBUG] Duration parts in update:', durationParts);
+        const [hours, minutes] = durationParts;
+        console.log('🔍 [DEBUG] Hours:', hours, 'Minutes:', minutes, 'Minutes type:', typeof minutes);
+        if (minutes === undefined) {
+          console.error('❌ [ERROR] Minutes is undefined in update! Duration string malformed:', timeEntryData.duration);
+          throw new Error(`Invalid duration format: ${timeEntryData.duration}. Expected HH:MM format.`);
+        }
         durationString = `${hours}:${minutes.toString().padStart(2, '0')}`;
       } else {
         const [startHours, startMinutes] = (timeEntryData.startTime || "09:00").split(':').map(Number);
@@ -1355,13 +1475,13 @@ export const useBexioApi = () => {
       console.log('Updating time entry with data:', { id, data: bexioData });
 
       // Use POST method with 2.0 API (per Bexio docs)
-      const putResponse = await fetch(`https://opcjifbdwpyttaxqlqbf.supabase.co/functions/v1/bexio-proxy`, {
+      const putResponse = await fetch(getBackendApiUrl(), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           endpoint: `/2.0/timesheet/${id}`,
           method: 'POST',
-          apiKey: authToken,
+          accessToken: authToken,
           companyId: credentials.companyId,
           data: bexioData,
         }),
@@ -1409,15 +1529,15 @@ export const useBexioApi = () => {
     if (!authToken) return;
 
     try {
-      const response = await fetch(`https://opcjifbdwpyttaxqlqbf.supabase.co/functions/v1/bexio-proxy`, {
+      const response = await fetch(getBackendApiUrl(), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          endpoint: `/timesheet/${id}`,
+          endpoint: `/2.0/timesheet/${id}`,
           method: 'DELETE',
-          apiKey: authToken,
+          accessToken: authToken,
           companyId: credentials.companyId,
         }),
       });
@@ -1469,6 +1589,7 @@ export const useBexioApi = () => {
       for (const entry of entries) {
         try {
           // Merge existing entry data with updates, preserving existing user_id
+          const entryDuration = entry.duration || (entry as any).tracking?.duration || '';
           const mergedData = {
             // Always preserve the existing user_id from the entry
             user_id: entry.user_id,
@@ -1478,7 +1599,7 @@ export const useBexioApi = () => {
             tracking: {
               type: "duration",
               date: entry.date,
-              duration: entry.duration,
+              duration: entryDuration,
             },
             contact_id: updateData.contact_id !== undefined ? updateData.contact_id : entry.contact_id,
             pr_project_id: updateData.project_id !== undefined ? updateData.project_id : entry.pr_project_id,
@@ -1489,13 +1610,13 @@ export const useBexioApi = () => {
           console.log(`📝 Updating entry ${entry.id} with:`, mergedData);
 
           // Use POST method with 2.0 API (per Bexio docs)
-          const putResponse = await fetch(`https://opcjifbdwpyttaxqlqbf.supabase.co/functions/v1/bexio-proxy`, {
+          const putResponse = await fetch(getBackendApiUrl(), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               endpoint: `/2.0/timesheet/${entry.id}`,
               method: 'POST',
-              apiKey: authToken,
+              accessToken: authToken,
               companyId: credentials.companyId,
               data: mergedData,
             }),
@@ -1623,12 +1744,14 @@ export const useBexioApi = () => {
     console.log('🔍 Fetching users from Bexio');
 
     try {
-      const response = await fetch(`https://opcjifbdwpyttaxqlqbf.supabase.co/functions/v1/bexio-proxy`, {
+      const endpoint = '/3.0/users';
+
+      const response = await fetch(getBackendApiUrl(), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          endpoint: '/3.0/users',
-          apiKey: authToken,
+          endpoint,
+          accessToken: authToken,
           companyId: credentials.companyId,
           acceptLanguage: 'en',
         }),
@@ -1640,7 +1763,10 @@ export const useBexioApi = () => {
       }
 
       const data = await response.json();
-      const fetchedUsers = Array.isArray(data) ? data.map((u: any) => ({
+      const usersArray = Array.isArray(data)
+        ? data
+        : (Array.isArray((data as any)?.data) ? (data as any).data : []);
+      const fetchedUsers = usersArray.map((u: any) => ({
         id: u.id,
         salutation_type: u.salutation_type,
         firstname: u.firstname || 'Unknown',
@@ -1648,7 +1774,7 @@ export const useBexioApi = () => {
         email: u.email || '',
         is_superadmin: u.is_superadmin || false,
         is_accountant: u.is_accountant || false,
-      })) : [];
+      }));
 
       setUsers(fetchedUsers);
       setHasInitiallyLoaded(prev => ({ ...prev, users: true }));

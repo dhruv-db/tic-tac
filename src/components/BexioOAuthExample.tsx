@@ -4,8 +4,8 @@ import { Code } from "lucide-react";
 
 export const BexioOAuthExample = () => {
   const fullScope = "openid profile email company_profile offline_access accounting contact_show contact_edit project_show project_edit timesheet_show timesheet_edit invoice_show invoice_edit kb_offer_show kb_invoice_show kb_credit_voucher_show kb_bill_show";
-  
-  const exampleUrl = `https://auth.bexio.com/realms/bexio/protocol/openid-connect/auth?client_id={CLIENT_ID}&redirect_uri={REDIRECT_URI}&response_type=code&scope=${encodeURIComponent(fullScope)}&state={STATE}&code_challenge={CODE_CHALLENGE}&code_challenge_method=S256`;
+
+  const exampleUrl = `${import.meta.env.VITE_BEXIO_OAUTH_AUTH_URL || 'https://auth.bexio.com/realms/bexio/protocol/openid-connect/auth'}?client_id={CLIENT_ID}&redirect_uri={REDIRECT_URI}&response_type=code&scope=${encodeURIComponent(fullScope)}&state={STATE}&code_challenge={CODE_CHALLENGE}&code_challenge_method=S256`;
 
   const oidcScopes = ["openid", "profile", "email", "company_profile", "offline_access"];
   const apiScopes = ["accounting", "contact_show", "contact_edit", "project_show", "project_edit", "monitoring_show", "monitoring_edit", "invoice_show", "invoice_edit", "kb_offer_show", "kb_invoice_show", "kb_credit_voucher_show", "kb_bill_show"];

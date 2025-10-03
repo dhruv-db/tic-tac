@@ -77,7 +77,7 @@ const Index = () => {
   const [isTestingConnection, setIsTestingConnection] = useState(false);
   const [editingEntry, setEditingEntry] = useState<any>(null);
   const [calendarInitialData, setCalendarInitialData] = useState<any>(null);
-  const [logoUrl, setLogoUrl] = useState<string>(() => localStorage.getItem('adminLogoUrl') || 'https://cdn.prod.website-files.com/644a6e413354d12887abce48/678e77dc82ed84dfe2ede9f8_db%20icon%20(1).png');
+  const [logoUrl, setLogoUrl] = useState<string>(() => localStorage.getItem('adminLogoUrl') || (import.meta.env.VITE_DEFAULT_LOGO_URL || 'https://cdn.prod.website-files.com/644a6e413354d12887abce48/678e77dc82ed84dfe2ede9f8_db%20icon%20(1).png'));
   const [isLogoDialogOpen, setIsLogoDialogOpen] = useState(false);
   const [logoUrlInput, setLogoUrlInput] = useState<string>(logoUrl);
   const [selectedUserId, setSelectedUserId] = useState<number | "all" | null>(null);
@@ -86,14 +86,14 @@ const Index = () => {
 
   // Set default user filter to current user when available
   useEffect(() => {
-    if (currentBexioUserId && selectedUserId === null) {
+    if (typeof currentBexioUserId === 'number' && selectedUserId === null) {
       setSelectedUserId(currentBexioUserId);
     }
   }, [currentBexioUserId, selectedUserId]);
 
   useEffect(() => {
     loadStoredCredentials();
-  }, [loadStoredCredentials]);
+  }, []); // Remove loadStoredCredentials from dependency array since it's now async
 
   // Handle OAuth callback from URL parameters
   useEffect(() => {
@@ -197,12 +197,11 @@ const Index = () => {
       // Non-admin users only see their own entries
       return (timeEntries || []).filter(entry => entry.user_id === currentBexioUserId);
     }
-    
+
     // Admin users - fix "All users" filtering
-    if (selectedUserId && selectedUserId !== "all") {
+    if (selectedUserId !== null && selectedUserId !== "all" && typeof selectedUserId === 'number') {
       // Specific user selected - show only their entries
-      const userId = parseInt(selectedUserId.toString());
-      return (timeEntries || []).filter(entry => entry.user_id === userId);
+      return (timeEntries || []).filter(entry => entry.user_id === selectedUserId);
     } else {
       // "All users" or no selection - show all entries
       return timeEntries || [];
@@ -258,20 +257,29 @@ const Index = () => {
               {isCurrentUserAdmin && users.length > 0 && (
                 <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2">
                   <label className="text-sm text-muted-foreground whitespace-nowrap">View user:</label>
-                  <Select 
-                    value={selectedUserId?.toString() || "all"} 
-                    onValueChange={(value) => setSelectedUserId(value === "all" ? "all" : parseInt(value))}
+                  <Select
+                    value={selectedUserId?.toString() || "all"}
+                    onValueChange={(value) => {
+                      if (value === "all") {
+                        setSelectedUserId("all");
+                      } else {
+                        const parsed = parseInt(value);
+                        setSelectedUserId(isNaN(parsed) ? "all" : parsed);
+                      }
+                    }}
                   >
                     <SelectTrigger className="w-full sm:w-48">
                       <SelectValue placeholder="Select user" />
                     </SelectTrigger>
                     <SelectContent className="z-[1000] bg-popover border border-border shadow-lg">
                       <SelectItem value="all">All Users</SelectItem>
-                      {users.map((user) => (
-                        <SelectItem key={user.id} value={user.id.toString()}>
-                          {user.firstname} {user.lastname}
-                        </SelectItem>
-                      ))}
+                      {users
+                        .filter(user => user && typeof user.id === 'number' && user.id != null && !isNaN(user.id))
+                        .map((user) => (
+                          <SelectItem key={user.id} value={user.id.toString()}>
+                            {typeof user.firstname === 'string' ? user.firstname : 'Unknown'} {typeof user.lastname === 'string' ? user.lastname : 'User'}
+                          </SelectItem>
+                        ))}
                     </SelectContent>
                   </Select>
                 </div>

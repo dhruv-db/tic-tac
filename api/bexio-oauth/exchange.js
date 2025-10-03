@@ -1,128 +1,111 @@
-import { BEXIO_CONFIG } from '../_utils.js';
-
+// Token exchange endpoint for Bexio OAuth
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
   try {
-    const { code, state, codeVerifier } = req.body;
+    const { code, codeVerifier, redirectUri } = req.body;
 
-    console.log('🔄 Token exchange request:', {
-      code: code ? 'present' : 'missing',
-      state: state ? 'present' : 'missing',
-      codeVerifier: codeVerifier ? 'present' : 'missing'
+    console.log('🔍 [DEBUG] Exchange request received:', {
+      hasCode: !!code,
+      codeLength: code?.length,
+      hasCodeVerifier: !!codeVerifier,
+      codeVerifierLength: codeVerifier?.length,
+      codeVerifierValue: codeVerifier,
+      hasRedirectUri: !!redirectUri
     });
 
-    if (!code) {
-      return res.status(400).json({ error: 'Authorization code is required' });
+    if (!code || !codeVerifier || !redirectUri) {
+      return res.status(400).json({
+        error: 'Missing required parameters',
+        message: 'code, codeVerifier, and redirectUri are required'
+      });
     }
 
-    // Exchange code for tokens
-    const tokenParams = new URLSearchParams({
+    const clientId = process.env.BEXIO_CLIENT_ID;
+    const clientSecret = process.env.BEXIO_CLIENT_SECRET;
+    const tokenUrl = 'https://auth.bexio.com/realms/bexio/protocol/openid-connect/token';
+    console.log('🔗 Using Bexio token URL:', tokenUrl);
+
+    if (!clientId || !clientSecret) {
+      return res.status(500).json({
+        error: 'Server configuration error',
+        message: 'BEXIO_CLIENT_ID or BEXIO_CLIENT_SECRET not configured'
+      });
+    }
+
+    // Prepare token exchange request
+    const tokenRequestBody = new URLSearchParams({
       grant_type: 'authorization_code',
-      client_id: BEXIO_CONFIG.clientId,
-      client_secret: BEXIO_CONFIG.clientSecret,
-      redirect_uri: BEXIO_CONFIG.serverCallbackUri,
-      code: code
+      client_id: clientId,
+      client_secret: clientSecret,
+      code: code,
+      redirect_uri: redirectUri,
+      code_verifier: codeVerifier
     });
 
-    // Add PKCE code_verifier if present
-    if (codeVerifier) {
-      tokenParams.set('code_verifier', codeVerifier);
-    }
+    console.log('Exchanging code for tokens...');
 
-    console.log('📡 Exchanging code for tokens...');
-
-    const tokenResponse = await fetch(BEXIO_CONFIG.tokenUrl, {
+    // Make request to Bexio token endpoint
+    const response = await fetch(tokenUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
         'Accept': 'application/json'
       },
-      body: tokenParams.toString()
+      body: tokenRequestBody.toString()
     });
 
-    if (!tokenResponse.ok) {
-      const errorText = await tokenResponse.text();
-      console.error('❌ Token exchange failed:', tokenResponse.status, errorText);
-      return res.status(tokenResponse.status).json({
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Token exchange failed:', response.status, errorText);
+
+      return res.status(response.status).json({
         error: 'Token exchange failed',
+        message: `Bexio responded with status ${response.status}`,
         details: errorText
       });
     }
 
-    const tokenData = await tokenResponse.json();
-    console.log('✅ Token exchange successful');
+    const tokenData = await response.json();
+    console.log('Token exchange successful');
 
-    // Get user info if we have an access token
-    let userInfo = null;
-    if (tokenData.access_token) {
+    // Decode JWT to extract company ID
+    const decodeJwt = (token) => {
       try {
-        const userResponse = await fetch(`${BEXIO_CONFIG.apiBaseUrl}/user`, {
-          headers: {
-            'Authorization': `Bearer ${tokenData.access_token}`,
-            'Accept': 'application/json'
-          }
-        });
-
-        if (userResponse.ok) {
-          userInfo = await userResponse.json();
-          console.log('👤 User info retrieved:', userInfo.email || 'no email');
-        }
-      } catch (userError) {
-        console.warn('⚠️ Failed to get user info:', userError.message);
+        if (!token) return null;
+        const payload = token.split('.')[1];
+        const json = atob(payload.replace(/-/g, '+').replace(/_/g, '/'));
+        return JSON.parse(json);
+      } catch {
+        return null;
       }
-    }
-
-    // Get company info
-    let companyInfo = null;
-    if (tokenData.access_token) {
-      try {
-        const companyResponse = await fetch(`${BEXIO_CONFIG.apiBaseUrl}/company`, {
-          headers: {
-            'Authorization': `Bearer ${tokenData.access_token}`,
-            'Accept': 'application/json'
-          }
-        });
-
-        if (companyResponse.ok) {
-          const companies = await companyResponse.json();
-          companyInfo = companies[0]; // Use first company
-          console.log('🏢 Company info retrieved:', companyInfo?.name || 'no name');
-        }
-      } catch (companyError) {
-        console.warn('⚠️ Failed to get company info:', companyError.message);
-      }
-    }
-
-    // Return the token data
-    const response = {
-      accessToken: tokenData.access_token,
-      refreshToken: tokenData.refresh_token,
-      tokenType: tokenData.token_type,
-      expiresIn: tokenData.expires_in,
-      scope: tokenData.scope,
-      companyId: companyInfo?.id,
-      userEmail: userInfo?.email,
-      userId: userInfo?.id,
-      companyName: companyInfo?.name
     };
 
-    console.log('📦 Returning OAuth response:', {
-      hasAccessToken: !!response.accessToken,
-      hasRefreshToken: !!response.refreshToken,
-      companyId: response.companyId,
-      userEmail: response.userEmail
+    const decoded = decodeJwt(tokenData.access_token);
+    const companyId = decoded?.company_id || decoded?.companyId || null;
+    console.log('🔍 Extracted company ID from token:', companyId);
+
+    // Calculate expiration time
+    const expiresAt = Date.now() + (tokenData.expires_in * 1000);
+
+    // Return token data in the format expected by the frontend
+    res.status(200).json({
+      accessToken: tokenData.access_token,
+      refreshToken: tokenData.refresh_token,
+      companyId,
+      expiresAt,
+      tokenType: tokenData.token_type,
+      scope: tokenData.scope,
+      timestamp: new Date().toISOString()
     });
 
-    res.json(response);
-
   } catch (error) {
-    console.error('❌ Token exchange error:', error);
+    console.error('Token exchange error:', error);
     res.status(500).json({
-      error: 'Token exchange failed',
-      details: error.message
+      error: 'Internal server error',
+      message: 'Failed to exchange code for tokens'
     });
   }
 }

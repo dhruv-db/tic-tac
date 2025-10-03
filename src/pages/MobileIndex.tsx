@@ -41,6 +41,7 @@ import { useHapticFeedback } from '@/hooks/useHapticFeedback';
 import { BexioConnector } from '@/components/BexioConnector';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { cn } from '@/lib/utils';
+import { safeNumberToString, safeGetProjectName, isValidProject } from '@/lib/dataValidation';
 import ticTacLogo from '@/assets/Tic-Tac_Dark.png';
 
 const TikTakLogo = ({ className = "" }: { className?: string }) => {
@@ -170,9 +171,10 @@ const MobileIndex = () => {
   useEffect(() => {
     console.log('🔄 ===== LOAD STORED CREDENTIALS EFFECT START =====');
     console.log('🔄 Calling loadStoredCredentials from MobileIndex...');
-    const result = loadStoredCredentials();
-    console.log('🔄 loadStoredCredentials result:', result);
-    console.log('🔄 ===== LOAD STORED CREDENTIALS EFFECT END =====');
+    loadStoredCredentials().then((result) => {
+      console.log('🔄 loadStoredCredentials result:', result);
+      console.log('🔄 ===== LOAD STORED CREDENTIALS EFFECT END =====');
+    });
   }, []); // Only run once on mount
 
   // Track authentication state changes
@@ -481,7 +483,7 @@ const MobileIndex = () => {
                       {/* Project Filter */}
                       <div className="space-y-3">
                         <label className="text-sm font-medium text-gray-700">Project</label>
-                        <Select value={selectedProject?.toString() || 'all'} onValueChange={(value) => {
+                        <Select value={safeNumberToString(selectedProject, 'all')} onValueChange={(value) => {
                           setSelectedProject(value === 'all' ? null : parseInt(value));
                           lightImpact();
                         }}>
@@ -490,11 +492,13 @@ const MobileIndex = () => {
                           </SelectTrigger>
                           <SelectContent>
                             <SelectItem value="all">All Projects</SelectItem>
-                            {projects.map((project) => (
-                              <SelectItem key={project.id} value={project.id.toString()}>
-                                {project.name}
-                              </SelectItem>
-                            ))}
+                            {projects
+                              .filter(isValidProject)
+                              .map((project) => (
+                                <SelectItem key={project.id} value={safeNumberToString(project.id)}>
+                                  {safeGetProjectName(project)}
+                                </SelectItem>
+                              ))}
                           </SelectContent>
                         </Select>
                       </div>

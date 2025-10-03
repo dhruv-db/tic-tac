@@ -1,244 +1,236 @@
-import { BEXIO_CONFIG } from '../_utils.js';
-
+// OAuth callback endpoint for handling Bexio redirects
 export default async function handler(req, res) {
-  console.log('🔄 ===== OAUTH CALLBACK START =====');
-  console.log('⏰ Timestamp:', new Date().toISOString());
-  console.log('🌐 Full request URL:', req.url);
-  console.log('📊 Request headers:', req.headers);
-  console.log('📋 User-Agent:', req.headers['user-agent']);
+  // Handle CORS preflight requests
+  if (req.method === 'OPTIONS') {
+    return res.status(200).json({
+      status: 'OK',
+      message: 'CORS preflight successful'
+    });
+  }
+
+  if (req.method !== 'GET') {
+    return res.status(405).json({
+      error: 'Method not allowed',
+      message: 'Only GET requests are allowed for OAuth callback'
+    });
+  }
 
   try {
-    const code = req.query.code;
-    const stateParam = req.query.state;
-    const error = req.query.error;
+    const { code, state, error: oauthError, error_description } = req.query;
 
     console.log('🔄 OAuth callback received:', {
-      code: code ? 'present' : 'missing',
-      state: stateParam ? 'present' : 'missing',
-      error
+      hasCode: !!code,
+      hasState: !!state,
+      hasError: !!oauthError,
+      errorDescription: error_description
     });
 
-    if (error) {
-      console.error('❌ OAuth callback error:', error);
-      const timestamp = Date.now();
-      return res.redirect(`/oauth-complete.html?error=${encodeURIComponent(error)}&t=${timestamp}`);
+    // Handle OAuth errors
+    if (oauthError) {
+      console.error('❌ OAuth error in callback:', oauthError, error_description);
+
+      return res.status(200).send(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>Authentication Failed</title>
+          <meta name="viewport" content="width=device-width, initial-scale=1">
+        </head>
+        <body>
+          <h1>Authentication Failed</h1>
+          <p>Error: ${oauthError}</p>
+          <p>Description: ${error_description || 'Unknown error'}</p>
+          <script>
+            // Notify parent window of error
+            if (window.opener) {
+              window.opener.postMessage({
+                type: 'BEXIO_OAUTH_ERROR',
+                error: '${oauthError}',
+                description: '${error_description || 'Unknown error'}'
+              }, '*');
+              window.close();
+            } else {
+              // Mobile app - try to redirect back
+              window.location.href = 'bexiosyncbuddy://oauth/callback?error=${encodeURIComponent(oauthError)}&description=${encodeURIComponent(error_description || 'Unknown error')}';
+            }
+          </script>
+        </body>
+        </html>
+      `);
     }
 
-    if (!code) {
-      console.error('❌ No authorization code in callback');
-      const timestamp = Date.now();
-      return res.redirect(`/oauth-complete.html?error=no_code&t=${timestamp}`);
-    }
+    // Handle successful authorization
+    if (code && state) {
+      console.log('✅ OAuth callback successful, exchanging code for tokens...');
 
-    // Extract session data from state
-    let sessionId = null;
-    let codeVerifier = null;
-    let returnUrl = `/oauth-complete.html`;
-    let platform = 'web';
-
-    console.log('🔑 Decoding state parameter...');
-    try {
-      const decoded = JSON.parse(Buffer.from(stateParam || '', 'base64').toString());
-      console.log('📦 Decoded state object:', decoded);
-      if (decoded && typeof decoded === 'object') {
-        sessionId = decoded.sid || null;
-        codeVerifier = decoded.cv || null;
-        returnUrl = decoded.ru || returnUrl;
-        platform = decoded.platform || 'web';
-        console.log('✅ Successfully extracted from state');
-      }
-    } catch (e) {
-      console.warn('❌ Failed to decode state:', e.message);
-    }
-
-    console.log('🔑 Extracted from state:', {
-      sessionId,
-      codeVerifier: codeVerifier ? 'present' : 'missing',
-      returnUrl
-    });
-
-    // Exchange code for tokens
-    const tokenParams = new URLSearchParams({
-      grant_type: 'authorization_code',
-      client_id: BEXIO_CONFIG.clientId,
-      client_secret: BEXIO_CONFIG.clientSecret,
-      redirect_uri: BEXIO_CONFIG.serverCallbackUri,
-      code: code
-    });
-
-    // Add PKCE code_verifier if present
-    if (codeVerifier) {
-      tokenParams.set('code_verifier', codeVerifier);
-    }
-
-    console.log('📡 Exchanging code for tokens...');
-    const tokenResponse = await fetch(BEXIO_CONFIG.tokenUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-        'Accept': 'application/json'
-      },
-      body: tokenParams.toString()
-    });
-
-    if (!tokenResponse.ok) {
-      const errorText = await tokenResponse.text();
-      console.error('❌ Token exchange failed:', tokenResponse.status, errorText);
-
-      // For mobile, if session exists, mark it as error
-      if (sessionId) {
-        const fs = await import('fs');
-        const path = await import('path');
-        const sessionDir = '/tmp/oauth-sessions';
-        const sessionFile = path.join(sessionDir, `${sessionId}.json`);
-
-        const errorSessionData = {
-          status: 'error',
-          platform: platform || 'mobile',
-          createdAt: new Date().toISOString(),
-          error: `Token exchange failed: ${tokenResponse.status} - ${errorText}`
-        };
-
-        try {
-          if (!fs.existsSync(sessionDir)) {
-            fs.mkdirSync(sessionDir, { recursive: true });
-          }
-          fs.writeFileSync(sessionFile, JSON.stringify(errorSessionData));
-          console.log('❌ Marked mobile session as error:', sessionId);
-        } catch (fileError) {
-          console.error('❌ Failed to write error session file:', fileError);
-        }
-      }
-
-      const timestamp = Date.now();
-      return res.redirect(`${returnUrl}?error=token_exchange_failed&t=${timestamp}`);
-    }
-
-    const tokenData = await tokenResponse.json();
-    console.log('✅ Token exchange successful');
-
-    // Extract user info from tokens
-    let companyId = '';
-    let userEmail = '';
-
-    // Extract email from ID token
-    const idToken = tokenData.id_token || '';
-    if (idToken) {
       try {
-        const idTokenParts = idToken.split('.');
-        if (idTokenParts.length === 3) {
-          const idPayload = JSON.parse(Buffer.from(idTokenParts[1], 'base64').toString());
-          userEmail = idPayload.email || '';
-        }
-      } catch (idTokenError) {
-        console.warn('⚠️ Failed to parse ID token:', idTokenError);
-      }
-    }
+        // Get OAuth credentials from environment
+        const clientId = process.env.BEXIO_CLIENT_ID;
+        const clientSecret = process.env.BEXIO_CLIENT_SECRET;
 
-    // Extract company ID from access token
-    try {
-      const accessToken = tokenData.access_token;
-      const tokenParts = accessToken.split('.');
-      if (tokenParts.length === 3) {
-        const payload = JSON.parse(Buffer.from(tokenParts[1], 'base64').toString());
-        companyId = payload.company_id || payload.user_id?.toString() || '';
-        if (!userEmail) {
-          userEmail = payload.email || payload.login_id || '';
-        }
-      }
-    } catch (jwtError) {
-      console.warn('⚠️ Failed to parse access token:', jwtError);
-    }
-
-    // Handle both web and mobile redirects
-    const isMobile = platform === 'mobile' || platform === 'ios' || platform === 'android';
-    console.log('📱 Platform detection:', { platform, isMobile, mobileRedirectUri: BEXIO_CONFIG.mobileRedirectUri });
-
-    // Prepare token data for response
-    const tokenDataResponse = {
-      accessToken: tokenData.access_token,
-      refreshToken: tokenData.refresh_token || '',
-      tokenType: tokenData.token_type || 'Bearer',
-      expiresIn: tokenData.expires_in || 3600,
-      companyId: companyId,
-      userEmail: userEmail,
-      idToken: idToken
-    };
-
-    if (isMobile) {
-      // Mobile app flow - store tokens in session for polling
-      if (sessionId) {
-        console.log('📱 Mobile OAuth flow - storing tokens in session:', sessionId);
-
-        // Store session data using file-based storage
-        const fs = await import('fs');
-        const path = await import('path');
-        const sessionDir = '/tmp/oauth-sessions';
-        const sessionFile = path.join(sessionDir, `${sessionId}.json`);
-
-        const sessionData = {
-          status: 'completed',
-          platform: platform || 'mobile',
-          createdAt: new Date().toISOString(),
-          data: tokenDataResponse
-        };
-
-        try {
-          // Ensure directory exists
-          if (!fs.existsSync(sessionDir)) {
-            fs.mkdirSync(sessionDir, { recursive: true });
-          }
-
-          // Write updated session data to file
-          fs.writeFileSync(sessionFile, JSON.stringify(sessionData));
-          console.log('✅ OAuth tokens stored in session file for mobile app:', sessionFile);
-        } catch (fileError) {
-          console.error('❌ Failed to write session file:', fileError);
+        if (!clientId || !clientSecret) {
+          throw new Error('OAuth credentials not configured');
         }
 
-        console.log('🔄 ===== OAUTH CALLBACK END (MOBILE SESSION STORED) =====');
+        // Parse state parameter to extract sessionId and codeVerifier
+        // Format: sessionId:codeVerifier
+        const stateParts = state.split(':');
+        if (stateParts.length !== 2) {
+          throw new Error('Invalid state parameter format');
+        }
+        const sessionId = stateParts[0];
+        const retrievedCodeVerifier = stateParts[1];
 
-        // Redirect to completion page for mobile app to handle polling
-        const timestamp = Date.now();
-        return res.redirect(`/oauth-complete.html?mobile=true&sessionId=${sessionId}&t=${timestamp}`);
-      } else {
-        // Fallback: redirect with tokens to mobile app
-        console.log('📱 Mobile OAuth flow - redirecting with tokens (no session)');
-        const redirectParams = new URLSearchParams({
-          access_token: tokenData.access_token,
-          refresh_token: tokenData.refresh_token || '',
-          company_id: companyId,
-          user_email: userEmail,
-          id_token: idToken,
-          expires_in: (tokenData.expires_in || 3600).toString()
+        console.log('🔍 [DEBUG] Parsed state data:', {
+          originalState: state,
+          sessionId,
+          codeVerifierLength: retrievedCodeVerifier?.length,
+          retrievedCodeVerifier: retrievedCodeVerifier
         });
 
-        const mobileRedirectUrl = `${BEXIO_CONFIG.mobileRedirectUri}?${redirectParams.toString()}`;
-        console.log('🔗 Mobile redirect URL:', mobileRedirectUrl);
-        console.log('🔄 ===== OAUTH CALLBACK END (MOBILE REDIRECT) =====');
-        return res.redirect(mobileRedirectUrl);
-      }
-    } else {
-      // Web flow - redirect with tokens to web app
-      console.log('🌐 Web OAuth flow - redirecting with tokens');
-      const redirectParams = new URLSearchParams({
-        access_token: tokenData.access_token,
-        refresh_token: tokenData.refresh_token || '',
-        company_id: companyId,
-        user_email: userEmail,
-        id_token: idToken,
-        expires_in: (tokenData.expires_in || 3600).toString()
-      });
+        // Exchange code for tokens using our exchange endpoint
+        const exchangeResponse = await fetch(`${process.env.VITE_SERVER_URL || 'https://tic-tac-puce-chi.vercel.app'}/api/bexio-oauth/exchange`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            code,
+            codeVerifier: retrievedCodeVerifier,
+            redirectUri: process.env.BEXIO_SERVER_CALLBACK_URI || `${process.env.VITE_SERVER_URL || 'https://tic-tac-puce-chi.vercel.app'}/api/bexio-oauth/callback`
+          })
+        });
 
-      const redirectUrl = `${returnUrl}?${redirectParams.toString()}`;
-      console.log('🔗 Web redirect URL:', redirectUrl);
-      console.log('🔄 ===== OAUTH CALLBACK END (WEB REDIRECT) =====');
-      return res.redirect(redirectUrl);
+        if (!exchangeResponse.ok) {
+          const errorText = await exchangeResponse.text();
+          throw new Error(`Token exchange failed: ${exchangeResponse.status} - ${errorText}`);
+        }
+
+        const tokenData = await exchangeResponse.json();
+        console.log('✅ Token exchange successful');
+
+        // Update OAuth session status to completed
+        try {
+          const { oauthSessions } = await import('./status/[sessionId].js');
+          const sessionUpdate = {
+            sessionId,
+            status: 'completed',
+            tokens: {
+              access_token: tokenData.accessToken,
+              refresh_token: tokenData.refreshToken,
+              company_id: tokenData.companyId,
+              user_email: tokenData.userEmail
+            },
+            userEmail: tokenData.userEmail,
+            companyId: tokenData.companyId,
+            completed: true
+          };
+
+          // Update session in storage
+          const existingSession = oauthSessions.get(sessionId);
+          if (existingSession) {
+            oauthSessions.set(sessionId, { ...existingSession, ...sessionUpdate });
+            console.log(`✅ OAuth session ${sessionId} marked as completed`);
+          }
+        } catch (sessionError) {
+          console.error('❌ Failed to update OAuth session status:', sessionError);
+          // Continue with response even if session update fails
+        }
+
+        // Return success HTML that communicates back to the mobile app
+        return res.status(200).send(`
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <title>Authentication Successful</title>
+            <meta name="viewport" content="width=device-width, initial-scale=1">
+          </head>
+          <body>
+            <h1>Authentication Successful!</h1>
+            <p>You can close this window and return to the app.</p>
+            <script>
+              // Notify parent window of success
+              if (window.opener) {
+                window.opener.postMessage({
+                  type: 'BEXIO_OAUTH_SUCCESS',
+                  credentials: ${JSON.stringify(tokenData)}
+                }, '*');
+                setTimeout(() => window.close(), 2000);
+              } else {
+                // Mobile app - try to redirect back with success
+                window.location.href = 'bexiosyncbuddy://oauth/callback?success=true&access_token=${encodeURIComponent(tokenData.accessToken)}&refresh_token=${encodeURIComponent(tokenData.refreshToken || '')}';
+              }
+            </script>
+          </body>
+          </html>
+        `);
+
+      } catch (exchangeError) {
+        console.error('❌ Token exchange failed:', exchangeError);
+
+        return res.status(200).send(`
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <title>Authentication Failed</title>
+            <meta name="viewport" content="width=device-width, initial-scale=1">
+          </head>
+          <body>
+            <h1>Authentication Failed</h1>
+            <p>Failed to exchange authorization code for tokens.</p>
+            <p>Error: ${exchangeError.message}</p>
+            <script>
+              // Notify parent window of error
+              if (window.opener) {
+                window.opener.postMessage({
+                  type: 'BEXIO_OAUTH_ERROR',
+                  error: 'token_exchange_failed',
+                  description: '${exchangeError.message}'
+                }, '*');
+                window.close();
+              } else {
+                // Mobile app - try to redirect back
+                window.location.href = 'bexiosyncbuddy://oauth/callback?error=token_exchange_failed&description=${encodeURIComponent(exchangeError.message)}';
+              }
+            </script>
+          </body>
+          </html>
+        `);
+      }
     }
 
+    // Handle missing parameters
+    console.error('❌ OAuth callback missing required parameters');
+    return res.status(400).send(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Authentication Error</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+      </head>
+      <body>
+        <h1>Authentication Error</h1>
+        <p>Missing authorization code or state parameter.</p>
+        <script>
+          // Notify parent window of error
+          if (window.opener) {
+            window.opener.postMessage({
+              type: 'BEXIO_OAUTH_ERROR',
+              error: 'missing_parameters',
+              description: 'Missing authorization code or state parameter'
+            }, '*');
+            window.close();
+          }
+        </script>
+      </body>
+      </html>
+    `);
+
   } catch (error) {
-    console.error('❌ OAuth callback processing failed:', error);
-    const timestamp = Date.now();
-    res.redirect(`/oauth-complete.html?error=callback_failed&t=${timestamp}`);
+    console.error('❌ OAuth callback error:', error);
+    res.status(500).json({
+      error: 'Internal server error',
+      message: 'Failed to process OAuth callback'
+    });
   }
 }

@@ -9,6 +9,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Settings, Key, CheckCircle2, User, Shield } from "lucide-react";
 import { MobileOAuth } from "./MobileOAuth";
+import { getConfig } from "@/lib/secureStorage";
 interface BexioConnectorProps {
   onConnect: (apiKey: string, companyId: string) => void;
   onOAuthConnect: (accessToken: string, refreshToken: string, companyId: string, userEmail: string) => void;
@@ -130,7 +131,7 @@ export const BexioConnector = ({
       console.log('🚀 Starting OAuth flow with redirect');
 
       // Pack state with code_verifier and return URL for callback
-      const productionUrl = import.meta.env.VITE_PRODUCTION_URL || 'https://tic-tac-puce-chi.vercel.app';
+      const productionUrl = getConfig.serverUrl();
       const packedState = btoa(JSON.stringify({
         s: state,
         cv: codeVerifier,
@@ -140,20 +141,17 @@ export const BexioConnector = ({
       // Detect platform for proper redirect URI handling
       const platform = Capacitor.isNativePlatform() ? 'mobile' : 'web';
 
-      // Use the local server to initiate OAuth with proper scope including contact, projects and monitoring scopes
+      // Use the configured server to initiate OAuth with proper scope including contact, projects and monitoring scopes
       const scope = 'openid profile email offline_access contact_show contact_edit monitoring_show monitoring_edit project_show';
-      const response = await fetch('http://localhost:3001/api/bexio-oauth/auth', {
+      const serverUrl = getConfig.serverUrl();
+      const response = await fetch(`${serverUrl}/api/bexio-oauth/auth`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
+          redirectUri: `${productionUrl}/api/bexio-oauth/callback`,
           state: packedState,
-          scope: scope,
-          codeChallenge: codeChallenge,
-          codeChallengeMethod: 'S256',
-          codeVerifier: codeVerifier,
-          returnUrl: productionUrl,
           platform: platform
         })
       });
@@ -161,7 +159,7 @@ export const BexioConnector = ({
         throw new Error(`OAuth initiation failed: ${response.status}`);
       }
       const {
-        authUrl
+        authorizationUrl
       } = await response.json();
 
       // Open in popup to avoid iframe X-Frame-Options issues
@@ -170,13 +168,13 @@ export const BexioConnector = ({
       const left = window.screenX + (window.outerWidth - width) / 2;
       const top = window.screenY + (window.outerHeight - height) / 2;
       const features = `popup=yes,toolbar=no,location=no,status=no,menubar=no,scrollbars=yes,resizable=yes,width=${width},height=${height},left=${left},top=${top}`;
-      const popup = window.open(authUrl, 'bexio_oauth', features);
+      const popup = window.open(authorizationUrl, 'bexio_oauth', features);
       if (!popup) {
         // Fallback to top-level navigation
         if (window.top) {
-          window.top.location.href = authUrl;
+          window.top.location.href = authorizationUrl;
         } else {
-          window.location.href = authUrl;
+          window.location.href = authorizationUrl;
         }
       }
     } catch (error) {
@@ -194,9 +192,20 @@ export const BexioConnector = ({
   }
 
   // Use mobile-specific OAuth component when running in Capacitor
+  console.log('🔍 [DEBUG] BexioConnector - Platform check:', {
+    isNativePlatform: Capacitor.isNativePlatform(),
+    platform: Capacitor.getPlatform(),
+    isConnected,
+    isOAuthLoading
+  });
+
   if (Capacitor.isNativePlatform()) {
+    console.log('📱 [DEBUG] BexioConnector - Using MobileOAuth for native platform');
+    console.log('📱 [DEBUG] BexioConnector - isConnected:', isConnected, 'isOAuthLoading:', isOAuthLoading);
     return <MobileOAuth />;
   }
+
+  console.log('🌐 [DEBUG] BexioConnector - Using web OAuth for non-native platform');
 
   return <Card className={className}>
       <CardHeader>

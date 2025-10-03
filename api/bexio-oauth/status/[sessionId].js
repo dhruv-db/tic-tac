@@ -1,114 +1,166 @@
+// OAuth status polling endpoint for mobile apps
+// Simple in-memory session storage for OAuth status tracking
+const oauthSessions = new Map();
+
 export default async function handler(req, res) {
-  console.log('🔍 ===== OAUTH STATUS ENDPOINT START =====');
-  console.log('🔍 Method:', req.method);
-  console.log('🔍 User-Agent:', req.headers['user-agent']);
-  console.log('🔍 Timestamp:', new Date().toISOString());
-
-  const { sessionId } = req.query;
-  console.log('🔍 Session ID from query:', sessionId);
-
-  if (!sessionId) {
-    console.log('❌ No session ID provided');
-    return res.status(400).json({ error: 'Session ID is required' });
+  // Handle CORS preflight requests
+  if (req.method === 'OPTIONS') {
+    return res.status(200).json({
+      status: 'OK',
+      message: 'CORS preflight successful'
+    });
   }
 
+  if (req.method === 'GET') {
+    return handleGetStatus(req, res);
+  }
+
+  if (req.method === 'POST') {
+    return handleUpdateStatus(req, res);
+  }
+
+  if (req.method === 'DELETE') {
+    return handleDeleteSession(req, res);
+  }
+
+  return res.status(405).json({
+    error: 'Method not allowed',
+    message: 'Only GET, POST, DELETE requests are allowed for OAuth status polling'
+  });
+}
+
+function handleGetStatus(req, res) {
   try {
-    console.log('🔍 Checking OAuth session status for:', sessionId);
+    const { sessionId } = req.query;
 
-    // Read session data from file storage (same as used by start and callback endpoints)
-    const fs = await import('fs');
-    const path = await import('path');
-
-    const sessionDir = '/tmp/oauth-sessions';
-    const sessionFile = path.join(sessionDir, `${sessionId}.json`);
-
-    console.log('🔍 Looking for session file:', sessionFile);
-
-    let session = null;
-
-    try {
-      // Check if session file exists
-      if (fs.existsSync(sessionFile)) {
-        const sessionData = fs.readFileSync(sessionFile, 'utf8');
-        session = JSON.parse(sessionData);
-        console.log('✅ Session file found and parsed');
-
-        // Check if session has expired (older than 10 minutes)
-        const sessionAge = Date.now() - new Date(session.createdAt).getTime();
-        const maxAge = 10 * 60 * 1000; // 10 minutes
-
-        if (sessionAge > maxAge) {
-          console.log('⏰ Session expired, cleaning up:', sessionId);
-          try {
-            fs.unlinkSync(sessionFile);
-            console.log('🧹 Cleaned up expired session file:', sessionFile);
-          } catch (cleanupError) {
-            console.warn('⚠️ Failed to clean up expired session file:', cleanupError.message);
-          }
-          session = null; // Treat as not found
-        }
-      } else {
-        console.log('❌ Session file not found:', sessionFile);
-      }
-    } catch (fileError) {
-      console.error('❌ Error reading session file:', fileError);
-      // Continue with null session - will return 404 below
+    if (!sessionId) {
+      return res.status(400).json({
+        error: 'Missing sessionId parameter',
+        message: 'sessionId is required in the URL path'
+      });
     }
+
+    console.log(`🔄 [API] OAuth status check for session: ${sessionId} at ${new Date().toISOString()}`);
+    console.log(`🔄 [API] Total active sessions: ${oauthSessions.size}`);
+
+    const session = oauthSessions.get(sessionId);
 
     if (!session) {
-      console.log('❌ Session not found:', sessionId);
-      console.log('🔍 ===== OAUTH STATUS ENDPOINT END (SESSION NOT FOUND) =====');
       return res.status(404).json({
-        status: 'error',
-        error: 'Session not found or expired'
+        error: 'Session not found',
+        message: 'OAuth session not found or expired',
+        sessionId,
+        status: 'not_found'
       });
     }
 
-    console.log('📊 Session status:', session.status);
-    console.log('📊 Session data present:', !!session.data);
-    console.log('📊 Session platform:', session.platform);
-    console.log('📊 Session created:', session.createdAt);
-
-    // Log token data presence without exposing sensitive info
-    if (session.data) {
-      console.log('🔑 Session contains token data:', {
-        hasAccessToken: !!session.data.accessToken,
-        hasRefreshToken: !!session.data.refreshToken,
-        companyId: session.data.companyId,
-        userEmail: session.data.userEmail ? 'present' : 'missing'
+    // Check if session has expired (5 minutes timeout)
+    const now = Date.now();
+    if (now - session.createdAt > 5 * 60 * 1000) {
+      oauthSessions.delete(sessionId);
+      return res.status(404).json({
+        error: 'Session expired',
+        message: 'OAuth session has expired',
+        sessionId,
+        status: 'expired'
       });
     }
 
-    console.log('🔍 ===== OAUTH STATUS ENDPOINT END (SUCCESS) =====');
-
-    // Clean up completed sessions to prevent storage buildup
-    if (session.status === 'completed') {
-      try {
-        fs.unlinkSync(sessionFile);
-        console.log('🧹 Cleaned up completed session file:', sessionFile);
-      } catch (cleanupError) {
-        console.warn('⚠️ Failed to clean up session file:', cleanupError.message);
-        // Don't fail the request if cleanup fails
-      }
-    }
-
-    res.json({
+    const response = {
+      sessionId,
       status: session.status,
-      data: session.data,
-      platform: session.platform,
-      createdAt: session.createdAt
-    });
+      timestamp: new Date().toISOString(),
+      completed: session.status === 'completed',
+      error: session.error || null,
+      tokens: session.tokens || null,
+      userEmail: session.userEmail || null,
+      companyId: session.companyId || null
+    };
+
+    console.log(`OAuth status response for ${sessionId}:`, response);
+    res.status(200).json(response);
 
   } catch (error) {
-    console.error('❌ ===== OAUTH STATUS ENDPOINT END (ERROR) =====');
-    console.error('❌ Error type:', error.constructor.name);
-    console.error('❌ Error message:', error.message);
-    console.error('❌ Error stack:', error.stack);
-
+    console.error('OAuth status check error:', error);
     res.status(500).json({
-      status: 'error',
-      error: 'Failed to check session status',
-      details: error.message
+      error: 'Internal server error',
+      message: 'Failed to check OAuth status',
+      sessionId: req.query.sessionId || 'unknown'
     });
   }
 }
+
+function handleUpdateStatus(req, res) {
+  try {
+    const { sessionId, status, tokens, userEmail, companyId, error } = req.body;
+
+    if (!sessionId) {
+      return res.status(400).json({
+        error: 'Missing sessionId parameter',
+        message: 'sessionId is required in request body'
+      });
+    }
+
+    const sessionData = {
+      status: status || 'pending',
+      tokens,
+      userEmail,
+      companyId,
+      error,
+      updatedAt: Date.now(),
+      createdAt: Date.now()
+    };
+
+    oauthSessions.set(sessionId, sessionData);
+    console.log(`📝 [API] OAuth session ${sessionId} updated to status: ${sessionData.status} at ${new Date().toISOString()}`);
+    console.log(`📝 [API] Total active sessions after update: ${oauthSessions.size}`);
+
+    res.status(200).json({
+      success: true,
+      sessionId,
+      status: sessionData.status,
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    console.error('OAuth status update error:', error);
+    res.status(500).json({
+      error: 'Internal server error',
+      message: 'Failed to update OAuth status'
+    });
+  }
+}
+
+function handleDeleteSession(req, res) {
+  try {
+    const { sessionId } = req.query;
+
+    if (!sessionId) {
+      return res.status(400).json({
+        error: 'Missing sessionId parameter',
+        message: 'sessionId is required in the URL path'
+      });
+    }
+
+    const deleted = oauthSessions.delete(sessionId);
+    console.log(`🗑️ [API] OAuth session ${sessionId} deleted: ${deleted} at ${new Date().toISOString()}`);
+    console.log(`🗑️ [API] Total active sessions after deletion: ${oauthSessions.size}`);
+
+    res.status(200).json({
+      success: true,
+      deleted: !!deleted,
+      sessionId,
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    console.error('OAuth session delete error:', error);
+    res.status(500).json({
+      error: 'Internal server error',
+      message: 'Failed to delete OAuth session'
+    });
+  }
+}
+
+// Export for cleanup (can be called from other modules if needed)
+export { oauthSessions };

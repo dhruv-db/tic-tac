@@ -1,72 +1,86 @@
+// Bexio API proxy endpoint
 export default async function handler(req, res) {
+  // Handle CORS preflight requests
+  if (req.method === 'OPTIONS') {
+    return res.status(200).json({
+      status: 'OK',
+      message: 'CORS preflight successful'
+    });
+  }
+
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
   try {
-    const { endpoint, apiKey, accessToken, companyId, method = 'GET', data: requestData, acceptLanguage } = req.body;
+    const { endpoint, method = 'GET', body, accessToken, apiKey } = req.body;
 
-    if (!endpoint || !(apiKey || accessToken)) {
+    console.log('🔍 [DEBUG] Proxy received request body keys:', Object.keys(req.body));
+    console.log('🔍 [DEBUG] accessToken present:', !!accessToken);
+    console.log('🔍 [DEBUG] apiKey present:', !!apiKey);
+
+    if (!endpoint || !accessToken) {
       return res.status(400).json({
-        error: 'Missing required parameters'
+        error: 'Missing required parameters',
+        message: 'endpoint and accessToken are required'
       });
     }
 
-    console.log(`🔄 Proxying request to Bexio API: ${endpoint}`);
+    // Construct the full Bexio API URL
+    const baseUrl = process.env.BEXIO_API_BASE_URL || 'https://api.bexio.com';
+    const apiUrl = endpoint.startsWith('http')
+      ? endpoint
+      : `${baseUrl}${endpoint.startsWith('/') ? '' : '/'}${endpoint}`;
 
-    const token = accessToken || apiKey || '';
-    console.log(`🔑 Using bearer token: ${token ? token.substring(0, 10) + '...' : 'none'}`);
-    console.log(`📡 Request method: ${method}`);
+    console.log(`Proxying ${method} request to: ${apiUrl}`);
 
-    if ((method === 'POST' || method === 'PUT') && requestData) {
-      console.log('📦 Request payload:', JSON.stringify(requestData, null, 2));
-    }
-
-    // Build correct Bexio base URL depending on version in the endpoint
-    const bexioUrl = endpoint.startsWith('/3.0')
-      ? `https://api.bexio.com${endpoint}`
-      : endpoint.startsWith('/2.0')
-        ? `https://api.bexio.com${endpoint}`
-        : `https://api.bexio.com/2.0${endpoint}`;
-
-    const requestOptions = {
-      method: method,
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Accept': 'application/json',
-        'Accept-Language': acceptLanguage || 'en',
-        'Content-Type': 'application/json',
-        'User-Agent': 'Bexio-Sync-Buddy/1.0'
-      }
+    // Prepare headers for Bexio API
+    const headers = {
+      'Authorization': `Bearer ${accessToken}`,
+      'Accept': 'application/json',
+      'Content-Type': 'application/json'
     };
 
-    if ((method === 'POST' || method === 'PUT' || method === 'DELETE') && requestData) {
-      requestOptions.body = JSON.stringify(requestData);
+    // Remove Content-Type for GET requests or if no body
+    if (method === 'GET' || !body) {
+      delete headers['Content-Type'];
     }
 
-    console.log(`🌐 Making request to: ${bexioUrl}`);
+    // Make request to Bexio API
+    const response = await fetch(apiUrl, {
+      method,
+      headers,
+      body: body ? JSON.stringify(body) : undefined
+    });
 
-    const response = await fetch(bexioUrl, requestOptions);
+    // Handle response
+    const responseText = await response.text();
+    let responseData = {};
 
-    if (!response.ok) {
-      console.error(`❌ Bexio API error: ${response.status} ${response.statusText}`);
-      const errorText = await response.text();
-      console.error('📄 Error details:', errorText);
-      return res.status(response.status).json({
-        error: `Bexio API error: ${response.status}`,
-        details: errorText
-      });
+    try {
+      responseData = responseText ? JSON.parse(responseText) : {};
+    } catch (parseError) {
+      console.warn('Failed to parse response as JSON:', parseError);
+      responseData = { rawResponse: responseText };
     }
 
-    const data = await response.json();
-    console.log(`✅ Successfully fetched ${endpoint}, returned ${Array.isArray(data) ? data.length : 'single'} item(s)`);
+    console.log(`Bexio API response status: ${response.status}`);
 
-    res.json(data);
+    // Return response with same status code as Bexio API
+    res.status(response.status).json({
+      data: responseData,
+      status: response.status,
+      statusText: response.statusText,
+      headers: Object.fromEntries(response.headers.entries()),
+      timestamp: new Date().toISOString()
+    });
 
   } catch (error) {
-    console.error('❌ Error in bexio-proxy:', error);
+    console.error('Bexio proxy error:', error);
     res.status(500).json({
-      error: error.message
+      error: 'Internal server error',
+      message: 'Failed to proxy request to Bexio API',
+      details: error.message
     });
   }
 }
