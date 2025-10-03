@@ -43,7 +43,7 @@ import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { cn } from '@/lib/utils';
 import { safeNumberToString, safeGetProjectName, isValidProject } from '@/lib/dataValidation';
 import { getConfig } from '@/lib/secureStorage';
-import ticTacLogo from '@/assets/Tic-Tac-Dark.png';
+import ticTacLogo from '@/assets/Tic-Tac_Dark.png';
 
 const TikTakLogo = ({ className = "" }: { className?: string }) => {
   console.log('🎯 [DEBUG] TikTakLogo component rendered');
