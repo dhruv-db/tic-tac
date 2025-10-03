@@ -38,6 +38,14 @@ export default async function handler(req, res) {
       console.log('✅ Mobile OAuth callback successful, exchanging code for tokens...');
 
       try {
+        // Parse the state parameter to extract the original session ID
+        // State format: sessionId:codeVerifier (encoded in auth.js)
+        const stateParts = state.split(':');
+        const sessionId = stateParts[0]; // Original session ID
+        const encodedCodeVerifier = stateParts[1]; // Code verifier from state (for validation)
+
+        console.log('🔍 Parsed state parameter:', { sessionId, hasCodeVerifier: !!encodedCodeVerifier });
+
         // Get OAuth credentials from environment
         const clientId = process.env.BEXIO_CLIENT_ID;
         const clientSecret = process.env.BEXIO_CLIENT_SECRET;
@@ -46,11 +54,16 @@ export default async function handler(req, res) {
           throw new Error('OAuth credentials not configured');
         }
 
-        // Retrieve session data
+        // Retrieve session data using the original session ID
         const { oauthSessions } = await import('./status/[sessionId].js');
-        const session = oauthSessions.get(state);
+        const session = oauthSessions.get(sessionId);
         if (!session || !session.codeVerifier) {
           throw new Error('OAuth session not found or invalid');
+        }
+
+        // Validate that the code verifier from state matches the stored one (extra security)
+        if (encodedCodeVerifier && encodedCodeVerifier !== session.codeVerifier) {
+          console.warn('⚠️ Code verifier mismatch between state parameter and stored session');
         }
 
         console.log('✅ Retrieved OAuth session for token exchange');
@@ -138,7 +151,7 @@ export default async function handler(req, res) {
         try {
           const { oauthSessions } = await import('./status/[sessionId].js');
           const sessionUpdate = {
-            sessionId: state,
+            sessionId: sessionId,
             status: 'completed',
             tokens: {
               access_token: tokenData.accessToken,
@@ -152,10 +165,10 @@ export default async function handler(req, res) {
           };
 
           // Update session in storage
-          const existingSession = oauthSessions.get(state);
+          const existingSession = oauthSessions.get(sessionId);
           if (existingSession) {
-            oauthSessions.set(state, { ...existingSession, ...sessionUpdate });
-            console.log(`✅ OAuth session ${state} marked as completed`);
+            oauthSessions.set(sessionId, { ...existingSession, ...sessionUpdate });
+            console.log(`✅ OAuth session ${sessionId} marked as completed`);
           }
         } catch (sessionError) {
           console.error('❌ Failed to update OAuth session status:', sessionError);
@@ -163,7 +176,7 @@ export default async function handler(req, res) {
         }
 
         // Redirect to custom scheme with sessionId
-         const redirectUrl = `${process.env.BEXIO_MOBILE_REDIRECT_URI || 'bexio-sync://oauth-complete'}?sessionId=${encodeURIComponent(state)}`;
+         const redirectUrl = `${process.env.BEXIO_MOBILE_REDIRECT_URI || 'bexio-sync://oauth-complete'}?sessionId=${encodeURIComponent(sessionId)}`;
         return res.redirect(redirectUrl);
 
       } catch (exchangeError) {
