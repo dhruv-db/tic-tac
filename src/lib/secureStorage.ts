@@ -53,9 +53,12 @@ export const getConfig = {
       return `https://${window.location.hostname}`;
     }
 
-    // For mobile native platforms, ensure we use production URL
+    // For mobile native platforms, ensure we use production URL and normalize it
     if (Capacitor.isNativePlatform()) {
-      return import.meta.env.VITE_PRODUCTION_URL || 'https://tic-tac-puce-chi.vercel.app';
+      const raw = (typeof import.meta !== 'undefined' && import.meta.env.VITE_PRODUCTION_URL) || 'https://tic-tac-puce-chi.vercel.app';
+      const normalized = raw.replace(/\/$/, '');
+      const ensured = normalized.startsWith('http') ? normalized : `https://${normalized}`;
+      return ensured;
     }
 
     // Fallback for development
@@ -63,7 +66,8 @@ export const getConfig = {
       return 'http://localhost:3001';
     }
 
-    return 'http://localhost:3001';
+    const fallback = 'http://localhost:3001';
+    return fallback;
   },
 
   // Bexio OAuth Configuration
