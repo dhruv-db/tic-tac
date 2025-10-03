@@ -62,7 +62,8 @@ export default async function handler(req, res) {
       codeVerifier,
       state,
       createdAt: Date.now(),
-      platform: req.body.platform || 'web'
+      platform: req.body.platform || 'web',
+      redirectUri // persist exact redirect used during authorization
     };
 
     // Store session data (in production, use Redis or database)

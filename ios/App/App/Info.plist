@@ -59,7 +59,7 @@
 			<string>app.bexiosyncbuddy.app</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
-				<string>bexiosyncbuddy</string>
+				<string>bexio-sync-buddy</string>
 			</array>
 		</dict>
 	</array>
