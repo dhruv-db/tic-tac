@@ -145,8 +145,8 @@ export const BexioConnector = ({
       // Detect platform for proper redirect URI handling
       const platform = Capacitor.isNativePlatform() ? 'mobile' : 'web';
 
-      // Use the configured server to initiate OAuth with proper scope including contact, projects and monitoring scopes
-      const scope = 'openid profile email offline_access contact_show contact_edit monitoring_show monitoring_edit project_show';
+      // Use minimal required scopes for time tracking app
+      const scope = 'openid profile email offline_access contact_show project_show monitoring_show';
       const serverUrl = getConfig.serverUrl();
       console.log('🔗 [DEBUG] BexioConnector - Initiating OAuth with:', {
         serverUrl,

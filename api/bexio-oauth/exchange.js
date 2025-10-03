@@ -12,8 +12,9 @@ export default async function handler(req, res) {
       codeLength: code?.length,
       hasCodeVerifier: !!codeVerifier,
       codeVerifierLength: codeVerifier?.length,
-      codeVerifierValue: codeVerifier,
-      hasRedirectUri: !!redirectUri
+      codeVerifierPreview: codeVerifier?.substring(0, 20) + '...',
+      hasRedirectUri: !!redirectUri,
+      redirectUri
     });
 
     if (!code || !codeVerifier || !redirectUri) {

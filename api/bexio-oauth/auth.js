@@ -40,20 +40,45 @@ export default async function handler(req, res) {
       });
     }
 
-    // Generate PKCE code verifier and challenge
-    const codeVerifier = generateCodeVerifier();
+    // Extract codeVerifier from packed state
+    let codeVerifier;
+    let packedStateData;
+    try {
+      const decodedState = atob(state);
+      packedStateData = JSON.parse(decodedState);
+      codeVerifier = packedStateData.cv;
+      console.log('🔍 [DEBUG] Extracted codeVerifier from packed state:', {
+        hasCodeVerifier: !!codeVerifier,
+        codeVerifierLength: codeVerifier?.length,
+        codeVerifierPreview: codeVerifier?.substring(0, 20) + '...'
+      });
+    } catch (error) {
+      console.error('❌ [DEBUG] Failed to extract codeVerifier from state:', error);
+      return res.status(400).json({
+        error: 'Invalid state parameter',
+        message: 'Could not parse state parameter'
+      });
+    }
+
+    if (!codeVerifier) {
+      return res.status(400).json({
+        error: 'Missing code verifier',
+        message: 'codeVerifier not found in state'
+      });
+    }
+
+    // Generate code challenge from the extracted verifier
     const codeChallenge = await generateCodeChallenge(codeVerifier);
 
-    // Encode codeVerifier in state parameter for serverless compatibility
-    // Format: sessionId:codeVerifier
-    const encodedState = `${state}:${codeVerifier}`;
+    // Use the packed state as-is for the OAuth state parameter
+    const encodedState = state;
 
     // Construct Bexio authorization URL
     const params = new URLSearchParams({
       response_type: 'code',
       client_id: clientId,
       redirect_uri: redirectUri,
-      scope: 'openid profile email offline_access contact_show contact_edit monitoring_show monitoring_edit project_show',
+      scope: 'openid profile email offline_access contact_show project_show monitoring_show',
       state: encodedState,
       code_challenge: codeChallenge,
       code_challenge_method: 'S256'
@@ -62,11 +87,11 @@ export default async function handler(req, res) {
     const authorizationUrl = `${baseAuthUrl}?${params.toString()}`;
 
     // Create OAuth session for status tracking
-    const sessionId = state; // Use state as session ID for simplicity
+    const sessionId = packedStateData.s; // Use session ID from packed state
     const sessionData = {
       status: 'pending',
       codeVerifier,
-      state,
+      state: packedStateData,
       createdAt: Date.now(),
       platform: req.body.platform || 'web',
       redirectUri // persist exact redirect used during authorization
@@ -83,7 +108,7 @@ export default async function handler(req, res) {
     res.status(200).json({
       authorizationUrl,
       codeVerifier,
-      state,
+      state: encodedState,
       sessionId,
       timestamp: new Date().toISOString()
     });
