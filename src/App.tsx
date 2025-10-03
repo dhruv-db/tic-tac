@@ -115,7 +115,8 @@ const queryClient = new QueryClient();
 
 // Create a separate component that can use useNavigate
 const RouterContent = () => {
-  console.log('🚀 RouterContent component rendering');
+  console.log('🚀 ===== ROUTER CONTENT RENDERING =====');
+  console.warn('⚠️ ROUTER CONTENT INITIALIZED');
   const navigate = useNavigate();
   const { connectWithOAuth } = useAuth();
   const { toast } = useToast();
@@ -359,7 +360,8 @@ const RouterContent = () => {
 
 // Separate component for the main app routes that doesn't need useNavigate
 const AppRoutes = () => {
-  console.log('🚀 AppRoutes component rendering');
+  console.log('🚀 ===== APP ROUTES RENDERING =====');
+  console.warn('⚠️ APP ROUTES COMPONENT CALLED');
   const isMobile = useIsMobile();
   console.log('📱 isMobile:', isMobile);
   console.log('✅ AppRoutes initialization complete');
@@ -369,7 +371,7 @@ const AppRoutes = () => {
 
 const App = () => {
   useEffect(() => {
-    console.log('🚀 App component mounted');
+    console.log('🚀 ===== APP COMPONENT MOUNTED =====');
     console.log('🌐 Current location:', window.location.href);
     console.log('🔧 Environment check:', {
       isNative: Capacitor.isNativePlatform(),
@@ -386,6 +388,9 @@ const App = () => {
       isProduction: getConfig ? getConfig.isProduction() : 'unknown',
       isDevelopment: getConfig ? getConfig.isDevelopment() : 'unknown'
     });
+
+    // Force log to ensure it's visible
+    console.warn('⚠️ APP INITIALIZATION COMPLETE - LOGGING ENABLED');
 
     debugImageLoading();
   }, []);

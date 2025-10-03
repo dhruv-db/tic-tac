@@ -111,7 +111,8 @@ const MobileIndex = () => {
   const [activeTab, setActiveTab] = useState('timetracking');
 
   // Debug logging for connection state
-  console.log('🔍 [DEBUG] MobileIndex component rendered');
+  console.log('🔍 ===== MOBILE INDEX COMPONENT RENDERED =====');
+  console.warn('⚠️ MOBILE INDEX IS RUNNING');
   console.log('🔍 [DEBUG] MobileIndex - isConnected:', isConnected);
   console.log('🔍 [DEBUG] MobileIndex - credentials present:', !!credentials);
   console.log('🔍 [DEBUG] MobileIndex - credentials details:', credentials ? {
