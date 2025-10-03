@@ -609,9 +609,7 @@ export const useBexioApi = () => {
 
    setIsLoadingContacts(true);
    try {
-     const endpoint = credentials.companyId && credentials.companyId !== 'unknown'
-       ? `/3.0/${credentials.companyId}/contacts?limit=200`
-       : '/3.0/contacts?limit=200';
+     const endpoint = '/3.0/contacts?limit=200';
 
      const apiUrl = getBackendApiUrl();
      console.log('🔍 [DEBUG] fetchContacts - API URL:', apiUrl);
@@ -675,9 +673,7 @@ export const useBexioApi = () => {
 
     setIsLoadingProjects(true);
     try {
-      const endpoint = credentials.companyId && credentials.companyId !== 'unknown'
-        ? `/3.0/${credentials.companyId}/projects`
-        : '/3.0/projects';
+      const endpoint = '/3.0/projects';
 
       const response = await fetch(getBackendApiUrl(), {
         method: 'POST',
@@ -888,11 +884,9 @@ export const useBexioApi = () => {
 
     setIsLoadingWorkPackages(true);
     console.log(`🔍 Fetching work packages for project ID: ${projectId}`);
-    
+
     try {
-      const endpoint = credentials.companyId && credentials.companyId !== 'unknown'
-        ? `/3.0/${credentials.companyId}/projects/${projectId}/packages`
-        : `/3.0/projects/${projectId}/packages`;
+      const endpoint = `/3.0/projects/${projectId}/packages`;
 
       const response = await fetch(getBackendApiUrl(), {
         method: 'POST',
@@ -1754,9 +1748,7 @@ export const useBexioApi = () => {
     console.log('🔍 Fetching users from Bexio');
 
     try {
-      const endpoint = credentials.companyId && credentials.companyId !== 'unknown'
-        ? `/3.0/${credentials.companyId}/users`
-        : '/3.0/users';
+      const endpoint = '/3.0/users';
 
       const response = await fetch(getBackendApiUrl(), {
         method: 'POST',
