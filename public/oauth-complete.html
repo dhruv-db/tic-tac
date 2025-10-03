@@ -146,43 +146,19 @@
                 }, 1500);
 
             } else {
-                // Legacy web flow - handle tokens directly
-                const accessToken = urlParams.get('access_token');
-                const refreshToken = urlParams.get('refresh_token');
-                const companyId = urlParams.get('company_id');
-                const userEmail = urlParams.get('user_email');
+                // Web flow - exchange code for tokens
+                const code = urlParams.get('code');
+                const state = urlParams.get('state');
 
-                if (accessToken) {
-                    content.innerHTML = `
-                        <div class="success-icon">✅</div>
-                        <h1>Authentication Successful!</h1>
-                        <p>You have been successfully connected to Bexio.</p>
-                        <div class="status success">Completing setup...</div>
-                    `;
-
-                    // Send message to parent window (for popup flow)
-                    if (window.opener && !window.opener.closed) {
-                        const payload = {
-                            type: 'BEXIO_OAUTH_SUCCESS',
-                            credentials: {
-                                accessToken,
-                                refreshToken,
-                                companyId,
-                                userEmail
-                            }
-                        };
-                        window.opener.postMessage(payload, '*');
-
-                        setTimeout(() => {
-                            window.close();
-                        }, 2000);
-                    }
+                if (code && state) {
+                    console.log('🔄 Web OAuth: exchanging code for tokens');
+                    exchangeCodeForTokens(code, state);
                 } else {
                     content.innerHTML = `
                         <div class="error-icon">❌</div>
                         <h1>Authentication Failed</h1>
-                        <p>No authentication data received.</p>
-                        <div class="status error">Missing authentication data</div>
+                        <p>No authorization code received.</p>
+                        <div class="status error">Missing authorization code</div>
                         <p><small>You can close this window and try again.</small></p>
                     `;
                 }
@@ -278,6 +254,80 @@
 
             // Start polling
             poll();
+        }
+
+        // Exchange authorization code for tokens
+        async function exchangeCodeForTokens(code, state) {
+            const content = document.getElementById('content');
+
+            try {
+                // Get stored PKCE verifier
+                const codeVerifier = localStorage.getItem('bexio_oauth_code_verifier');
+                if (!codeVerifier) {
+                    throw new Error('PKCE code verifier not found');
+                }
+
+                console.log('🔄 Exchanging code for tokens...');
+
+                // Exchange code for tokens via API
+                const response = await fetch('/api/bexio-oauth/exchange', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        code,
+                        codeVerifier,
+                        redirectUri: window.location.origin + '/oauth-complete.html',
+                        state
+                    })
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({}));
+                    throw new Error(errorData.message || `HTTP ${response.status}`);
+                }
+
+                const data = await response.json();
+                console.log('✅ Token exchange successful');
+
+                content.innerHTML = `
+                    <div class="success-icon">✅</div>
+                    <h1>Authentication Successful!</h1>
+                    <p>You have been successfully connected to Bexio.</p>
+                    <div class="status success">Completing setup...</div>
+                `;
+
+                // Send message to parent window (for popup flow)
+                if (window.opener && !window.opener.closed) {
+                    const payload = {
+                        type: 'BEXIO_OAUTH_SUCCESS',
+                        credentials: {
+                            accessToken: data.accessToken,
+                            refreshToken: data.refreshToken,
+                            companyId: data.companyId,
+                            userEmail: data.userEmail
+                        }
+                    };
+                    window.opener.postMessage(payload, '*');
+
+                    // Clean up localStorage
+                    localStorage.removeItem('bexio_oauth_code_verifier');
+                    localStorage.removeItem('bexio_oauth_state');
+
+                    setTimeout(() => {
+                        window.close();
+                    }, 2000);
+                }
+
+            } catch (error) {
+                console.error('❌ Token exchange failed:', error);
+                content.innerHTML = `
+                    <div class="error-icon">❌</div>
+                    <h1>Authentication Failed</h1>
+                    <p>There was an error completing authentication.</p>
+                    <div class="status error">Error: ${error.message}</div>
+                    <p><small>You can close this window and try again.</small></p>
+                `;
+            }
         }
 
         // Handle page load
