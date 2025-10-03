@@ -24,6 +24,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
+import { getConfig } from "@/lib/secureStorage";
 
 const Index = () => {
   const location = useLocation();
@@ -159,7 +160,7 @@ const Index = () => {
     
     setIsTestingConnection(true);
     try {
-      const response = await fetch('http://localhost:3001/api/bexio-proxy', {
+      const response = await fetch(`${getConfig.serverUrl()}/api/bexio-proxy`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

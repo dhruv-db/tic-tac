@@ -42,7 +42,8 @@ import { BexioConnector } from '@/components/BexioConnector';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { cn } from '@/lib/utils';
 import { safeNumberToString, safeGetProjectName, isValidProject } from '@/lib/dataValidation';
-import ticTacLogo from '@/assets/Tic-Tac_Dark.png';
+import { getConfig } from '@/lib/secureStorage';
+import ticTacLogo from '@/assets/Tic-Tac-Dark.png';
 
 const TikTakLogo = ({ className = "" }: { className?: string }) => {
   console.log('🎯 [DEBUG] TikTakLogo component rendered');
@@ -908,7 +909,7 @@ const MobileIndex = () => {
 
                             // 7. Clear server-side sessions (optional)
                             try {
-                              await fetch('http://localhost:3001/api/bexio-oauth/clear-sessions', {
+                              await fetch(`${getConfig.serverUrl()}/api/bexio-oauth/clear-sessions`, {
                                 method: 'POST',
                                 headers: { 'Content-Type': 'application/json' },
                                 body: JSON.stringify({ clearAll: true })

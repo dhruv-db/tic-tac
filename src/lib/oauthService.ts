@@ -168,7 +168,7 @@ export class UnifiedOAuthService {
       tokenUrl: import.meta.env.VITE_BEXIO_OAUTH_TOKEN_URL ||
                  'https://auth.bexio.com/realms/bexio/protocol/openid-connect/token',
       redirectUri: OAuthPlatform.getRedirectUri(),
-      scope: 'openid profile email offline_access contact_show contact_edit monitoring_show monitoring_edit project_show'
+      scope: 'openid profile email offline_access contact_show project_show monitoring_show'
     };
 
     if (!this.config.clientId || !this.config.clientSecret) {

@@ -29,7 +29,7 @@ export default async function handler(req, res) {
     if (oauthError) {
       console.error('❌ OAuth error in mobile callback:', oauthError, error_description);
 
-      const redirectUrl = `${process.env.BEXIO_MOBILE_REDIRECT_URI || 'bexio-sync://oauth-complete'}?error=${encodeURIComponent(oauthError)}&description=${encodeURIComponent(error_description || 'Unknown error')}`;
+      const redirectUrl = `${process.env.BEXIO_MOBILE_REDIRECT_URI || 'bexio-sync-buddy://oauth-complete/'}?error=${encodeURIComponent(oauthError)}&description=${encodeURIComponent(error_description || 'Unknown error')}`;
       return res.redirect(redirectUrl);
     }
 
@@ -176,25 +176,25 @@ export default async function handler(req, res) {
         }
 
         // Redirect to custom scheme with sessionId
-         const redirectUrl = `${process.env.BEXIO_MOBILE_REDIRECT_URI || 'bexio-sync://oauth-complete'}?sessionId=${encodeURIComponent(sessionId)}`;
-        return res.redirect(redirectUrl);
+         const redirectUrl = `${process.env.BEXIO_MOBILE_REDIRECT_URI || 'bexio-sync-buddy://oauth-complete/'}?sessionId=${encodeURIComponent(sessionId)}`;
+         return res.redirect(redirectUrl);
 
       } catch (exchangeError) {
         console.error('❌ Token exchange failed:', exchangeError);
 
-        const redirectUrl = `${process.env.BEXIO_MOBILE_REDIRECT_URI || 'bexio-sync://oauth-complete'}?error=token_exchange_failed&description=${encodeURIComponent(exchangeError.message)}`;
+        const redirectUrl = `${process.env.BEXIO_MOBILE_REDIRECT_URI || 'bexio-sync-buddy://oauth-complete/'}?error=token_exchange_failed&description=${encodeURIComponent(exchangeError.message)}`;
         return res.redirect(redirectUrl);
       }
     }
 
     // Handle missing parameters
     console.error('❌ Mobile OAuth callback missing required parameters');
-    const redirectUrl = `${process.env.BEXIO_MOBILE_REDIRECT_URI || 'bexio-sync://oauth-complete'}?error=missing_parameters&description=${encodeURIComponent('Missing authorization code or state parameter')}`;
+    const redirectUrl = `${process.env.BEXIO_MOBILE_REDIRECT_URI || 'bexio-sync-buddy://oauth-complete/'}?error=missing_parameters&description=${encodeURIComponent('Missing authorization code or state parameter')}`;
     return res.redirect(redirectUrl);
 
   } catch (error) {
     console.error('❌ Mobile OAuth callback error:', error);
-    const redirectUrl = `${process.env.BEXIO_MOBILE_REDIRECT_URI || 'bexio-sync://oauth-complete'}?error=internal_error&description=${encodeURIComponent('Failed to process OAuth callback')}`;
+    const redirectUrl = `${process.env.BEXIO_MOBILE_REDIRECT_URI || 'bexio-sync-buddy://oauth-complete/'}?error=internal_error&description=${encodeURIComponent('Failed to process OAuth callback')}`;
     return res.redirect(redirectUrl);
   }
 }

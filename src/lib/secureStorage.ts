@@ -6,37 +6,40 @@ import { BexioCredentials } from '@/context/OAuthContext';
 export const getConfig = {
   // Server URLs
   serverUrl: (): string => {
-    // Check environment variables in order of priority
+    // For mobile native platforms, always use production URL to avoid localhost issues
+    if (Capacitor.isNativePlatform()) {
+      if (typeof import.meta !== 'undefined' && import.meta.env.VITE_MOBILE_SERVER_URL) {
+        return import.meta.env.VITE_MOBILE_SERVER_URL;
+      }
+      if (typeof import.meta !== 'undefined' && import.meta.env.VITE_PRODUCTION_URL) {
+        return import.meta.env.VITE_PRODUCTION_URL;
+      }
+      return 'https://tic-tac-puce-chi.vercel.app';
+    }
+
+    // For production builds (deployed apps), use the current domain or production URL
+    if (typeof import.meta !== 'undefined' && import.meta.env.PROD) {
+      if (typeof window !== 'undefined' && window.location.hostname.includes('vercel.app')) {
+        return `https://${window.location.hostname}`;
+      }
+      if (typeof import.meta !== 'undefined' && import.meta.env.VITE_PRODUCTION_URL) {
+        return import.meta.env.VITE_PRODUCTION_URL;
+      }
+      return 'https://tic-tac-puce-chi.vercel.app';
+    }
+
+    // Check environment variables in order of priority for development
     if (typeof import.meta !== 'undefined' && import.meta.env.VITE_SERVER_URL) {
       return import.meta.env.VITE_SERVER_URL;
     }
 
-    // For mobile apps, check mobile-specific URL
-    if (Capacitor.isNativePlatform() && typeof import.meta !== 'undefined' && import.meta.env.VITE_MOBILE_SERVER_URL) {
-      return import.meta.env.VITE_MOBILE_SERVER_URL;
-    }
-
-    // Check production URL
+    // Check production URL as fallback
     if (typeof import.meta !== 'undefined' && import.meta.env.VITE_PRODUCTION_URL) {
       return import.meta.env.VITE_PRODUCTION_URL;
     }
 
-    // For production builds (deployed apps), use the current domain
-    if (typeof window !== 'undefined' && window.location.hostname.includes('vercel.app')) {
-      return `https://${window.location.hostname}`;
-    }
-
-    // For mobile native platforms, ensure we use production URL
-    if (Capacitor.isNativePlatform()) {
-      return import.meta.env.VITE_PRODUCTION_URL || 'https://tic-tac-puce-chi.vercel.app';
-    }
-
-    // Fallback for development
-    if (typeof import.meta !== 'undefined' && import.meta.env.DEV) {
-      return 'http://localhost:3001';
-    }
-
-    return 'http://localhost:3001';
+    // Final fallback to production URL instead of localhost
+    return 'https://tic-tac-puce-chi.vercel.app';
   },
 
   // Bexio OAuth Configuration
