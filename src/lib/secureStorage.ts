@@ -2,6 +2,73 @@ import { Capacitor } from '@capacitor/core';
 import { Preferences } from '@capacitor/preferences';
 import { BexioCredentials } from '@/context/OAuthContext';
 
+// Configuration utility for environment variables (moved before logger to avoid circular dependency)
+export const getConfig = {
+  // Server URLs
+  serverUrl: (): string => {
+    // Check environment variables in order of priority
+    if (typeof import.meta !== 'undefined' && import.meta.env.VITE_SERVER_URL) {
+      return import.meta.env.VITE_SERVER_URL;
+    }
+
+    // For mobile apps, check mobile-specific URL
+    if (Capacitor.isNativePlatform() && typeof import.meta !== 'undefined' && import.meta.env.VITE_MOBILE_SERVER_URL) {
+      return import.meta.env.VITE_MOBILE_SERVER_URL;
+    }
+
+    // Check production URL
+    if (typeof import.meta !== 'undefined' && import.meta.env.VITE_PRODUCTION_URL) {
+      return import.meta.env.VITE_PRODUCTION_URL;
+    }
+
+    // For production builds (deployed apps), use the current domain
+    if (typeof window !== 'undefined' && window.location.hostname.includes('vercel.app')) {
+      return `https://${window.location.hostname}`;
+    }
+
+    // For mobile native platforms, ensure we use production URL
+    if (Capacitor.isNativePlatform()) {
+      return import.meta.env.VITE_PRODUCTION_URL || 'https://tic-tac-puce-chi.vercel.app';
+    }
+
+    // Fallback for development
+    if (typeof import.meta !== 'undefined' && import.meta.env.DEV) {
+      return 'http://localhost:3001';
+    }
+
+    return 'http://localhost:3001';
+  },
+
+  // Bexio OAuth Configuration
+  bexioClientId: (): string => {
+    return typeof import.meta !== 'undefined' && import.meta.env.VITE_BEXIO_CLIENT_ID
+      ? import.meta.env.VITE_BEXIO_CLIENT_ID
+      : 'your_bexio_client_id_here';
+  },
+
+  bexioClientSecret: (): string => {
+    return typeof import.meta !== 'undefined' && import.meta.env.VITE_BEXIO_CLIENT_SECRET
+      ? import.meta.env.VITE_BEXIO_CLIENT_SECRET
+      : 'your_bexio_client_secret_here';
+  },
+
+  // Logging
+  logLevel: (): string => {
+    return typeof import.meta !== 'undefined' && import.meta.env.VITE_LOG_LEVEL
+      ? import.meta.env.VITE_LOG_LEVEL
+      : 'info';
+  },
+
+  // Environment
+  isProduction: (): boolean => {
+    return typeof import.meta !== 'undefined' && import.meta.env.PROD;
+  },
+
+  isDevelopment: (): boolean => {
+    return typeof import.meta !== 'undefined' && import.meta.env.DEV;
+  }
+};
+
 // Enhanced logging utility with structured logging and production support
 export interface LogContext {
   component?: string;
@@ -172,73 +239,6 @@ export const legacyLogger = {
   warn: (message: string, ...args: any[]) => logger.warn(message, { args }),
   error: (message: string, ...args: any[]) => logger.error(message, { args }),
   debug: (message: string, ...args: any[]) => logger.debug(message, { args })
-};
-
-// Configuration utility for environment variables
-export const getConfig = {
-  // Server URLs
-  serverUrl: (): string => {
-    // Check environment variables in order of priority
-    if (typeof import.meta !== 'undefined' && import.meta.env.VITE_SERVER_URL) {
-      return import.meta.env.VITE_SERVER_URL;
-    }
-
-    // For mobile apps, check mobile-specific URL
-    if (Capacitor.isNativePlatform() && typeof import.meta !== 'undefined' && import.meta.env.VITE_MOBILE_SERVER_URL) {
-      return import.meta.env.VITE_MOBILE_SERVER_URL;
-    }
-
-    // Check production URL
-    if (typeof import.meta !== 'undefined' && import.meta.env.VITE_PRODUCTION_URL) {
-      return import.meta.env.VITE_PRODUCTION_URL;
-    }
-
-    // For production builds (deployed apps), use the current domain
-    if (typeof window !== 'undefined' && window.location.hostname.includes('vercel.app')) {
-      return `https://${window.location.hostname}`;
-    }
-
-    // For mobile native platforms, ensure we use production URL
-    if (Capacitor.isNativePlatform()) {
-      return import.meta.env.VITE_PRODUCTION_URL || 'https://tic-tac-puce-chi.vercel.app';
-    }
-
-    // Fallback for development
-    if (typeof import.meta !== 'undefined' && import.meta.env.DEV) {
-      return 'http://localhost:3001';
-    }
-
-    return 'http://localhost:3001';
-  },
-
-  // Bexio OAuth Configuration
-  bexioClientId: (): string => {
-    return typeof import.meta !== 'undefined' && import.meta.env.VITE_BEXIO_CLIENT_ID
-      ? import.meta.env.VITE_BEXIO_CLIENT_ID
-      : 'your_bexio_client_id_here';
-  },
-
-  bexioClientSecret: (): string => {
-    return typeof import.meta !== 'undefined' && import.meta.env.VITE_BEXIO_CLIENT_SECRET
-      ? import.meta.env.VITE_BEXIO_CLIENT_SECRET
-      : 'your_bexio_client_secret_here';
-  },
-
-  // Logging
-  logLevel: (): string => {
-    return typeof import.meta !== 'undefined' && import.meta.env.VITE_LOG_LEVEL
-      ? import.meta.env.VITE_LOG_LEVEL
-      : 'info';
-  },
-
-  // Environment
-  isProduction: (): boolean => {
-    return typeof import.meta !== 'undefined' && import.meta.env.PROD;
-  },
-
-  isDevelopment: (): boolean => {
-    return typeof import.meta !== 'undefined' && import.meta.env.DEV;
-  }
 };
 
 // Encryption utilities for production-ready token storage
