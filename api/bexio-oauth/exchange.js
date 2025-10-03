@@ -45,7 +45,16 @@ export default async function handler(req, res) {
       code_verifier: codeVerifier
     });
 
-    console.log('Exchanging code for tokens...');
+    console.log('🔄 Exchanging code for tokens...');
+    console.log('🔍 Token exchange request details:', {
+      grant_type: 'authorization_code',
+      client_id: clientId ? '***' + clientId.slice(-4) : 'MISSING',
+      has_client_secret: !!clientSecret,
+      code_length: code?.length,
+      redirect_uri: redirectUri,
+      has_code_verifier: !!codeVerifier,
+      code_verifier_length: codeVerifier?.length
+    });
 
     // Make request to Bexio token endpoint
     const response = await fetch(tokenUrl, {
@@ -61,10 +70,24 @@ export default async function handler(req, res) {
       const errorText = await response.text();
       console.error('Token exchange failed:', response.status, errorText);
 
+      // Try to parse as JSON for better error details
+      let errorDetails = errorText;
+      try {
+        const errorJson = JSON.parse(errorText);
+        errorDetails = errorJson;
+        console.error('Parsed Bexio error:', {
+          error: errorJson.error,
+          error_description: errorJson.error_description,
+          status: response.status
+        });
+      } catch (parseError) {
+        console.error('Could not parse Bexio error as JSON:', parseError);
+      }
+
       return res.status(response.status).json({
         error: 'Token exchange failed',
         message: `Bexio responded with status ${response.status}`,
-        details: errorText
+        details: errorDetails
       });
     }
 
