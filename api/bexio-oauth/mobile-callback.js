@@ -75,6 +75,22 @@ export default async function handler(req, res) {
         const tokenResponse = await exchangeResponse.json();
         console.log('✅ Token exchange successful');
 
+        // Decode JWT to extract company ID
+        const decodeJwt = (token) => {
+          try {
+            if (!token) return null;
+            const payload = token.split('.')[1];
+            const json = atob(payload.replace(/-/g, '+').replace(/_/g, '/'));
+            return JSON.parse(json);
+          } catch {
+            return null;
+          }
+        };
+
+        const decoded = decodeJwt(tokenResponse.access_token);
+        const companyId = decoded?.company_id || decoded?.companyId || null;
+        console.log('🔍 Extracted company ID from token:', companyId);
+
         // Calculate expiration time
         const expiresAt = Date.now() + (tokenResponse.expires_in * 1000);
 
@@ -102,11 +118,11 @@ export default async function handler(req, res) {
         const tokenData = {
           accessToken: tokenResponse.access_token,
           refreshToken: tokenResponse.refresh_token,
+          companyId,
           expiresAt,
           tokenType: tokenResponse.token_type,
           scope: tokenResponse.scope,
-          userEmail,
-          companyId: null // Company ID not available from token endpoint
+          userEmail
         };
 
         // Update OAuth session status to completed

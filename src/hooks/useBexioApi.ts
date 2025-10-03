@@ -507,12 +507,20 @@ export const useBexioApi = () => {
       return;
     }
 
+    // If companyId is not provided or is 'unknown', try to extract from token
+    let finalCompanyId = companyId;
+    if (!finalCompanyId || finalCompanyId === 'unknown') {
+      const decoded = decodeJwt(accessToken);
+      finalCompanyId = decoded?.company_id || decoded?.companyId || 'unknown';
+      console.log('🔍 Extracted company ID from token in connectWithOAuth:', finalCompanyId);
+    }
+
     try {
       const expiresAt = Date.now() + (3600 * 1000); // 1 hour from now
       const creds: BexioCredentials = {
         accessToken,
         refreshToken,
-        companyId: companyId || 'unknown', // Fallback for missing company ID
+        companyId: finalCompanyId,
         userEmail: userEmail || 'OAuth User', // Fallback for missing email
         authType: 'oauth',
         expiresAt
@@ -601,10 +609,14 @@ export const useBexioApi = () => {
 
    setIsLoadingContacts(true);
    try {
+     const endpoint = credentials.companyId && credentials.companyId !== 'unknown'
+       ? `/3.0/${credentials.companyId}/contacts?limit=200`
+       : '/3.0/contacts?limit=200';
+
      const apiUrl = getBackendApiUrl();
      console.log('🔍 [DEBUG] fetchContacts - API URL:', apiUrl);
      console.log('🔍 [DEBUG] fetchContacts - Full request body:', {
-       endpoint: '/3.0/contacts?limit=200',
+       endpoint,
        accessToken: authToken.substring(0, 20) + '...',
        companyId: credentials.companyId,
        acceptLanguage: currentLanguage,
@@ -614,7 +626,7 @@ export const useBexioApi = () => {
        method: 'POST',
        headers: { 'Content-Type': 'application/json' },
        body: JSON.stringify({
-         endpoint: '/3.0/contacts?limit=200',
+         endpoint,
          accessToken: authToken,
          companyId: credentials.companyId,
          acceptLanguage: currentLanguage,
@@ -632,7 +644,7 @@ export const useBexioApi = () => {
         : (Array.isArray((data as any)?.data)
             ? (data as any).data
             : (data && typeof data === 'object' ? [data as any] : []));
-      const validContacts = filterValidObjects(items, ['id', 'name_1'], isValidContact) as Contact[];
+      const validContacts = filterValidObjects(items, ['id'], isValidContact) as Contact[];
       setContacts(validContacts);
       setHasInitiallyLoaded(prev => ({ ...prev, contacts: true }));
 
@@ -663,13 +675,17 @@ export const useBexioApi = () => {
 
     setIsLoadingProjects(true);
     try {
+      const endpoint = credentials.companyId && credentials.companyId !== 'unknown'
+        ? `/3.0/${credentials.companyId}/projects`
+        : '/3.0/projects';
+
       const response = await fetch(getBackendApiUrl(), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
           body: JSON.stringify({
-            endpoint: '/3.0/projects',
+            endpoint,
             accessToken: authToken,
             companyId: credentials.companyId,
             acceptLanguage: currentLanguage,
@@ -682,7 +698,7 @@ export const useBexioApi = () => {
       }
 
       const data = await response.json();
-      const validProjects = filterValidObjects(data, ['id', 'name'], isValidProject) as Project[];
+      const validProjects = filterValidObjects(data, ['id'], isValidProject) as Project[];
       setProjects(validProjects);
       setHasInitiallyLoaded(prev => ({ ...prev, projects: true }));
 
@@ -871,13 +887,17 @@ export const useBexioApi = () => {
     console.log(`🔍 Fetching work packages for project ID: ${projectId}`);
     
     try {
+      const endpoint = credentials.companyId && credentials.companyId !== 'unknown'
+        ? `/3.0/${credentials.companyId}/projects/${projectId}/packages`
+        : `/3.0/projects/${projectId}/packages`;
+
       const response = await fetch(getBackendApiUrl(), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          endpoint: `/3.0/projects/${projectId}/packages`,
+          endpoint,
           accessToken: authToken,
           companyId: credentials.companyId,
           acceptLanguage: currentLanguage,
@@ -1706,11 +1726,15 @@ export const useBexioApi = () => {
     console.log('🔍 Fetching users from Bexio');
 
     try {
+      const endpoint = credentials.companyId && credentials.companyId !== 'unknown'
+        ? `/3.0/${credentials.companyId}/users`
+        : '/3.0/users';
+
       const response = await fetch(getBackendApiUrl(), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          endpoint: '/3.0/users',
+          endpoint,
           accessToken: authToken,
           companyId: credentials.companyId,
           acceptLanguage: 'en',
