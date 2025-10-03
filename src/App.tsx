@@ -176,18 +176,58 @@ const RouterContent = () => {
              return;
            }
 
-           const url = new URL(event.url);
-           console.log('🔗 Parsed URL:', {
-             href: url.href,
-             pathname: url.pathname,
-             search: url.search,
-             hash: url.hash,
-             protocol: url.protocol,
-             host: url.host
-           });
+           let url: URL;
+           try {
+             url = new URL(event.url);
+             console.log('🔗 Parsed URL:', {
+               href: url.href,
+               pathname: url.pathname,
+               search: url.search,
+               hash: url.hash,
+               protocol: url.protocol,
+               host: url.host
+             });
+           } catch (urlError) {
+             console.warn('🔗 URL parsing failed, trying manual parsing:', event.url);
+             // Manual parsing for custom schemes
+             const urlString = event.url;
+             const protocolEnd = urlString.indexOf('://');
+             const protocol = protocolEnd > 0 ? urlString.substring(0, protocolEnd + 3) : '';
+             const rest = protocolEnd > 0 ? urlString.substring(protocolEnd + 3) : urlString;
+
+             const pathStart = rest.indexOf('/');
+             const pathAndQuery = pathStart >= 0 ? rest.substring(pathStart) : '/';
+             const queryStart = pathAndQuery.indexOf('?');
+
+             const pathname = queryStart >= 0 ? pathAndQuery.substring(0, queryStart) : pathAndQuery;
+             const search = queryStart >= 0 ? pathAndQuery.substring(queryStart) : '';
+
+             url = {
+               href: urlString,
+               protocol,
+               pathname,
+               search,
+               host: '',
+               hash: ''
+             } as any;
+
+             console.log('🔗 Manually parsed URL:', url);
+           }
 
            // Check if this is an OAuth callback (either web or custom scheme)
-           if (url.pathname === '/oauth/callback' || url.href.includes('oauth/callback') || (url.protocol === 'bexio-sync-buddy:' && url.pathname === '/oauth-complete/')) {
+           const isOAuthCallback = url.pathname === '/oauth/callback' ||
+                                  url.href.includes('oauth/callback') ||
+                                  (url.protocol === 'bexio-sync-buddy:' && url.pathname === '/oauth-complete/') ||
+                                  (url.protocol === 'bexio-sync-buddy:' && url.href.includes('oauth-complete'));
+
+           console.log('🔗 Checking OAuth callback conditions:', {
+             pathname: url.pathname,
+             href: url.href,
+             protocol: url.protocol,
+             isOAuthCallback
+           });
+
+           if (isOAuthCallback) {
              console.log('🔗 ✅ OAuth callback detected via deep link');
 
              const params = new URLSearchParams(url.search);
