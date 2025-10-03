@@ -1094,7 +1094,7 @@ export const useBexioApi = () => {
           console.error('❌ [ERROR] Minutes is undefined! Duration string malformed:', timeEntryData.duration);
           throw new Error(`Invalid duration format: ${timeEntryData.duration}. Expected HH:MM format.`);
         }
-        durationString = `${hours}:${minutes.toString().padStart(2, '0')}`;
+        durationString = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
       } else {
         // Calculate from start/end times
         const [startHours, startMinutes] = (timeEntryData.startTime || "09:00").split(':').map(Number);
@@ -1110,7 +1110,7 @@ export const useBexioApi = () => {
         
         const hours = Math.floor(durationMinutes / 60);
         const minutes = durationMinutes % 60;
-        durationString = `${hours}:${minutes.toString().padStart(2, '0')}`;
+        durationString = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
       }
 
       // Generate dates for the range
@@ -1474,7 +1474,7 @@ export const useBexioApi = () => {
           console.error('❌ [ERROR] Minutes is undefined in update! Duration string malformed:', timeEntryData.duration);
           throw new Error(`Invalid duration format: ${timeEntryData.duration}. Expected HH:MM format.`);
         }
-        durationString = `${hours}:${minutes.toString().padStart(2, '0')}`;
+        durationString = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
       } else {
         const [startHours, startMinutes] = (timeEntryData.startTime || "09:00").split(':').map(Number);
         const [endHours, endMinutes] = (timeEntryData.endTime || "17:00").split(':').map(Number);
@@ -1484,7 +1484,7 @@ export const useBexioApi = () => {
         if (durationMinutes < 0) durationMinutes += 24 * 60;
         const hours = Math.floor(durationMinutes / 60);
         const minutes = durationMinutes % 60;
-        durationString = `${hours}:${minutes.toString().padStart(2, '0')}`;
+        durationString = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
       }
       
       const bexioData = {
@@ -1507,13 +1507,13 @@ export const useBexioApi = () => {
 
       console.log('Updating time entry with data:', { id, data: bexioData });
 
-      // Use POST method with 2.0 API (per Bexio docs)
+      // Use PUT method with 2.0 API (per Bexio docs)
       const putResponse = await mobileAwareFetch(getBackendApiUrl(), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           endpoint: `/2.0/timesheet/${id}`,
-          method: 'POST',
+          method: 'PUT',
           accessToken: authToken,
           companyId: credentials.companyId,
           body: bexioData,
@@ -1642,13 +1642,13 @@ export const useBexioApi = () => {
 
           console.log(`📝 Updating entry ${entry.id} with:`, mergedData);
 
-          // Use POST method with 2.0 API (per Bexio docs)
+          // Use PUT method with 2.0 API (per Bexio docs)
           const putResponse = await mobileAwareFetch(getBackendApiUrl(), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               endpoint: `/2.0/timesheet/${entry.id}`,
-              method: 'POST',
+              method: 'PUT',
               accessToken: authToken,
               companyId: credentials.companyId,
               body: mergedData,

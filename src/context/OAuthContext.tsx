@@ -1048,7 +1048,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           console.error('❌ [ERROR] OAuthContext - Minutes is undefined! Duration string malformed:', timeEntryData.duration);
           throw new Error(`Invalid duration format: ${timeEntryData.duration}. Expected HH:MM format.`);
         }
-        durationString = `${hours}:${minutes.toString().padStart(2, '0')}`;
+        durationString = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
       } else {
         const [startHours, startMinutes] = (timeEntryData.startTime || "09:00").split(':').map(Number);
         const [endHours, endMinutes] = (timeEntryData.endTime || "17:00").split(':').map(Number);
@@ -1063,7 +1063,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         const hours = Math.floor(durationMinutes / 60);
         const minutes = durationMinutes % 60;
-        durationString = `${hours}:${minutes.toString().padStart(2, '0')}`;
+        durationString = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
       }
 
       // Generate dates for the range
@@ -1249,7 +1249,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           console.error('❌ [ERROR] OAuthContext update - Minutes is undefined! Duration string malformed:', timeEntryData.duration);
           throw new Error(`Invalid duration format: ${timeEntryData.duration}. Expected HH:MM format.`);
         }
-        durationString = `${hours}:${minutes.toString().padStart(2, '0')}`;
+        durationString = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
       } else {
         const [startHours, startMinutes] = (timeEntryData.startTime || "09:00").split(':').map(Number);
         const [endHours, endMinutes] = (timeEntryData.endTime || "17:00").split(':').map(Number);
@@ -1259,7 +1259,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (durationMinutes < 0) durationMinutes += 24 * 60;
         const hours = Math.floor(durationMinutes / 60);
         const minutes = durationMinutes % 60;
-        durationString = `${hours}:${minutes.toString().padStart(2, '0')}`;
+        durationString = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
       }
 
       const bexioData = {
@@ -1288,7 +1288,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         },
         body: JSON.stringify({
           endpoint: `/2.0/timesheet/${id}`,
-          method: 'POST',
+          method: 'PUT',
           apiKey: authToken,
           companyId: credentials.companyId,
           data: bexioData,
@@ -1414,7 +1414,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             },
             body: JSON.stringify({
               endpoint: `/2.0/timesheet/${entry.id}`,
-              method: 'POST',
+              method: 'PUT',
               apiKey: authToken,
               companyId: credentials.companyId,
               data: mergedData,
