@@ -130,6 +130,10 @@ export const BexioConnector = ({
       } = await generatePKCE();
       console.log('🚀 Starting OAuth flow with redirect');
 
+      // Store codeVerifier in localStorage for web flow
+      localStorage.setItem('bexio_oauth_code_verifier', codeVerifier);
+      console.log('💾 Stored codeVerifier in localStorage for web flow');
+
       // Pack state with code_verifier and return URL for callback
       const productionUrl = getConfig.serverUrl();
       const packedState = btoa(JSON.stringify({

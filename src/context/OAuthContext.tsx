@@ -5,6 +5,8 @@ import { DateRange } from "react-day-picker";
 import { format } from "date-fns";
 import SecureStorage, { getConfig } from '@/lib/secureStorage';
 import { filterValidObjects, isValidProject, isValidContact, isValidTimeEntry } from '@/lib/dataValidation';
+import { oauthService } from '@/lib/oauthService';
+import { authErrorHandler, AuthErrorType, RecoveryAction } from '@/lib/authErrorHandler';
 
 // Helper function to get the correct server URL using centralized config
 const getServerUrl = () => getConfig.serverUrl();
@@ -303,48 +305,77 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
 
-  // Helper function to refresh OAuth token if needed
+
+  // Enhanced token validation with proactive refresh
   const ensureValidToken = useCallback(async (): Promise<string | null> => {
-    if (!credentials) return null;
+    if (!credentials) {
+      console.log('🔍 No credentials available');
+      return null;
+    }
 
     if (credentials.authType === 'api') {
+      console.log('🔑 Using API key authentication');
       return credentials.apiKey || null;
     }
 
-    // Check if token is still valid (with 5 minute buffer)
-    if (credentials.expiresAt && credentials.expiresAt > Date.now() + (5 * 60 * 1000)) {
-      return credentials.accessToken || null;
+    // Check if token exists
+    if (!credentials.accessToken) {
+      console.log('❌ No access token available');
+      return null;
     }
+
+    const now = Date.now();
+    const fiveMinutes = 5 * 60 * 1000;
+    const tokenExpiry = credentials.expiresAt || 0;
+
+    console.log('🔍 Token validation:', {
+      expiresAt: new Date(tokenExpiry).toISOString(),
+      timeUntilExpiry: Math.floor((tokenExpiry - now) / 1000),
+      needsRefresh: tokenExpiry <= now + fiveMinutes
+    });
+
+    // Check if token is still valid (with 5 minute buffer)
+    if (tokenExpiry > now + fiveMinutes) {
+      console.log('✅ Token is still valid');
+      return credentials.accessToken;
+    }
+
+    // Token needs refresh
+    console.log('🔄 Token needs refresh');
 
     // Use existing refresh promise if one is in progress
     if (refreshPromiseRef.current) {
+      console.log('⏳ Refresh already in progress, waiting...');
       return refreshPromiseRef.current;
     }
 
     // Create new refresh promise
+    console.log('🚀 Starting token refresh...');
     refreshPromiseRef.current = performTokenRefresh();
     const result = await refreshPromiseRef.current;
     refreshPromiseRef.current = null;
-    return result;
-  }, [credentials, toast]);
 
-  // Extract token refresh logic into separate function
-  const performTokenRefresh = useCallback(async (): Promise<string | null> => {
+    if (result) {
+      console.log('✅ Token refresh completed successfully');
+    } else {
+      console.log('❌ Token refresh failed');
+    }
+
+    return result;
+  }, [credentials]);
+
+  // Enhanced token refresh logic with centralized error handling
+  const performTokenRefresh = useCallback(async (retryCount = 0): Promise<string | null> => {
+    const maxRetries = 2;
+
     if (!credentials?.refreshToken) {
       console.log('🔄 No refresh token available');
-      // Refresh failed, clear credentials
-      await SecureStorage.removeStoredCredentials();
-      setCredentials(null);
-      toast({
-        title: "Session Expired",
-        description: "Your session has expired. Please log in again to continue.",
-        variant: "destructive",
-      });
+      await handleAuthFailure('Session Expired', 'Your session has expired. Please log in again to continue.');
       return null;
     }
 
     try {
-      console.log('🔄 Attempting token refresh...');
+      console.log(`🔄 Attempting token refresh (attempt ${retryCount + 1}/${maxRetries + 1})...`);
       const serverUrl = getServerUrl();
       const response = await fetch(`${serverUrl}/api/bexio-oauth/refresh`, {
         method: 'POST',
@@ -352,10 +383,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ refreshToken: credentials.refreshToken }),
+        signal: AbortSignal.timeout(30000), // 30 second timeout
       });
 
       if (response.ok) {
         const { accessToken, refreshToken, expiresIn } = await response.json();
+
+        // Validate response
+        if (!accessToken) {
+          throw new Error('Invalid refresh response: missing access token');
+        }
+
         const expiresAt = Date.now() + (expiresIn * 1000);
 
         const updatedCreds: BexioCredentials = {
@@ -369,46 +407,93 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setCredentials(updatedCreds);
         console.log('✅ Token refresh successful');
         return accessToken;
-      } else if (response.status === 429) {
-        // Rate limited
-        toast({
-          title: "Too Many Requests",
-          description: "Please wait a moment before trying again.",
-          variant: "destructive",
-        });
-        return null;
-      } else if (response.status === 401) {
-        // Invalid refresh token
-        console.log('❌ Invalid refresh token');
-        await SecureStorage.removeStoredCredentials();
-        setCredentials(null);
-        toast({
-          title: "Authentication Required",
-          description: "Your session is no longer valid. Please log in again.",
-          variant: "destructive",
-        });
-        return null;
       } else {
-        // Other server errors
-        const errorData = await response.json().catch(() => ({}));
-        console.error('❌ Token refresh failed:', response.status, errorData);
-        toast({
-          title: "Connection Error",
-          description: "Unable to refresh your session. Please check your internet connection.",
-          variant: "destructive",
+        // Create structured error for error handler
+        const error = new Error(`Token refresh failed: ${response.status}`);
+        (error as any).status = response.status;
+        (error as any).responseText = await response.text().catch(() => '');
+
+        // Handle error with centralized error handler
+        const authError = authErrorHandler.classifyError(error, {
+          operation: 'token_refresh',
+          retryCount,
+          refreshToken: credentials.refreshToken.substring(0, 10) + '...'
         });
+
+        await authErrorHandler.handleError(error, {
+          operation: 'token_refresh',
+          retryCount,
+          refreshToken: credentials.refreshToken.substring(0, 10) + '...'
+        });
+
+        // Execute recovery based on error type
+        switch (authError.type) {
+          case AuthErrorType.RATE_LIMITED:
+          case AuthErrorType.NETWORK_ERROR:
+          case AuthErrorType.SERVER_ERROR:
+            if (retryCount < maxRetries && authError.retryable) {
+              const retryDelay = 1000 * Math.pow(2, retryCount);
+              console.log(`⏳ Retrying token refresh in ${retryDelay}ms...`);
+              await new Promise(resolve => setTimeout(resolve, retryDelay));
+              return performTokenRefresh(retryCount + 1);
+            }
+            break;
+
+          case AuthErrorType.INVALID_CREDENTIALS:
+          case AuthErrorType.TOKEN_EXPIRED:
+            await handleAuthFailure('Authentication Required', 'Your session is no longer valid. Please log in again.');
+            return null;
+
+          default:
+            // Show user-friendly error message
+            toast({
+              title: "Authentication Error",
+              description: authError.userMessage,
+              variant: "destructive",
+            });
+            return null;
+        }
+
         return null;
       }
     } catch (error) {
-      console.error('❌ Token refresh network error:', error);
+      // Handle network and other errors with centralized error handler
+      const recoveryAction = await authErrorHandler.handleError(error, {
+        operation: 'token_refresh',
+        retryCount,
+        refreshToken: credentials.refreshToken?.substring(0, 10) + '...'
+      });
+
+      // Execute recovery
+      if (recoveryAction === RecoveryAction.RETRY && retryCount < maxRetries) {
+        const retryDelay = 1000 * Math.pow(2, retryCount);
+        console.log(`⏰ Network error, retrying in ${retryDelay}ms...`);
+        await new Promise(resolve => setTimeout(resolve, retryDelay));
+        return performTokenRefresh(retryCount + 1);
+      }
+
+      // Show user-friendly error message
+      const authError = authErrorHandler.classifyError(error);
       toast({
-        title: "Network Error",
-        description: "Unable to connect to the server. Please check your internet connection.",
+        title: "Connection Error",
+        description: authError.userMessage,
         variant: "destructive",
       });
+
       return null;
     }
   }, [credentials, toast]);
+
+  // Helper function to handle authentication failures
+  const handleAuthFailure = useCallback(async (title: string, description: string) => {
+    await SecureStorage.removeStoredCredentials();
+    setCredentials(null);
+    toast({
+      title,
+      description,
+      variant: "destructive",
+    });
+  }, [toast]);
 
   const connect = useCallback(async (apiKey: string, companyId: string) => {
     try {
@@ -491,6 +576,49 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       throw error;
     }
   }, [credentials, toast]);
+
+  // Listen for OAuth completion events from the unified service
+  useEffect(() => {
+    const handleOAuthCompleted = async (event: CustomEvent) => {
+      console.log('🎉 OAuth completed event received:', event.detail);
+      const { credentials } = event.detail;
+
+      try {
+        await connectWithOAuth(
+          credentials.accessToken,
+          credentials.refreshToken,
+          credentials.companyId,
+          credentials.userEmail
+        );
+      } catch (error) {
+        console.error('❌ Failed to process OAuth completion:', error);
+        toast({
+          title: 'Authentication Failed',
+          description: 'Failed to complete authentication. Please try again.',
+          variant: 'destructive',
+        });
+      }
+    };
+
+    const handleOAuthError = (event: CustomEvent) => {
+      console.error('❌ OAuth error event received:', event.detail);
+      const { error } = event.detail;
+
+      toast({
+        title: 'Authentication Failed',
+        description: error || 'An unexpected error occurred during authentication.',
+        variant: 'destructive',
+      });
+    };
+
+    window.addEventListener('oauthCompleted', handleOAuthCompleted as EventListener);
+    window.addEventListener('oauthError', handleOAuthError as EventListener);
+
+    return () => {
+      window.removeEventListener('oauthCompleted', handleOAuthCompleted as EventListener);
+      window.removeEventListener('oauthError', handleOAuthError as EventListener);
+    };
+  }, [connectWithOAuth, toast]);
 
   const disconnect = useCallback(async () => {
     await SecureStorage.removeStoredCredentials();

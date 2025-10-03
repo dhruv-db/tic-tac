@@ -2,31 +2,176 @@ import { Capacitor } from '@capacitor/core';
 import { Preferences } from '@capacitor/preferences';
 import { BexioCredentials } from '@/context/OAuthContext';
 
-// Logging utility that respects environment settings
-export const logger = {
-  info: (message: string, ...args: any[]) => {
-    if (import.meta.env.DEV && import.meta.env.VITE_DEBUG_LOGS === 'true') {
-      console.log(`[INFO] ${message}`, ...args);
+// Enhanced logging utility with structured logging and production support
+export interface LogContext {
+  component?: string;
+  operation?: string;
+  userId?: string;
+  sessionId?: string;
+  platform?: string;
+  timestamp?: number;
+  [key: string]: any;
+}
+
+export interface LogEntry {
+  level: 'debug' | 'info' | 'warn' | 'error';
+  message: string;
+  context?: LogContext;
+  timestamp: number;
+  platform: string;
+}
+
+class AuthLogger {
+  private static instance: AuthLogger;
+  private logBuffer: LogEntry[] = [];
+  private maxBufferSize = 100;
+  private isProduction = false;
+
+  private constructor() {
+    this.isProduction = getConfig.isProduction();
+  }
+
+  static getInstance(): AuthLogger {
+    if (!AuthLogger.instance) {
+      AuthLogger.instance = new AuthLogger();
     }
-  },
-  warn: (message: string, ...args: any[]) => {
-    if (import.meta.env.DEV && import.meta.env.VITE_DEBUG_LOGS === 'true') {
-      console.warn(`[WARN] ${message}`, ...args);
+    return AuthLogger.instance;
+  }
+
+  private shouldLog(level: LogEntry['level']): boolean {
+    // In production, only log warnings and errors
+    if (this.isProduction) {
+      return level === 'warn' || level === 'error';
     }
-  },
-  error: (message: string, ...args: any[]) => {
-    // Always show errors, but in a cleaner format for production
-    if (import.meta.env.DEV && import.meta.env.VITE_DEBUG_LOGS === 'true') {
-      console.error(`[ERROR] ${message}`, ...args);
-    } else {
-      console.error(message);
+
+    // In development, check debug logs setting
+    if (level === 'debug') {
+      return import.meta.env.VITE_DEBUG_LOGS === 'true';
     }
-  },
-  debug: (message: string, ...args: any[]) => {
-    if (import.meta.env.DEV && import.meta.env.VITE_DEBUG_LOGS === 'true') {
-      console.debug(`[DEBUG] ${message}`, ...args);
+
+    return true;
+  }
+
+  private createLogEntry(level: LogEntry['level'], message: string, context?: LogContext): LogEntry {
+    return {
+      level,
+      message,
+      context: {
+        ...context,
+        timestamp: Date.now(),
+        platform: Capacitor.getPlatform()
+      },
+      timestamp: Date.now(),
+      platform: Capacitor.getPlatform()
+    };
+  }
+
+  private logToConsole(entry: LogEntry): void {
+    const prefix = `[${entry.level.toUpperCase()}]`;
+    const timestamp = new Date(entry.timestamp).toISOString();
+    const contextStr = entry.context ? ` | ${JSON.stringify(entry.context)}` : '';
+
+    const fullMessage = `${prefix} ${timestamp} ${entry.message}${contextStr}`;
+
+    switch (entry.level) {
+      case 'debug':
+        console.debug(fullMessage);
+        break;
+      case 'info':
+        console.info(fullMessage);
+        break;
+      case 'warn':
+        console.warn(fullMessage);
+        break;
+      case 'error':
+        console.error(fullMessage);
+        break;
     }
   }
+
+  private addToBuffer(entry: LogEntry): void {
+    this.logBuffer.push(entry);
+    if (this.logBuffer.length > this.maxBufferSize) {
+      this.logBuffer.shift(); // Remove oldest entry
+    }
+  }
+
+  debug(message: string, context?: LogContext): void {
+    const entry = this.createLogEntry('debug', message, context);
+    this.addToBuffer(entry);
+    if (this.shouldLog('debug')) {
+      this.logToConsole(entry);
+    }
+  }
+
+  info(message: string, context?: LogContext): void {
+    const entry = this.createLogEntry('info', message, context);
+    this.addToBuffer(entry);
+    if (this.shouldLog('info')) {
+      this.logToConsole(entry);
+    }
+  }
+
+  warn(message: string, context?: LogContext): void {
+    const entry = this.createLogEntry('warn', message, context);
+    this.addToBuffer(entry);
+    if (this.shouldLog('warn')) {
+      this.logToConsole(entry);
+    }
+  }
+
+  error(message: string, context?: LogContext): void {
+    const entry = this.createLogEntry('error', message, context);
+    this.addToBuffer(entry);
+    if (this.shouldLog('error')) {
+      this.logToConsole(entry);
+    }
+  }
+
+  // Get recent logs for debugging
+  getRecentLogs(level?: LogEntry['level'], limit = 50): LogEntry[] {
+    let logs = this.logBuffer;
+    if (level) {
+      logs = logs.filter(entry => entry.level === level);
+    }
+    return logs.slice(-limit);
+  }
+
+  // Export logs for debugging (development only)
+  exportLogs(): LogEntry[] {
+    return [...this.logBuffer];
+  }
+
+  // Clear log buffer
+  clearLogs(): void {
+    this.logBuffer = [];
+  }
+
+  // Performance timing utility
+  startTimer(operation: string, context?: LogContext): () => void {
+    const startTime = performance.now();
+    this.debug(`Started operation: ${operation}`, { ...context, operation });
+
+    return () => {
+      const duration = performance.now() - startTime;
+      this.debug(`Completed operation: ${operation} in ${duration.toFixed(2)}ms`, {
+        ...context,
+        operation,
+        duration
+      });
+    };
+  }
+}
+
+// Export singleton instance
+export const logger = AuthLogger.getInstance();
+
+// Legacy logger interface for backward compatibility
+export const legacyLogger = {
+  info: (message: string, ...args: any[]) => logger.info(message, { args }),
+  warn: (message: string, ...args: any[]) => logger.warn(message, { args }),
+  error: (message: string, ...args: any[]) => logger.error(message, { args }),
+  debug: (message: string, ...args: any[]) => logger.debug(message, { args })
 };
 
 // Configuration utility for environment variables

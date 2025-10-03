@@ -276,10 +276,32 @@
             const content = document.getElementById('content');
 
             try {
-                // Get stored PKCE verifier
-                const codeVerifier = localStorage.getItem('bexio_oauth_code_verifier');
+                // Extract PKCE verifier from state parameter
+                let codeVerifier;
+                if (state) {
+                    try {
+                        // State format: base64json:codeVerifier (from auth.js)
+                        // First try to extract from the base64 JSON part
+                        const stateParts = state.split(':');
+                        const packedState = stateParts[0];
+                        const decodedState = atob(packedState);
+                        const stateData = JSON.parse(decodedState);
+                        codeVerifier = stateData.cv;
+                        console.log('🔍 Extracted codeVerifier from packed state JSON');
+                    } catch (e) {
+                        console.log('🔍 Failed to extract from packed state, trying localStorage');
+                        // Fallback: try localStorage for backward compatibility
+                        codeVerifier = localStorage.getItem('bexio_oauth_code_verifier');
+                        console.log('🔍 Using localStorage for codeVerifier');
+                    }
+                } else {
+                    // Fallback: try localStorage
+                    codeVerifier = localStorage.getItem('bexio_oauth_code_verifier');
+                    console.log('🔍 No state provided, using localStorage for codeVerifier');
+                }
+
                 if (!codeVerifier) {
-                    throw new Error('PKCE code verifier not found');
+                    throw new Error('PKCE code verifier not found in state or localStorage');
                 }
 
                 console.log('🔄 Exchanging code for tokens...');
