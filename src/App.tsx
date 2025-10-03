@@ -187,7 +187,7 @@ const RouterContent = () => {
            });
 
            // Check if this is an OAuth callback (either web or custom scheme)
-           if (url.pathname === '/oauth/callback' || url.href.includes('oauth/callback') || (url.protocol === 'bexiosyncbuddy:' && url.pathname === '/oauth/callback')) {
+           if (url.pathname === '/oauth/callback' || url.href.includes('oauth/callback') || (url.protocol === 'bexio-sync-buddy:' && url.pathname === '/oauth-complete/')) {
              console.log('🔗 ✅ OAuth callback detected via deep link');
 
              const params = new URLSearchParams(url.search);
