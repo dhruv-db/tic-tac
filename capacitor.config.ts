@@ -26,7 +26,7 @@ const config: CapacitorConfig = {
   webDir: 'dist',
   // Enable server for debugging - loads from local development server
   server: {
-    url: 'http://localhost:8081',
+    url: 'http://localhost:3000',
     cleartext: true
   },
   plugins: {
