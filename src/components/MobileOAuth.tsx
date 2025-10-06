@@ -99,16 +99,55 @@ export function MobileOAuth() {
   };
 
   const handleDisconnect = async () => {
+    console.log('🔌 [MobileOAuth] Disconnect button clicked');
     try {
+      console.log('🔌 [MobileOAuth] Calling disconnect function...');
       await disconnect();
+      console.log('🔌 [MobileOAuth] Disconnect completed successfully');
       toast({
         title: 'Disconnected',
         description: 'You have been disconnected from Bexio.',
       });
     } catch (error) {
+      console.error('❌ [MobileOAuth] Disconnect failed:', error);
       toast({
         title: 'Disconnect Failed',
         description: 'Failed to disconnect. Please try again.',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  // Debug function to manually clear storage
+  const handleForceClearStorage = async () => {
+    console.log('🧹 [MobileOAuth] Force clearing storage...');
+    try {
+      // Clear Capacitor Preferences directly
+      if (Capacitor.isNativePlatform()) {
+        const { Preferences } = await import('@capacitor/preferences');
+        await Preferences.remove({ key: 'bexio_secure_credentials' });
+        console.log('🧹 [MobileOAuth] Cleared Capacitor Preferences');
+      } else {
+        localStorage.removeItem('bexio_secure_credentials');
+        console.log('🧹 [MobileOAuth] Cleared localStorage');
+      }
+
+      // Also clear any OAuth state
+      localStorage.removeItem('bexio_oauth_code_verifier');
+      localStorage.removeItem('bexio_oauth_state');
+
+      // Force reload the app state
+      window.location.reload();
+
+      toast({
+        title: 'Storage Cleared',
+        description: 'App data has been cleared. The app will reload.',
+      });
+    } catch (error) {
+      console.error('❌ [MobileOAuth] Force clear failed:', error);
+      toast({
+        title: 'Clear Failed',
+        description: 'Failed to clear storage manually.',
         variant: 'destructive',
       });
     }
@@ -150,17 +189,31 @@ export function MobileOAuth() {
               </p>
             </div>
 
-            <Button
-              onClick={handleDisconnect}
-              variant="outline"
-              className="w-full h-10 border-red-300 text-red-700 hover:bg-red-50"
-              size="sm"
-            >
-              <div className="flex items-center gap-2">
-                <LogOut className="h-4 w-4" />
-                Disconnect Account
-              </div>
-            </Button>
+            <div className="space-y-2">
+              <Button
+                onClick={handleDisconnect}
+                variant="outline"
+                className="w-full h-10 border-red-300 text-red-700 hover:bg-red-50"
+                size="sm"
+              >
+                <div className="flex items-center gap-2">
+                  <LogOut className="h-4 w-4" />
+                  Disconnect Account
+                </div>
+              </Button>
+
+              {/* Debug button for force clearing storage */}
+              <Button
+                onClick={handleForceClearStorage}
+                variant="outline"
+                className="w-full h-8 text-xs border-orange-300 text-orange-700 hover:bg-orange-50"
+                size="sm"
+              >
+                <div className="flex items-center gap-1">
+                  🧹 Force Clear Data
+                </div>
+              </Button>
+            </div>
           </CardContent>
         </Card>
       </motion.div>

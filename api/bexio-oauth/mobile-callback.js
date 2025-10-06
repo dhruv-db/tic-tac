@@ -184,9 +184,8 @@ export default async function handler(req, res) {
           // Continue with redirect even if session update fails
         }
 
-        // Return HTML page that automatically redirects to custom scheme
-        const redirectUrl = `${process.env.BEXIO_MOBILE_REDIRECT_URI || 'bexio-sync-buddy://oauth-complete/'}?sessionId=${encodeURIComponent(sessionId)}`;
-        console.log('🔄 Returning HTML redirect page to:', redirectUrl);
+        // Return HTML page that closes the browser (OAuth service will handle polling)
+        console.log('🔄 Returning HTML page that closes browser for session:', sessionId);
 
         const html = `
 <!DOCTYPE html>
@@ -238,76 +237,34 @@ export default async function handler(req, res) {
     <div class="container">
         <div class="success-icon">✅</div>
         <h1>Authentication Successful!</h1>
-        <p>Redirecting you back to the app...</p>
+        <p>Returning you to the app...</p>
         <div class="spinner"></div>
         <p style="font-size: 14px; opacity: 0.8; margin-top: 20px;">
-            If you're not redirected automatically, please wait a moment.
+            Please wait while we complete the setup.
         </p>
     </div>
 
     <script>
-        // Try multiple redirect methods for maximum compatibility
-        function redirectToApp() {
-            const url = '${redirectUrl.replace(/'/g, "\\'")}';
-            console.log('Attempting redirect to:', url);
+        console.log('🔄 [Mobile Callback HTML] Page loaded, closing browser in 2 seconds...');
 
-            // Method 1: Direct location change
+        // Close the browser after a short delay to show success message
+        setTimeout(() => {
+            console.log('🔒 [Mobile Callback HTML] Closing browser now');
             try {
-                window.location.href = url;
+                window.close();
             } catch (e) {
-                console.warn('Direct redirect failed:', e);
+                console.warn('❌ [Mobile Callback HTML] Failed to close browser:', e);
             }
 
-            // Method 2: Try opening as popup then redirect
-            setTimeout(() => {
+            // Fallback: try to close via Capacitor if available
+            if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Browser) {
                 try {
-                    const popup = window.open(url, '_blank');
-                    if (popup) {
-                        popup.close();
-                        window.location.href = url;
-                    }
+                    window.Capacitor.Plugins.Browser.close();
                 } catch (e) {
-                    console.warn('Popup redirect failed:', e);
+                    console.warn('❌ [Mobile Callback HTML] Failed to close via Capacitor:', e);
                 }
-            }, 500);
-
-            // Method 3: Fallback - show manual redirect button
-            setTimeout(() => {
-                if (!document.hidden) {
-                    showManualRedirect(url);
-                }
-            }, 2000);
-        }
-
-        function showManualRedirect(url) {
-            const container = document.querySelector('.container');
-            if (!document.getElementById('manual-redirect')) {
-                const button = document.createElement('button');
-                button.id = 'manual-redirect';
-                button.innerHTML = 'Continue to App';
-                button.style.cssText = \`
-                    background: white;
-                    color: #667eea;
-                    border: none;
-                    padding: 12px 24px;
-                    border-radius: 6px;
-                    font-weight: bold;
-                    cursor: pointer;
-                    margin-top: 20px;
-                    transition: all 0.2s;
-                \`;
-                button.onmouseover = () => button.style.background = '#f0f0f0';
-                button.onmouseout = () => button.style.background = 'white';
-                button.onclick = () => window.location.href = url;
-                container.appendChild(button);
             }
-        }
-
-        // Start redirect process
-        redirectToApp();
-
-        // Fallback: try again after a delay
-        setTimeout(redirectToApp, 1000);
+        }, 2000);
     </script>
 </body>
 </html>`;

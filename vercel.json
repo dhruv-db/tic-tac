@@ -27,5 +27,6 @@
         }
       ]
     }
-  ]
+  ],
+  "ignoreCommand": "git ls-files | grep -E '\\.(ts|tsx|js|jsx)$' | head -5"
 }
