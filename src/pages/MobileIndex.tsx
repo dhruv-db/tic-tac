@@ -46,18 +46,12 @@ import { getConfig } from '@/lib/secureStorage';
 import ticTacLogo from '@/assets/Tic-Tac_Dark.png';
 
 const TikTakLogo = ({ className = "" }: { className?: string }) => {
-  console.log('🎯 [DEBUG] TikTakLogo component rendered');
-  console.log('🎯 [DEBUG] TikTakLogo className:', className);
-  console.log('🎯 [DEBUG] TikTakLogo image source:', ticTacLogo);
-
   return (
     <div className={`flex flex-col items-center space-y-2 p-4 ${className}`}>
       <img
         src={ticTacLogo}
         alt="tik-tak"
         className="h-10 w-auto md:h-12"
-        onLoad={() => console.log('🎯 [DEBUG] TikTakLogo image loaded successfully')}
-        onError={(e) => console.error('❌ [DEBUG] TikTakLogo image failed to load:', e)}
       />
     </div>
   );
@@ -111,20 +105,22 @@ const MobileIndex = () => {
 
   const [activeTab, setActiveTab] = useState('timetracking');
 
-  // Debug logging for connection state
-  console.log('🔍 ===== MOBILE INDEX COMPONENT RENDERED =====');
-  console.warn('⚠️ MOBILE INDEX IS RUNNING');
-  console.log('🔍 [DEBUG] MobileIndex - isConnected:', isConnected);
-  console.log('🔍 [DEBUG] MobileIndex - credentials present:', !!credentials);
-  console.log('🔍 [DEBUG] MobileIndex - credentials details:', credentials ? {
-    hasAccessToken: !!credentials.accessToken,
-    authType: credentials.authType,
-    companyId: credentials.companyId
-  } : 'null');
-  console.log('🔍 [DEBUG] MobileIndex - projects count:', projects.length);
-  console.log('🔍 [DEBUG] MobileIndex - contacts count:', contacts.length);
-  console.log('🔍 [DEBUG] MobileIndex - timeEntries count:', timeEntries.length);
-  console.log('🔍 [DEBUG] MobileIndex - hasInitiallyLoaded:', hasInitiallyLoaded);
+  // Debug logging for connection state (only log when state actually changes)
+  useEffect(() => {
+    console.log('🔍 ===== MOBILE INDEX COMPONENT RENDERED =====');
+    console.warn('⚠️ MOBILE INDEX IS RUNNING');
+    console.log('🔍 [DEBUG] MobileIndex - isConnected:', isConnected);
+    console.log('🔍 [DEBUG] MobileIndex - credentials present:', !!credentials);
+    console.log('🔍 [DEBUG] MobileIndex - credentials details:', credentials ? {
+      hasAccessToken: !!credentials.accessToken,
+      authType: credentials.authType,
+      companyId: credentials.companyId
+    } : 'null');
+    console.log('🔍 [DEBUG] MobileIndex - projects count:', projects.length);
+    console.log('🔍 [DEBUG] MobileIndex - contacts count:', contacts.length);
+    console.log('🔍 [DEBUG] MobileIndex - timeEntries count:', timeEntries.length);
+    console.log('🔍 [DEBUG] MobileIndex - hasInitiallyLoaded:', hasInitiallyLoaded);
+  }, [isConnected, credentials, projects.length, contacts.length, timeEntries.length, hasInitiallyLoaded]);
   const [timeTrackingView, setTimeTrackingView] = useState<'list' | 'grid' | 'calendar'>('list');
   const [calendarInitialData, setCalendarInitialData] = useState<any>(null);
   const [showAddEntryDialog, setShowAddEntryDialog] = useState(false);
@@ -228,7 +224,7 @@ const MobileIndex = () => {
       const newUrl = window.location.pathname;
       window.history.replaceState({}, document.title, newUrl);
     }
-  }, [location.search, connectWithOAuth]);
+  }, [location.search]); // Removed connectWithOAuth from dependencies as it's stable enough
 
   const handleRefresh = () => {
     fetchTimeEntries(undefined, { quiet: false });

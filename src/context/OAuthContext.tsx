@@ -208,6 +208,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(globalIsLoading);
   const [isLoadingCredentials, setIsLoadingCredentials] = useState(true);
 
+  // Update global loading state when local state changes
+  useEffect(() => {
+    globalIsLoading = isLoading;
+  }, [isLoading]);
+
   // Data state
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
@@ -253,11 +258,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     globalCredentials = credentials;
   }, [credentials]);
 
-  // Sync global loading state
-  useEffect(() => {
-    globalIsLoading = isLoading;
-    setIsLoading(globalIsLoading);
-  }, [isLoading]);
 
   // Helper function to decode JWT token
   const decodeJwt = (token?: string) => {
