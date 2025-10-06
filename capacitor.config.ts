@@ -24,10 +24,10 @@ const config: CapacitorConfig = {
   appId: 'app.bexiosyncbuddy.app',
   appName: 'bexio-sync-buddy',
   webDir: 'dist',
-  // Enable server for debugging - loads from local development server
+  // Load from production Vercel URL for consistent mobile testing
   server: {
-    url: 'http://localhost:3000',
-    cleartext: true
+    url: 'https://tic-tac-puce-chi.vercel.app',
+    cleartext: false
   },
   plugins: {
     SplashScreen: {
