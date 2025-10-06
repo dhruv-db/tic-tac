@@ -242,6 +242,10 @@ export class UnifiedOAuthService {
   // Handle mobile OAuth flow
   private async handleMobileOAuth(authUrl: string, state: string): Promise<void> {
     console.log('📱 [OAuthService] Handling mobile OAuth flow');
+    console.log('📱 [OAuthService] Auth URL:', authUrl);
+    console.log('📱 [OAuthService] State:', state);
+    console.log('📱 [OAuthService] Platform:', Capacitor.getPlatform());
+    console.log('📱 [OAuthService] Is native:', OAuthPlatform.isNative());
 
     // Open browser for OAuth authentication
     await Browser.open({
@@ -251,6 +255,7 @@ export class UnifiedOAuthService {
     });
 
     console.log('✅ Mobile browser opened for OAuth');
+    console.log('✅ Browser open completed at:', new Date().toISOString());
   }
 
   // Handle web OAuth flow
@@ -438,9 +443,23 @@ export class UnifiedOAuthService {
       state: state,
       code_challenge: codeChallenge,
       code_challenge_method: 'S256',
+      // Try response_mode to see if it helps with automatic redirect
+      response_mode: 'query',
     });
 
-    return `${this.config.authUrl}?${params.toString()}`;
+    const authUrl = `${this.config.authUrl}?${params.toString()}`;
+    console.log('🔗 [OAuthService] Built auth URL:', authUrl);
+    console.log('🔗 [OAuthService] Auth URL params:', {
+      client_id: this.config.clientId,
+      redirect_uri: OAuthPlatform.getRedirectUri(),
+      response_type: 'code',
+      scope: this.config.scope,
+      state_length: state.length,
+      code_challenge_length: codeChallenge.length,
+      response_mode: 'query'
+    });
+
+    return authUrl;
   }
 
   // Generate random state parameter

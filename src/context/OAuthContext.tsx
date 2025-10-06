@@ -622,7 +622,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       window.removeEventListener('oauthCompleted', handleOAuthCompleted as EventListener);
       window.removeEventListener('oauthError', handleOAuthError as EventListener);
     };
-  }, [connectWithOAuth, toast]);
+  }, [toast]); // Remove connectWithOAuth from dependencies to prevent re-running when it changes
 
   const disconnect = useCallback(async () => {
     await SecureStorage.removeStoredCredentials();

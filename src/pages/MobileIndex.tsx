@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
@@ -125,6 +125,10 @@ const MobileIndex = () => {
   const [calendarInitialData, setCalendarInitialData] = useState<any>(null);
   const [showAddEntryDialog, setShowAddEntryDialog] = useState(false);
 
+  // Track if we've already loaded data for this connection session
+  const hasLoadedDataRef = useRef(false);
+  const prevIsConnectedRef = useRef(isConnected);
+
   // Filter states
   const [selectedProject, setSelectedProject] = useState<number | null>(null);
   const [selectedMonth, setSelectedMonth] = useState<string>('all');
@@ -134,18 +138,39 @@ const MobileIndex = () => {
 
   // Auto-load data when connected
   useEffect(() => {
+    const isConnectedChanged = prevIsConnectedRef.current !== isConnected;
+    prevIsConnectedRef.current = isConnected;
+
     console.log('🔄 [DEBUG] Auto-load data effect triggered');
-    console.log('🔄 [DEBUG] isConnected:', isConnected);
-    console.log('🔄 [DEBUG] Current data counts - contacts:', contacts.length, 'projects:', projects.length, 'users:', users.length, 'timeEntries:', timeEntries.length);
+    console.log('🔄 [DEBUG] isConnected:', isConnected, 'changed:', isConnectedChanged, 'hasLoadedDataRef.current:', hasLoadedDataRef.current);
 
     if (!isConnected) {
       console.log('🔄 [DEBUG] Not connected, skipping auto-load');
+      // Reset the flag when disconnected
+      hasLoadedDataRef.current = false;
       return;
     }
 
+    // Only load data when connection status actually changes to connected
+    if (!isConnectedChanged) {
+      console.log('🔄 [DEBUG] isConnected did not change, skipping auto-load');
+      return;
+    }
+
+    // Prevent multiple loads for the same connection session
+    if (hasLoadedDataRef.current) {
+      console.log('🔄 [DEBUG] Data already loaded for this session, skipping');
+      return;
+    }
+
+    console.log('🔄 [DEBUG] Starting data load for new connection session');
+    hasLoadedDataRef.current = true;
+
     if (contacts.length === 0 && !isLoadingContacts) {
-      console.log('🔄 [DEBUG] Triggering fetchContacts');
+      console.log('🔄 [DEBUG] Triggering fetchContacts - contacts.length:', contacts.length);
       fetchContacts();
+    } else {
+      console.log('🔄 [DEBUG] Skipping fetchContacts - contacts.length:', contacts.length, 'isLoadingContacts:', isLoadingContacts);
     }
     if (projects.length === 0 && !isLoadingProjects) {
       console.log('🔄 [DEBUG] Triggering fetchProjects');
@@ -153,8 +178,6 @@ const MobileIndex = () => {
     }
     if (users.length === 0 && !isLoadingUsers) {
       console.log('🔄 [DEBUG] Triggering fetchUsers');
-      console.log('🔄 [DEBUG] currentBexioUserId:', currentBexioUserId);
-      console.log('🔄 [DEBUG] isCurrentUserAdmin:', isCurrentUserAdmin);
       fetchUsers();
     }
     if (timeEntries.length === 0 && !isLoadingTimeEntries) {
@@ -162,10 +185,9 @@ const MobileIndex = () => {
       const now = new Date();
       const startDate = new Date(now.getFullYear(), now.getMonth() - 3, 1);
       const endOfCurrentMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-      console.log('🔄 [DEBUG] Time entries date range:', startDate.toISOString(), 'to', endOfCurrentMonth.toISOString());
       fetchTimeEntries({ from: startDate, to: endOfCurrentMonth }, { quiet: true });
     }
-  }, [isConnected, contacts.length, projects.length, users.length, timeEntries.length, isLoadingContacts, isLoadingProjects, isLoadingUsers, isLoadingTimeEntries]);
+  }, [isConnected]); // Only depend on isConnected to avoid infinite loop
 
   useEffect(() => {
     console.log('🔄 ===== LOAD STORED CREDENTIALS EFFECT START =====');

@@ -18,11 +18,20 @@ export default async function handler(req, res) {
   try {
     const { code, state, error: oauthError, error_description } = req.query;
 
+    console.log('🔄 ===== MOBILE OAUTH CALLBACK RECEIVED =====');
+    console.log('🔄 Timestamp:', new Date().toISOString());
+    console.log('🔄 Full URL:', req.url);
+    console.log('🔄 Headers:', JSON.stringify(req.headers, null, 2));
+    console.log('🔄 Query parameters:', JSON.stringify(req.query, null, 2));
+    console.log('🔄 User-Agent:', req.headers['user-agent']);
+    console.log('🔄 Referer:', req.headers.referer);
     console.log('🔄 Mobile OAuth callback received:', {
       hasCode: !!code,
       hasState: !!state,
       hasError: !!oauthError,
-      errorDescription: error_description
+      errorDescription: error_description,
+      codeLength: code ? code.length : 0,
+      stateLength: state ? state.length : 0
     });
 
     // Handle OAuth errors
@@ -175,9 +184,136 @@ export default async function handler(req, res) {
           // Continue with redirect even if session update fails
         }
 
-        // Redirect to custom scheme with sessionId
-         const redirectUrl = `${process.env.BEXIO_MOBILE_REDIRECT_URI || 'bexio-sync-buddy://oauth-complete/'}?sessionId=${encodeURIComponent(sessionId)}`;
-         return res.redirect(redirectUrl);
+        // Return HTML page that automatically redirects to custom scheme
+        const redirectUrl = `${process.env.BEXIO_MOBILE_REDIRECT_URI || 'bexio-sync-buddy://oauth-complete/'}?sessionId=${encodeURIComponent(sessionId)}`;
+        console.log('🔄 Returning HTML redirect page to:', redirectUrl);
+
+        const html = `
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Authentication Successful</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            margin: 0;
+            padding: 20px;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+        }
+        .container {
+            max-width: 400px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 30px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 1s ease-in-out infinite;
+            margin: 20px auto;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        .success-icon {
+            font-size: 48px;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="success-icon">✅</div>
+        <h1>Authentication Successful!</h1>
+        <p>Redirecting you back to the app...</p>
+        <div class="spinner"></div>
+        <p style="font-size: 14px; opacity: 0.8; margin-top: 20px;">
+            If you're not redirected automatically, please wait a moment.
+        </p>
+    </div>
+
+    <script>
+        // Try multiple redirect methods for maximum compatibility
+        function redirectToApp() {
+            const url = '${redirectUrl.replace(/'/g, "\\'")}';
+            console.log('Attempting redirect to:', url);
+
+            // Method 1: Direct location change
+            try {
+                window.location.href = url;
+            } catch (e) {
+                console.warn('Direct redirect failed:', e);
+            }
+
+            // Method 2: Try opening as popup then redirect
+            setTimeout(() => {
+                try {
+                    const popup = window.open(url, '_blank');
+                    if (popup) {
+                        popup.close();
+                        window.location.href = url;
+                    }
+                } catch (e) {
+                    console.warn('Popup redirect failed:', e);
+                }
+            }, 500);
+
+            // Method 3: Fallback - show manual redirect button
+            setTimeout(() => {
+                if (!document.hidden) {
+                    showManualRedirect(url);
+                }
+            }, 2000);
+        }
+
+        function showManualRedirect(url) {
+            const container = document.querySelector('.container');
+            if (!document.getElementById('manual-redirect')) {
+                const button = document.createElement('button');
+                button.id = 'manual-redirect';
+                button.innerHTML = 'Continue to App';
+                button.style.cssText = \`
+                    background: white;
+                    color: #667eea;
+                    border: none;
+                    padding: 12px 24px;
+                    border-radius: 6px;
+                    font-weight: bold;
+                    cursor: pointer;
+                    margin-top: 20px;
+                    transition: all 0.2s;
+                \`;
+                button.onmouseover = () => button.style.background = '#f0f0f0';
+                button.onmouseout = () => button.style.background = 'white';
+                button.onclick = () => window.location.href = url;
+                container.appendChild(button);
+            }
+        }
+
+        // Start redirect process
+        redirectToApp();
+
+        // Fallback: try again after a delay
+        setTimeout(redirectToApp, 1000);
+    </script>
+</body>
+</html>`;
+
+        res.setHeader('Content-Type', 'text/html');
+        return res.status(200).send(html);
 
       } catch (exchangeError) {
         console.error('❌ Token exchange failed:', exchangeError);

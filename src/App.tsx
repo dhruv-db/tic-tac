@@ -158,7 +158,7 @@ const RouterContent = () => {
         console.log('🔗 PostMessage listener removed');
       };
     }
-  }, [connectWithOAuth, toast]);
+  }, [toast]); // Remove connectWithOAuth from dependencies to prevent re-running when it changes
 
   // Handle deep links for OAuth callbacks (mobile apps)
   useEffect(() => {
@@ -166,11 +166,14 @@ const RouterContent = () => {
       console.log('🔗 Setting up deep link listener for OAuth callbacks');
 
       const handleDeepLink = async (event: any) => {
-         try {
-           console.log('🔗 ===== DEEP LINK RECEIVED =====');
-           console.log('🔗 Deep link event:', event);
-           console.log('🔗 Deep link URL:', event?.url);
-           console.log('🔗 Current location before navigation:', window.location.href);
+        try {
+          console.log('🔗 ===== DEEP LINK RECEIVED =====');
+          console.log('🔗 Timestamp:', new Date().toISOString());
+          console.log('🔗 Deep link event:', JSON.stringify(event, null, 2));
+          console.log('🔗 Deep link URL:', event?.url);
+          console.log('🔗 Current location before navigation:', window.location.href);
+          console.log('🔗 Capacitor platform:', Capacitor.getPlatform());
+          console.log('🔗 Is native platform:', Capacitor.isNativePlatform());
 
            if (!event?.url) {
              console.warn('🔗 Deep link event missing URL');
@@ -346,7 +349,7 @@ const RouterContent = () => {
      } else {
        console.log('🔗 Not native platform, skipping deep link setup');
      }
-   }, [navigate, connectWithOAuth]);
+   }, [navigate]); // Remove connectWithOAuth from dependencies to prevent re-running when it changes
 
   return (
     <Routes>
