@@ -63,9 +63,9 @@ export default async function handler(req, res) {
           throw new Error('OAuth credentials not configured');
         }
 
-        // Retrieve session data using the original session ID
-        const { oauthSessions } = await import('./status/[sessionId].js');
-        const session = oauthSessions.get(sessionId);
+        // Retrieve session data using the new session endpoint
+        const { mobileSessions } = await import('./session/[sessionId].js');
+        const session = mobileSessions.get(sessionId);
         if (!session || !session.codeVerifier) {
           throw new Error('OAuth session not found or invalid');
         }
@@ -158,7 +158,7 @@ export default async function handler(req, res) {
 
         // Update OAuth session status to completed
         try {
-          const { oauthSessions } = await import('./status/[sessionId].js');
+          const { mobileSessions } = await import('./session/[sessionId].js');
           const sessionUpdate = {
             sessionId: sessionId,
             status: 'completed',
@@ -174,9 +174,9 @@ export default async function handler(req, res) {
           };
 
           // Update session in storage
-          const existingSession = oauthSessions.get(sessionId);
+          const existingSession = mobileSessions.get(sessionId);
           if (existingSession) {
-            oauthSessions.set(sessionId, { ...existingSession, ...sessionUpdate });
+            mobileSessions.set(sessionId, { ...existingSession, ...sessionUpdate });
             console.log(`✅ OAuth session ${sessionId} marked as completed`);
           }
         } catch (sessionError) {

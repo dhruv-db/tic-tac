@@ -247,15 +247,28 @@ export class UnifiedOAuthService {
     console.log('📱 [OAuthService] Platform:', Capacitor.getPlatform());
     console.log('📱 [OAuthService] Is native:', OAuthPlatform.isNative());
 
-    // Extract session ID from state for polling
-    const stateParts = state.split(':');
-    const sessionId = stateParts[0];
+    // For mobile, we need to create a server session first
+    const sessionId = this.generateSessionId();
+    console.log('📱 [OAuthService] Generated session ID:', sessionId);
 
-    console.log('📱 [OAuthService] Extracted session ID for polling:', sessionId);
+    // Get stored PKCE data
+    const codeVerifier = localStorage.getItem('bexio_oauth_code_verifier');
+    if (!codeVerifier) {
+      throw new Error('Code verifier not found in localStorage');
+    }
+
+    // Create server session for mobile callback
+    await this.createMobileSession(sessionId, codeVerifier, state);
+
+    // Update the auth URL to include sessionId in state
+    const mobileState = `${sessionId}:${btoa(codeVerifier)}`;
+    const mobileAuthUrl = authUrl.replace(`state=${encodeURIComponent(state)}`, `state=${encodeURIComponent(mobileState)}`);
+
+    console.log('📱 [OAuthService] Mobile auth URL with session state:', mobileAuthUrl);
 
     // Open browser for OAuth authentication
     const browserResult = await Browser.open({
-      url: authUrl,
+      url: mobileAuthUrl,
       windowName: '_blank',
       presentationStyle: 'fullscreen'
     });
@@ -501,6 +514,39 @@ export class UnifiedOAuthService {
   // Generate random state parameter
   private generateState(): string {
     return Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+  }
+
+  // Generate session ID for mobile OAuth
+  private generateSessionId(): string {
+    return Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+  }
+
+  // Create mobile session on server
+  private async createMobileSession(sessionId: string, codeVerifier: string, state: string): Promise<void> {
+    const serverUrl = getConfig.serverUrl();
+    const sessionData = {
+      status: 'pending',
+      codeVerifier,
+      state,
+      createdAt: Date.now(),
+      platform: 'mobile'
+    };
+
+    console.log('📱 [OAuthService] Creating mobile session:', sessionId);
+
+    const response = await fetch(`${serverUrl}/api/bexio-oauth/session/${sessionId}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(sessionData),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to create mobile session: ${response.status}`);
+    }
+
+    console.log('✅ [OAuthService] Mobile session created successfully');
   }
 
   // Store PKCE data in localStorage
