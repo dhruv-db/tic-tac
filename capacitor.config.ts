@@ -48,7 +48,9 @@ const config: CapacitorConfig = {
   },
   ios: {
     scheme: 'bexio-sync-buddy',
-    loggingBehavior: 'debug'
+    loggingBehavior: 'debug',
+    allowsLinkPreview: false,
+    contentInset: 'never'
   }
 };
 
