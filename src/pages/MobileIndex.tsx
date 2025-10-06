@@ -169,7 +169,7 @@ const MobileIndex = () => {
       console.log('🔄 [DEBUG] Time entries date range:', startDate.toISOString(), 'to', endOfCurrentMonth.toISOString());
       fetchTimeEntries({ from: startDate, to: endOfCurrentMonth }, { quiet: true });
     }
-  }, [isConnected, contacts.length, projects.length, users.length, timeEntries.length, isLoadingContacts, isLoadingProjects, isLoadingUsers, isLoadingTimeEntries, fetchContacts, fetchProjects, fetchUsers, fetchTimeEntries]);
+  }, [isConnected, contacts.length, projects.length, users.length, timeEntries.length, isLoadingContacts, isLoadingProjects, isLoadingUsers, isLoadingTimeEntries]);
 
   useEffect(() => {
     console.log('🔄 ===== LOAD STORED CREDENTIALS EFFECT START =====');
