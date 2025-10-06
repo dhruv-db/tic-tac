@@ -675,7 +675,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         },
         body: JSON.stringify({
           endpoint: '/3.0/contacts?limit=200',
-          apiKey: authToken,
+          accessToken: authToken,
           companyId: credentials.companyId,
         }),
       });
@@ -724,7 +724,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         },
         body: JSON.stringify({
           endpoint: '/3.0/projects',
-          apiKey: authToken,
+          accessToken: authToken,
           companyId: credentials.companyId,
         }),
       });
@@ -784,7 +784,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         },
         body: JSON.stringify({
           endpoint: endpoint,
-          apiKey: authToken,
+          accessToken: authToken,
           companyId: credentials.companyId,
         }),
       });
@@ -870,7 +870,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         },
         body: JSON.stringify({
           endpoint: '/3.0/users',
-          apiKey: authToken,
+          accessToken: authToken,
           companyId: credentials.companyId,
         }),
       });
@@ -941,7 +941,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         },
         body: JSON.stringify({
           endpoint: '/3.0/users/me',
-          apiKey: authToken,
+          accessToken: authToken,
           companyId: credentials.companyId,
         }),
       });
@@ -1041,7 +1041,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         },
         body: JSON.stringify({
           endpoint: '/2.0/timesheet_status',
-          apiKey: authToken,
+          accessToken: authToken,
           companyId: credentials.companyId,
         }),
       });
@@ -1101,7 +1101,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         },
         body: JSON.stringify({
           endpoint: '/2.0/client_service',
-          apiKey: authToken,
+          accessToken: authToken,
           companyId: credentials.companyId,
         }),
       });
@@ -1266,7 +1266,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               body: JSON.stringify({
                 endpoint: '/2.0/timesheet',
                 method: 'POST',
-                apiKey: authToken,
+                accessToken: authToken,
                 companyId: credentials.companyId,
                 data: bexioData,
               }),
@@ -1421,7 +1421,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         body: JSON.stringify({
           endpoint: `/2.0/timesheet/${id}`,
           method: 'POST',
-          apiKey: authToken,
+          accessToken: authToken,
           companyId: credentials.companyId,
           data: bexioData,
         }),
@@ -1475,7 +1475,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         body: JSON.stringify({
           endpoint: `/2.0/timesheet/${id}`,
           method: 'DELETE',
-          apiKey: authToken,
+          accessToken: authToken,
           companyId: credentials.companyId,
         }),
       });
@@ -1547,7 +1547,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             body: JSON.stringify({
               endpoint: `/2.0/timesheet/${entry.id}`,
               method: 'POST',
-              apiKey: authToken,
+              accessToken: authToken,
               companyId: credentials.companyId,
               data: mergedData,
             }),
