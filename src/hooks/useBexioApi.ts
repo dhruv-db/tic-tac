@@ -4,6 +4,7 @@ import { DateRange } from "react-day-picker";
 import { format } from "date-fns";
 import { Capacitor } from "@capacitor/core";
 import { getConfig } from "@/lib/secureStorage";
+import SecureStorage from "@/lib/secureStorage";
 import { filterValidObjects, isValidProject, isValidContact, isValidTimeEntry } from "@/lib/dataValidation";
 
 // Helper function to get the correct server URL using centralized config
@@ -113,38 +114,7 @@ interface BexioCredentials {
 
 export const useBexioApi = () => {
   const credentialsRef = useRef<BexioCredentials | null>(null);
-  const [credentials, setCredentials] = useState<BexioCredentials | null>(() => {
-    try {
-      const stored = localStorage.getItem('bexio_credentials');
-      console.log('🔄 ===== CREDENTIALS STATE INITIALIZATION =====');
-      console.log('🔄 localStorage.getItem result:', stored ? 'present' : 'null');
-
-      if (stored) {
-        const parsed = JSON.parse(stored) as BexioCredentials;
-        console.log('🔄 Parsed credentials:', {
-          hasAccessToken: !!parsed.accessToken,
-          hasRefreshToken: !!parsed.refreshToken,
-          authType: parsed.authType,
-          companyId: parsed.companyId,
-          userEmail: parsed.userEmail,
-          expiresAt: parsed.expiresAt ? new Date(parsed.expiresAt).toISOString() : 'null'
-        });
-        console.log('🔄 ===== CREDENTIALS STATE INITIALIZATION END (SUCCESS) =====');
-        credentialsRef.current = parsed; // Also set the ref
-        return parsed;
-      } else {
-        console.log('🔄 No stored credentials found');
-        console.log('🔄 ===== CREDENTIALS STATE INITIALIZATION END (NO DATA) =====');
-        credentialsRef.current = null;
-        return null;
-      }
-    } catch (error) {
-      console.error('❌ Error initializing credentials from localStorage:', error);
-      console.log('🔄 ===== CREDENTIALS STATE INITIALIZATION END (ERROR) =====');
-      credentialsRef.current = null;
-      return null;
-    }
-  });
+  const [credentials, setCredentials] = useState<BexioCredentials | null>(null); // Initialize as null, load asynchronously
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [timeEntries, setTimeEntries] = useState<TimeEntry[]>([]);
@@ -187,6 +157,38 @@ export const useBexioApi = () => {
       }
     }
   }, [languages]);
+
+  // Load stored credentials on mount
+  useEffect(() => {
+    const loadCredentials = async () => {
+      console.log('🔄 ===== LOADING STORED CREDENTIALS =====');
+      try {
+        const stored = await SecureStorage.getStoredCredentials();
+        console.log('🔄 SecureStorage.getStoredCredentials result:', stored ? 'present' : 'null');
+
+        if (stored) {
+          console.log('🔄 Loaded credentials:', {
+            hasAccessToken: !!stored.accessToken,
+            hasRefreshToken: !!stored.refreshToken,
+            authType: stored.authType,
+            companyId: stored.companyId,
+            userEmail: stored.userEmail,
+            expiresAt: stored.expiresAt ? new Date(stored.expiresAt).toISOString() : 'null'
+          });
+          console.log('🔄 ===== CREDENTIALS LOADED SUCCESSFULLY =====');
+          setCredentials(stored);
+        } else {
+          console.log('🔄 No stored credentials found');
+          console.log('🔄 ===== NO CREDENTIALS FOUND =====');
+        }
+      } catch (error) {
+        console.error('❌ Error loading credentials from SecureStorage:', error);
+        console.log('🔄 ===== CREDENTIALS LOADING ERROR =====');
+      }
+    };
+
+    loadCredentials();
+  }, []);
 
   // Monitor credential state changes
   useEffect(() => {
@@ -317,7 +319,7 @@ export const useBexioApi = () => {
               expiresAt
             };
 
-            localStorage.setItem('bexio_credentials', JSON.stringify(updatedCreds));
+            await SecureStorage.storeCredentials(updatedCreds);
             setCredentials(updatedCreds);
             logTokenClaims(accessToken);
 
@@ -335,7 +337,7 @@ export const useBexioApi = () => {
       }
       
       // Refresh failed, clear credentials
-      localStorage.removeItem('bexio_credentials');
+      await SecureStorage.removeStoredCredentials();
       setCredentials(null);
       toast({
         title: "Session expired",
@@ -461,20 +463,20 @@ export const useBexioApi = () => {
 
   const connect = useCallback(async (apiKey: string, companyId: string) => {
     try {
-      // Store credentials in localStorage
-      const creds: BexioCredentials = { 
-        apiKey, 
-        companyId, 
-        authType: 'api' 
+      // Store credentials securely
+      const creds: BexioCredentials = {
+        apiKey,
+        companyId,
+        authType: 'api'
       };
-      localStorage.setItem('bexio_credentials', JSON.stringify(creds));
+      await SecureStorage.storeCredentials(creds);
       setCredentials(creds);
-      
+
       // Auto-identify current user after connection
       setTimeout(async () => {
         await fetchCurrentUser();
       }, 100);
-      
+
       toast({
         title: "Connected successfully",
         description: "You can now fetch data from Bexio.",
@@ -526,15 +528,15 @@ export const useBexioApi = () => {
         expiresAt
       };
 
-      console.log('💾 Storing credentials in localStorage...');
+      console.log('💾 Storing credentials securely...');
       console.log('💾 Credentials to store:', {
         ...creds,
         accessToken: creds.accessToken ? `${creds.accessToken.substring(0, 20)}...` : 'null',
         refreshToken: creds.refreshToken ? `${creds.refreshToken.substring(0, 20)}...` : 'null'
       });
 
-      localStorage.setItem('bexio_credentials', JSON.stringify(creds));
-      console.log('✅ Credentials stored in localStorage');
+      await SecureStorage.storeCredentials(creds);
+      console.log('✅ Credentials stored securely');
 
       console.log('🎯 Setting credentials state and ref...');
       credentialsRef.current = creds;
@@ -956,16 +958,16 @@ export const useBexioApi = () => {
     }
   }, [credentials, ensureValidToken, toast, currentLanguage]);
 
-  // Load credentials from localStorage on mount
-  const loadStoredCredentials = useCallback(() => {
+  // Load credentials from secure storage
+  const loadStoredCredentials = useCallback(async () => {
     console.log('🔄 ===== LOAD STORED CREDENTIALS START =====');
     try {
-      const stored = localStorage.getItem('bexio_credentials');
-      console.log('🔄 localStorage.getItem result:', stored ? 'present' : 'null');
+      const stored = await SecureStorage.getStoredCredentials();
+      console.log('🔄 SecureStorage.getStoredCredentials result:', stored ? 'present' : 'null');
 
       if (stored) {
-        let creds = JSON.parse(stored);
-        console.log('🔄 Parsed credentials:', {
+        let creds = stored;
+        console.log('🔄 Loaded credentials:', {
           hasAccessToken: !!creds.accessToken,
           hasRefreshToken: !!creds.refreshToken,
           authType: creds.authType,
@@ -985,18 +987,18 @@ export const useBexioApi = () => {
               companyId: extractedCompanyId
             };
             // Update stored credentials with the extracted companyId
-            localStorage.setItem('bexio_credentials', JSON.stringify(creds));
-            console.log('💾 Updated localStorage credentials with extracted companyId');
+            await SecureStorage.storeCredentials(creds);
+            console.log('💾 Updated secure storage credentials with extracted companyId');
           }
         }
 
-        console.log('🎯 Setting credentials from localStorage...');
+        console.log('🎯 Setting credentials from secure storage...');
         setCredentials(creds);
-        console.log('✅ Credentials loaded from localStorage successfully');
+        console.log('✅ Credentials loaded from secure storage successfully');
         console.log('🔄 ===== LOAD STORED CREDENTIALS END (SUCCESS) =====');
         return true;
       } else {
-        console.log('❌ No credentials found in localStorage');
+        console.log('❌ No credentials found in secure storage');
         console.log('🔄 ===== LOAD STORED CREDENTIALS END (NO DATA) =====');
       }
     } catch (error) {
@@ -1809,9 +1811,9 @@ export const useBexioApi = () => {
     }
   }, [credentials, ensureValidToken, toast, currentBexioUserId, fetchCurrentUser]);
 
-  const disconnect = useCallback(() => {
-    // Clear all user-related data from localStorage
-    localStorage.removeItem('bexio_credentials');
+  const disconnect = useCallback(async () => {
+    // Clear all user-related data
+    await SecureStorage.removeStoredCredentials();
     localStorage.removeItem('selectedBexioUserId');
     localStorage.removeItem('isCurrentUserAdmin');
     localStorage.removeItem('bexioLanguage');

@@ -13,16 +13,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    console.log('🔍 [DEBUG] Raw request body:', req.body);
-    console.log('🔍 [DEBUG] Request headers:', req.headers);
-    console.log('🔍 [DEBUG] Request method:', req.method);
-
     const { endpoint, method = 'GET', body, accessToken, apiKey } = req.body;
-
-    console.log('🔍 [DEBUG] Proxy received request body keys:', Object.keys(req.body));
-    console.log('🔍 [DEBUG] Destructured values:', { endpoint, method, accessToken: !!accessToken, apiKey: !!apiKey });
-    console.log('🔍 [DEBUG] accessToken present:', !!accessToken);
-    console.log('🔍 [DEBUG] apiKey present:', !!apiKey);
 
     if (!endpoint || !accessToken) {
       return res.status(400).json({
