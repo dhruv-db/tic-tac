@@ -133,6 +133,7 @@ interface AuthContextType {
   credentials: BexioCredentials | null;
   isConnected: boolean;
   isLoading: boolean;
+  isLoadingCredentials: boolean;
 
   // Data state
   contacts: Contact[];
@@ -205,6 +206,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [credentials, setCredentials] = useState<BexioCredentials | null>(null);
 
   const [isLoading, setIsLoading] = useState(globalIsLoading);
+  const [isLoadingCredentials, setIsLoadingCredentials] = useState(true);
 
   // Data state
   const [contacts, setContacts] = useState<Contact[]>([]);
@@ -298,6 +300,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       } catch (error) {
         console.error('❌ Error loading stored credentials:', error);
+      } finally {
+        setIsLoadingCredentials(false);
       }
     };
 
@@ -1651,6 +1655,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     credentials,
     isConnected: !!credentials,
     isLoading,
+    isLoadingCredentials,
 
     // Data state
     contacts,

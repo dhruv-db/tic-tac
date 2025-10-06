@@ -80,6 +80,7 @@ const MobileIndex = () => {
     isLoadingUsers,
     isCreatingTimeEntry,
     isConnected,
+    isLoadingCredentials,
     hasInitiallyLoaded,
     currentBexioUserId,
     isCurrentUserAdmin,
@@ -1112,6 +1113,18 @@ const MobileIndex = () => {
         return null;
     }
   };
+
+  // Show loading screen while checking credentials
+  if (isLoadingCredentials) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-background via-primary/5 to-accent/10 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
 
   if (!isConnected) {
     return (
