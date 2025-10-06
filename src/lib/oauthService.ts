@@ -147,8 +147,6 @@ export class PKCE {
 export class UnifiedOAuthService {
   private static instance: UnifiedOAuthService;
   private config: OAuthConfig;
-  private currentSessionId: string | null = null;
-  private pollingInterval: NodeJS.Timeout | null = null;
 
   private constructor() {
     // Validate platform configuration first
@@ -245,18 +243,14 @@ export class UnifiedOAuthService {
   private async handleMobileOAuth(authUrl: string, state: string): Promise<void> {
     console.log('📱 [OAuthService] Handling mobile OAuth flow');
 
-    // Create server session for mobile
-    await this.createServerSession(state);
-
-    // Open browser
+    // Open browser for OAuth authentication
     await Browser.open({
       url: authUrl,
       windowName: '_blank',
       presentationStyle: 'fullscreen'
     });
 
-    // Start polling for completion
-    this.startPolling(state);
+    console.log('✅ Mobile browser opened for OAuth');
   }
 
   // Handle web OAuth flow
@@ -335,7 +329,7 @@ export class UnifiedOAuthService {
         grant_type: 'authorization_code',
         client_id: this.config.clientId,
         client_secret: this.config.clientSecret,
-        redirect_uri: OAuthPlatform.getServerCallbackUri(),
+        redirect_uri: OAuthPlatform.getRedirectUri(),
         code: code,
         code_verifier: codeVerifier,
       });
@@ -433,118 +427,12 @@ export class UnifiedOAuthService {
     };
   }
 
-  // Create server session for mobile polling
-  private async createServerSession(state: string): Promise<void> {
-    console.log('🔄 [OAuthService] Creating server session for mobile');
-
-    const sessionData = {
-      codeVerifier: localStorage.getItem('bexio_oauth_code_verifier'),
-      state: state,
-      redirectUri: OAuthPlatform.getServerCallbackUri(),
-      created: new Date().toISOString(),
-      status: 'pending'
-    };
-
-    const serverUrl = getConfig.serverUrl();
-    const response = await fetch(`${serverUrl}/api/bexio-oauth/status/${state}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(sessionData)
-    });
-
-    if (!response.ok) {
-      throw new Error(`Failed to create session: ${response.status}`);
-    }
-
-    console.log('✅ Server session created');
-  }
-
-  // Start polling for mobile OAuth completion
-  private startPolling(sessionId: string): void {
-    console.log('🔄 [OAuthService] Starting OAuth polling for session:', sessionId);
-
-    this.currentSessionId = sessionId;
-    let attempts = 0;
-    const maxAttempts = 60; // 5 minutes with 5-second intervals
-
-    this.pollingInterval = setInterval(async () => {
-      attempts++;
-
-      try {
-        const serverUrl = getConfig.serverUrl();
-        const response = await fetch(`${serverUrl}/api/bexio-oauth/status/${sessionId}`, {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          signal: AbortSignal.timeout(10000), // 10 second timeout
-        });
-
-        if (response.ok) {
-          const statusData = await response.json();
-
-          if (statusData.status === 'completed' && statusData.tokens) {
-            console.log('🎉 OAuth completed via polling');
-            this.stopPolling();
-
-            // Process completed OAuth
-            const credentials = await this.extractCredentialsFromToken(statusData.tokens);
-
-            // Notify listeners (this will be handled by the calling component)
-            if (window.dispatchEvent) {
-              window.dispatchEvent(new CustomEvent('oauthCompleted', {
-                detail: { credentials, sessionId }
-              }));
-            }
-
-            return;
-          } else if (statusData.status === 'failed') {
-            console.error('❌ OAuth failed via polling:', statusData.error);
-            this.stopPolling();
-            throw new Error(statusData.error || 'OAuth authentication failed');
-          }
-        } else if (response.status === 404) {
-          // Session not found - continue polling
-        } else if (attempts > 5) {
-          // Stop polling after persistent errors
-          this.stopPolling();
-          throw new Error(`Server error: ${response.status}`);
-        }
-
-        if (attempts >= maxAttempts) {
-          this.stopPolling();
-          throw new Error('OAuth timeout - please try again');
-        }
-
-      } catch (error) {
-        console.error('❌ Polling error:', error);
-        this.stopPolling();
-
-        if (window.dispatchEvent) {
-          window.dispatchEvent(new CustomEvent('oauthError', {
-            detail: { error: error.message, sessionId }
-          }));
-        }
-      }
-    }, 5000); // Poll every 5 seconds
-  }
-
-  // Stop polling
-  private stopPolling(): void {
-    if (this.pollingInterval) {
-      clearInterval(this.pollingInterval);
-      this.pollingInterval = null;
-      console.log('🛑 OAuth polling stopped');
-    }
-  }
 
   // Build OAuth authorization URL
   private buildAuthUrl(codeChallenge: string, state: string): string {
     const params = new URLSearchParams({
       client_id: this.config.clientId,
-      redirect_uri: OAuthPlatform.getServerCallbackUri(),
+      redirect_uri: OAuthPlatform.getRedirectUri(),
       response_type: 'code',
       scope: this.config.scope,
       state: state,
@@ -570,8 +458,6 @@ export class UnifiedOAuthService {
   private cleanup(): void {
     localStorage.removeItem('bexio_oauth_code_verifier');
     localStorage.removeItem('bexio_oauth_state');
-    this.stopPolling();
-    this.currentSessionId = null;
   }
 
   // Cleanup on service destruction
