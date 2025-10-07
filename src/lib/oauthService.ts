@@ -143,7 +143,7 @@ export class PKCE {
   }
 }
 
-// Unified OAuth service
+// Unified OAuth service - Updated for direct deep link flow
 export class UnifiedOAuthService {
   private static instance: UnifiedOAuthService;
   private config: OAuthConfig;
