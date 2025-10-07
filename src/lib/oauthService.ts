@@ -247,24 +247,17 @@ export class UnifiedOAuthService {
     console.log('📱 [OAuthService] Platform:', Capacitor.getPlatform());
     console.log('📱 [OAuthService] Is native:', OAuthPlatform.isNative());
 
-    // For mobile, we need to create a server session first
-    const sessionId = this.generateSessionId();
-    console.log('📱 [OAuthService] Generated session ID:', sessionId);
-
-    // Get stored PKCE data
+    // For mobile direct deep link flow, include codeVerifier in state
     const codeVerifier = localStorage.getItem('bexio_oauth_code_verifier');
     if (!codeVerifier) {
       throw new Error('Code verifier not found in localStorage');
     }
 
-    // Create server session for mobile callback
-    await this.createMobileSession(sessionId, codeVerifier, state);
-
-    // Update the auth URL to include sessionId in state
-    const mobileState = `${sessionId}:${btoa(codeVerifier)}`;
+    // Update the auth URL to include codeVerifier in state
+    const mobileState = `${state}:${btoa(codeVerifier)}`;
     const mobileAuthUrl = authUrl.replace(`state=${encodeURIComponent(state)}`, `state=${encodeURIComponent(mobileState)}`);
 
-    console.log('📱 [OAuthService] Mobile auth URL with session state:', mobileAuthUrl);
+    console.log('📱 [OAuthService] Mobile auth URL with encoded codeVerifier:', mobileAuthUrl);
 
     // Open browser for OAuth authentication
     const browserResult = await Browser.open({
@@ -276,23 +269,8 @@ export class UnifiedOAuthService {
     console.log('✅ Mobile browser opened for OAuth');
     console.log('✅ Browser open completed at:', new Date().toISOString());
 
-    // Listen for browser close event to start polling
-    const browserListener = await Browser.addListener('browserFinished', async () => {
-      console.log('🔄 [OAuthService] Browser closed, starting session polling for:', sessionId);
-      browserListener.remove(); // Remove listener after first trigger
-
-      try {
-        await this.pollForMobileSessionCompletion(sessionId);
-      } catch (error) {
-        console.error('❌ [OAuthService] Error polling for session completion:', error);
-        // Dispatch error event
-        if (window.dispatchEvent) {
-          window.dispatchEvent(new CustomEvent('oauthError', {
-            detail: { error: 'Session polling failed' }
-          }));
-        }
-      }
-    });
+    // For direct deep link flow, we don't poll - the deep link will trigger the callback
+    console.log('📱 [OAuthService] Waiting for deep link callback...');
   }
 
   // Handle web OAuth flow
@@ -316,16 +294,35 @@ export class UnifiedOAuthService {
   async processCallback(code: string, state: string): Promise<BexioCredentials> {
     console.log('🔄 [OAuthService] Processing OAuth callback');
 
-    // Verify state
-    const storedState = localStorage.getItem('bexio_oauth_state');
-    if (state !== storedState) {
-      throw new Error('State parameter mismatch - possible CSRF attack');
-    }
+    let codeVerifier: string;
 
-    // Get stored PKCE verifier
-    const codeVerifier = localStorage.getItem('bexio_oauth_code_verifier');
-    if (!codeVerifier) {
-      throw new Error('PKCE code verifier not found');
+    if (OAuthPlatform.isNative()) {
+      // For mobile, extract codeVerifier from the state (format: sessionId:btoa(codeVerifier))
+      console.log('📱 [OAuthService] Processing mobile OAuth callback');
+      try {
+        const stateParts = state.split(':');
+        if (stateParts.length !== 2) {
+          throw new Error('Invalid mobile state format');
+        }
+        const encodedCodeVerifier = stateParts[1];
+        codeVerifier = atob(encodedCodeVerifier);
+        console.log('📱 [OAuthService] Extracted codeVerifier from mobile state');
+      } catch (error) {
+        console.error('❌ [OAuthService] Failed to extract codeVerifier from mobile state:', error);
+        throw new Error('Invalid state parameter for mobile OAuth');
+      }
+    } else {
+      // For web, verify state and get codeVerifier from localStorage
+      console.log('🌐 [OAuthService] Processing web OAuth callback');
+      const storedState = localStorage.getItem('bexio_oauth_state');
+      if (state !== storedState) {
+        throw new Error('State parameter mismatch - possible CSRF attack');
+      }
+
+      codeVerifier = localStorage.getItem('bexio_oauth_code_verifier');
+      if (!codeVerifier) {
+        throw new Error('PKCE code verifier not found');
+      }
     }
 
     // Exchange code for tokens
@@ -368,9 +365,7 @@ export class UnifiedOAuthService {
 
     try {
       // Use the same redirect URI that was sent to Bexio in the auth URL
-      const redirectUri = OAuthPlatform.isNative()
-        ? OAuthPlatform.getServerCallbackUri()
-        : OAuthPlatform.getRedirectUri();
+      const redirectUri = OAuthPlatform.getRedirectUri();
 
       const params = new URLSearchParams({
         grant_type: 'authorization_code',
@@ -477,10 +472,10 @@ export class UnifiedOAuthService {
 
   // Build OAuth authorization URL
   private buildAuthUrl(codeChallenge: string, state: string): string {
-    // For mobile, use server callback URI as redirect_uri so Bexio redirects to our server first
+    // For mobile, use deep link as redirect_uri so Bexio redirects directly to the app
     // For web, use the app redirect URI directly
     const redirectUri = OAuthPlatform.isNative()
-      ? OAuthPlatform.getServerCallbackUri()
+      ? OAuthPlatform.getRedirectUri()
       : OAuthPlatform.getRedirectUri();
 
     const params = new URLSearchParams({
@@ -516,38 +511,7 @@ export class UnifiedOAuthService {
     return Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
   }
 
-  // Generate session ID for mobile OAuth
-  private generateSessionId(): string {
-    return Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
-  }
 
-  // Create mobile session on server
-  private async createMobileSession(sessionId: string, codeVerifier: string, state: string): Promise<void> {
-    const serverUrl = getConfig.serverUrl();
-    const sessionData = {
-      status: 'pending',
-      codeVerifier,
-      state,
-      createdAt: Date.now(),
-      platform: 'mobile'
-    };
-
-    console.log('📱 [OAuthService] Creating mobile session:', sessionId);
-
-    const response = await fetch(`${serverUrl}/api/bexio-oauth/session/${sessionId}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(sessionData),
-    });
-
-    if (!response.ok) {
-      throw new Error(`Failed to create mobile session: ${response.status}`);
-    }
-
-    console.log('✅ [OAuthService] Mobile session created successfully');
-  }
 
   // Store PKCE data in localStorage
   private storePKCEData(codeVerifier: string, state: string): void {
@@ -561,103 +525,6 @@ export class UnifiedOAuthService {
     localStorage.removeItem('bexio_oauth_state');
   }
 
-  // Poll for mobile session completion
-  private async pollForMobileSessionCompletion(sessionId: string): Promise<void> {
-    const maxAttempts = 30; // 30 seconds max
-    let attempts = 0;
-
-    const poll = async (): Promise<void> => {
-      attempts++;
-      console.log(`🔍 [OAuthService] Polling mobile session ${sessionId} (attempt ${attempts})`);
-
-      try {
-        const serverUrl = getConfig.serverUrl();
-        const response = await fetch(`${serverUrl}/api/bexio-oauth/status/${sessionId}`, {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        });
-
-        if (response.ok) {
-          const sessionData = await response.json();
-          console.log('📊 [OAuthService] Session status:', sessionData.status);
-
-          if (sessionData.status === 'completed' && sessionData.tokens) {
-            console.log('✅ [OAuthService] Mobile session completed!');
-            console.log('📦 [OAuthService] Session data:', sessionData);
-
-            // Create credentials from session data
-            const credentials: BexioCredentials = {
-              accessToken: sessionData.tokens.access_token,
-              refreshToken: sessionData.tokens.refresh_token,
-              companyId: sessionData.company_id || sessionData.tokens.company_id || 'unknown',
-              userEmail: sessionData.user_email || sessionData.tokens.user_email || 'OAuth User',
-              authType: 'oauth',
-              expiresAt: Date.now() + (3600 * 1000) // 1 hour from now
-            };
-
-            // Dispatch completion event
-            if (window.dispatchEvent) {
-              window.dispatchEvent(new CustomEvent('oauthCompleted', {
-                detail: { credentials }
-              }));
-            }
-
-            return; // Success, stop polling
-          } else if (sessionData.status === 'error') {
-            console.error('❌ [OAuthService] Mobile session failed:', sessionData.error);
-            // Dispatch error event
-            if (window.dispatchEvent) {
-              window.dispatchEvent(new CustomEvent('oauthError', {
-                detail: { error: sessionData.error || 'OAuth authentication failed' }
-              }));
-            }
-            return; // Error, stop polling
-          } else if (attempts >= maxAttempts) {
-            console.error('⏰ [OAuthService] Mobile session polling timeout');
-            // Dispatch timeout error
-            if (window.dispatchEvent) {
-              window.dispatchEvent(new CustomEvent('oauthError', {
-                detail: { error: 'Authentication timeout - please try again' }
-              }));
-            }
-            return; // Timeout, stop polling
-          } else {
-            // Continue polling
-            setTimeout(poll, 2000);
-          }
-        } else {
-          console.error('❌ [OAuthService] Failed to get session status:', response.status);
-          if (attempts >= maxAttempts) {
-            if (window.dispatchEvent) {
-              window.dispatchEvent(new CustomEvent('oauthError', {
-                detail: { error: 'Failed to check authentication status' }
-              }));
-            }
-            return;
-          }
-          // Continue polling on error
-          setTimeout(poll, 2000);
-        }
-      } catch (error) {
-        console.error('❌ [OAuthService] Error polling session:', error);
-        if (attempts >= maxAttempts) {
-          if (window.dispatchEvent) {
-            window.dispatchEvent(new CustomEvent('oauthError', {
-              detail: { error: 'Connection error during authentication' }
-            }));
-          }
-          return;
-        }
-        // Continue polling on error
-        setTimeout(poll, 2000);
-      }
-    };
-
-    // Start polling
-    poll();
-  }
 
   // Cleanup on service destruction
   destroy(): void {

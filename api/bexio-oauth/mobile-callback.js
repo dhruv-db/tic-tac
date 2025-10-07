@@ -65,8 +65,37 @@ export default async function handler(req, res) {
 
         // Retrieve session data using the new session endpoint
         const { mobileSessions } = await import('./session/[sessionId].js');
-        const session = mobileSessions.get(sessionId);
+        const { oauthSessions } = await import('./status/[sessionId].js');
+
+        console.log('🔍 [MOBILE CALLBACK] Session storage diagnostic:');
+        console.log('🔍 [MOBILE CALLBACK] Looking for sessionId:', sessionId);
+        console.log('🔍 [MOBILE CALLBACK] mobileSessions size:', mobileSessions.size);
+        console.log('🔍 [MOBILE CALLBACK] oauthSessions size:', oauthSessions.size);
+        console.log('🔍 [MOBILE CALLBACK] mobileSessions keys:', Array.from(mobileSessions.keys()));
+        console.log('🔍 [MOBILE CALLBACK] oauthSessions keys:', Array.from(oauthSessions.keys()));
+
+        const mobileSession = mobileSessions.get(sessionId);
+        const oauthSession = oauthSessions.get(sessionId);
+
+        console.log('🔍 [MOBILE CALLBACK] mobileSession found:', !!mobileSession);
+        console.log('🔍 [MOBILE CALLBACK] oauthSession found:', !!oauthSession);
+
+        if (oauthSession) {
+          console.log('🔍 [MOBILE CALLBACK] oauthSession data:', {
+            status: oauthSession.status,
+            hasCodeVerifier: !!oauthSession.codeVerifier,
+            platform: oauthSession.platform,
+            createdAt: oauthSession.createdAt ? new Date(oauthSession.createdAt).toISOString() : 'unknown'
+          });
+        }
+
+        // Use oauthSessions instead of mobileSessions
+        const session = oauthSession;
         if (!session || !session.codeVerifier) {
+          console.error('❌ [MOBILE CALLBACK] Session validation failed:', {
+            sessionExists: !!session,
+            hasCodeVerifier: session ? !!session.codeVerifier : false
+          });
           throw new Error('OAuth session not found or invalid');
         }
 
@@ -158,7 +187,7 @@ export default async function handler(req, res) {
 
         // Update OAuth session status to completed
         try {
-          const { mobileSessions } = await import('./session/[sessionId].js');
+          const { oauthSessions } = await import('./status/[sessionId].js');
           const sessionUpdate = {
             sessionId: sessionId,
             status: 'completed',
@@ -174,9 +203,9 @@ export default async function handler(req, res) {
           };
 
           // Update session in storage
-          const existingSession = mobileSessions.get(sessionId);
+          const existingSession = oauthSessions.get(sessionId);
           if (existingSession) {
-            mobileSessions.set(sessionId, { ...existingSession, ...sessionUpdate });
+            oauthSessions.set(sessionId, { ...existingSession, ...sessionUpdate });
             console.log(`✅ OAuth session ${sessionId} marked as completed`);
           }
         } catch (sessionError) {
